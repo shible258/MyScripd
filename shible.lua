@@ -8,7 +8,7 @@
 ]]
 
 --恭喜你找到了我的源码
--- by 夜
+-- by shible
 -- ================= 配置 =================
 local FILE_NAME = "saveV1.2.txt"
 local BALL_COUNT = 14
@@ -986,9 +986,9 @@ end
 -- =================== 添加 ===================
 local function AddFeature(name)
 
-    if name == "夜脚本" then
+    if name == "shible" then
         for i, v in ipairs(EnabledFeatures) do
-            if v == "夜脚本" then
+            if v == "shible" then
                 table.remove(EnabledFeatures, i)
                 break
             end
@@ -2797,7 +2797,7 @@ local txt = Instance.new("TextLabel")
 txt.Size = UDim2.new(1,-10,1,-6)
 txt.Position = UDim2.new(0,5,0,3)
 txt.BackgroundTransparency = 1
-txt.Text = "夜脚本开发者"
+txt.Text = "shible开发者"
 txt.TextScaled = false
 txt.TextSize = 13
 txt.Font = Enum.Font.SourceSansBold
@@ -3058,7 +3058,7 @@ end)
 
 
 local Window = WindUI:CreateWindow({
-    Title = "夜脚本",
+    Title = "shible",
     Icon = "solar:moon-bold", -- ⭐不要用rbxasset，换现代图标
     Author = "作者:夜",
     Folder = "NightHub",
@@ -3099,7 +3099,7 @@ pcall(function()
     WindUI:SetTheme(CurrentTheme)
 end)
 Window:Tag({
-    Title = "夜脚本V1.1",
+    Title = "shibleV1.1",
     Icon = "github",
     Color = Color3.fromRGB(255, 204, 0), -- ⭐柔和黄色（推荐）
     Radius = 8,
@@ -3111,7 +3111,7 @@ local MainTab = Window:Tab({
         Locked = false,
     })
 
-MainTab:Paragraph({ Title="夜脚本主群", Desc ="1081045774" })
+MainTab:Paragraph({ Title="shible主群", Desc ="1081045774" })
 MainTab:Button({
     Title = "复制QQ群",
     Callback = function()
@@ -3121,12 +3121,12 @@ MainTab:Button({
 end
 })
 MainTab:Paragraph({
-        Title = "夜脚本V1.2版本更新",
+        Title = "shibleV1.2版本更新",
         Desc = "更新了动作功能\n虽然是bs那里借鉴的就是了", 
     })
 
 MainTab:Paragraph({
-        Title = "夜脚本V1.1版本更新",
+        Title = "shibleV1.1版本更新",
         Desc = "更新了若干服务器功能\n一些新功能\n开启了新版wind UI界面\n优化了脚本\n实则没有优化😋\n增加了自动检测俄亥俄州并加载其他脚本", 
     })
 
@@ -3570,14 +3570,14 @@ TabOther:Button({
     end
 })
 TabOther:Button({
-    Title = "夜脚本测试版",
+    Title = "shible测试版",
     Callback = function()
         local ok, err = pcall(function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/fyukvdrf"))()
         end)
 
         if ok then
-            Notify("成功", "夜脚本测试版已加载", 2, "success")
+            Notify("成功", "shible测试版已加载", 2, "success")
         else
             Notify("错误", tostring(err), 3, "error")
         end
@@ -3784,7 +3784,7 @@ end)
 })
 
 TabOther:Button({
-    Title = "点击传送工具（夜脚本重制版）",
+    Title = "点击传送工具（shible重制版）",
     Callback = function()
         local ok, err = pcall(function()
 -- 服务
@@ -4072,11 +4072,11 @@ TabNight:Toggle({
 
             task.wait(0.05)
 
-            AddFeature("夜脚本")
+            AddFeature("shible")
             RefreshFeatureUI()
 
         else
-            RemoveFeature("夜脚本")
+            RemoveFeature("shible")
             RefreshFeatureUI()
         end
 
@@ -4093,7 +4093,7 @@ task.spawn(function()
 
     task.wait(0.05)
 
-    AddFeature("夜脚本")
+    AddFeature("shible")
     RefreshFeatureUI()
 
 end)
@@ -4897,7 +4897,7 @@ local TabAb = Window:Tab({
 })
 TabAb:Paragraph({
         Title = "免责声明",
-        Desc = "以下缝合的所有服务器脚本源码或加载链接均来源于qq，如果认为您的脚本为付费脚本或不想让我缝合，请先不要挂我，加入夜脚本主群联系我，我会立刻删除您的脚本，并向您道歉，如果我没有看到的话可以多说几遍，感谢\n\n我会保留所有原作者标识并标明出处", 
+        Desc = "以下缝合的所有服务器脚本源码或加载链接均来源于qq，如果认为您的脚本为付费脚本或不想让我缝合，请先不要挂我，加入shible主群联系我，我会立刻删除您的脚本，并向您道歉，如果我没有看到的话可以多说几遍，感谢\n\n我会保留所有原作者标识并标明出处", 
     })
 
 TabAb:Button({
@@ -5366,6 +5366,7 @@ end)
 -- 5. 始终开启（WindUI不需要Visible监听）
 Stroke.Enabled = true
 Stroke.Transparency = 0
+
 -- 6. 圆角补齐（防描边变形）
 local Corner = Main:FindFirstChildOfClass("UICorner")
 if not Corner then
