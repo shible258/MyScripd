@@ -1,3 +1,7 @@
+--==========================================
+-- 1:1 复刻 yejiaoben 弹窗UI（单份，无重复）
+--==========================================
+
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
@@ -14,7 +18,7 @@ blur.Parent = Lighting
 
 TweenService:Create(blur, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = 18}):Play()
 
--- 工具函数（和yejiaoben一模一样）
+-- 工具函数
 local function SafeDestroy(instance)
     if instance and instance.Parent then
         instance:Destroy()
@@ -100,14 +104,14 @@ mainShadow.Name = "SoftShadow"
 mainShadow.Parent = background
 mainShadow.AnchorPoint = Vector2.new(0.5, 0.5)
 mainShadow.Position = UDim2.fromScale(0.5, 0.5)
-mainShadow.Size = UDim2.new(0.88, 18, 0, 330)
+mainShadow.Size = UDim2.new(0.88, 18, 0, 390)
 mainShadow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 mainShadow.BackgroundTransparency = 0.72
 mainShadow.BorderSizePixel = 0
 
 local shadowLimit = Instance.new("UISizeConstraint")
-shadowLimit.MaxSize = Vector2.new(520, 355)
-shadowLimit.MinSize = Vector2.new(320, 300)
+shadowLimit.MaxSize = Vector2.new(560, 430)
+shadowLimit.MinSize = Vector2.new(320, 310)
 shadowLimit.Parent = mainShadow
 
 CreateCorner(mainShadow, 32)
@@ -119,14 +123,14 @@ main.Name = "Main"
 main.Parent = background
 main.AnchorPoint = Vector2.new(0.5, 0.5)
 main.Position = UDim2.fromScale(0.5, 0.5)
-main.Size = UDim2.new(0.88, 0, 0, 308)
+main.Size = UDim2.new(0.88, 0, 0, 368)
 main.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 main.BackgroundTransparency = 0.1
 main.BorderSizePixel = 0
 
 local mainLimit = Instance.new("UISizeConstraint")
-mainLimit.MaxSize = Vector2.new(490, 335)
-mainLimit.MinSize = Vector2.new(305, 290)
+mainLimit.MaxSize = Vector2.new(530, 410)
+mainLimit.MinSize = Vector2.new(295, 290)
 mainLimit.Parent = main
 
 CreateCorner(main, 26)
@@ -170,11 +174,11 @@ local black = Color3.fromRGB(18, 18, 22)
 local gray = Color3.fromRGB(90, 90, 98)
 
 -- 标题文字
-CreateText(main, "SmallTitle", "shible", UDim2.new(0, 28, 0, 22), UDim2.new(1, -56, 0, 24), gray, 13, Enum.Font.GothamMedium)
-CreateText(main, "MainTitle", "欢迎使用shible", UDim2.new(0, 28, 0, 55), UDim2.new(1, -56, 0, 42), red, 19, Enum.Font.GothamBold)
-CreateText(main, "Desc", "shible", UDim2.new(0, 28, 0, 105), UDim2.new(1, -56, 0, 40), black, 17, Enum.Font.GothamMedium)
+CreateText(main, "SmallTitle", "我的脚本", UDim2.new(0, 28, 0, 22), UDim2.new(1, -56, 0, 24), gray, 13, Enum.Font.GothamMedium)
+CreateText(main, "MainTitle", "欢迎使用", UDim2.new(0, 28, 0, 55), UDim2.new(1, -56, 0, 42), red, 19, Enum.Font.GothamBold)
+CreateText(main, "Desc", "点击下方按钮开启功能", UDim2.new(0, 28, 0, 105), UDim2.new(1, -56, 0, 40), black, 17, Enum.Font.GothamMedium)
 
--- 加速按钮（红色，和yejiaoben的"继续启动"同款样式）
+-- 加速按钮（红色）
 local btnSpeed = CreateButton(main, "SpeedBtn", "加速", UDim2.new(0, 28, 0, 165), UDim2.new(0.42, -14, 0, 42), red, Color3.fromRGB(255, 255, 255))
 CreateStroke(btnSpeed, Color3.fromRGB(255, 255, 255), 1.5, 0.35)
 
@@ -195,7 +199,7 @@ btnJump.MouseButton1Click:Connect(function()
 end)
 
 -- 重置按钮（灰色描边）
-local btnReset = CreateButton(main, "ResetBtn", "重置", UDim2.new(0, 28, 0, 220), UDim2.new(0.42, -14, 0, 42), Color3.fromRGB(245, 245, 247), black)
+local btnReset = CreateButton(main, "ResetBtn", "重置", UDim2.new(0, 28, 0, 265), UDim2.new(0.42, -14, 0, 42), Color3.fromRGB(245, 245, 247), black)
 CreateStroke(btnReset, Color3.fromRGB(210, 210, 218), 1.5, 0.15)
 
 btnReset.MouseButton1Click:Connect(function()
@@ -204,36 +208,12 @@ btnReset.MouseButton1Click:Connect(function()
         LocalPlayer.Character.Humanoid.JumpPower = 50
     end
 end)
--- 无敌按钮（金色）
-local godMode = false
-local btnGod = CreateButton(main, "GodBtn", "无敌: 关", UDim2.new(0, 28, 0, 275), UDim2.new(0.42, -14, 0, 42), Color3.fromRGB(255, 170, 0), Color3.fromRGB(255, 255, 255))
-CreateStroke(btnGod, Color3.fromRGB(255, 255, 255), 1.5, 0.35)
-
-btnGod.MouseButton1Click:Connect(function()
-    godMode = not godMode
-    if godMode then
-        btnGod.Text = "无敌: 开"
-        -- 每帧锁定血量
-        spawn(function()
-            while godMode and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") do
-                local hum = LocalPlayer.Character.Humanoid
-                if hum.Health < hum.MaxHealth then
-                    hum.Health = hum.MaxHealth
-                end
-                task.wait(0.1)
-            end
-        end)
-    else
-        btnGod.Text = "无敌: 关"
-    end
-end)
 
 -- 关闭按钮（红色）
-local btnClose = CreateButton(main, "CloseBtn", "关闭", UDim2.new(0.5, 14, 0, 220), UDim2.new(0.42, -14, 0, 42), red, Color3.fromRGB(255, 255, 255))
+local btnClose = CreateButton(main, "CloseBtn", "关闭", UDim2.new(0.5, 14, 0, 315), UDim2.new(0.42, -14, 0, 42), red, Color3.fromRGB(255, 255, 255))
 CreateStroke(btnClose, Color3.fromRGB(255, 255, 255), 1.5, 0.35)
 
 btnClose.MouseButton1Click:Connect(function()
-    -- 出场动画
     local blurTween = TweenService:Create(blur, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = 0})
     blurTween:Play()
     TweenService:Create(main, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
@@ -245,14 +225,12 @@ btnClose.MouseButton1Click:Connect(function()
 end)
 
 -- 入场动画
-main.Size = UDim2.new(0.88, 0, 0, 280)
-mainShadow.Size = UDim2.new(0.88, 18, 0, 302)
+main.Size = UDim2.new(0.88, 0, 0, 336)
+mainShadow.Size = UDim2.new(0.88, 18, 0, 358)
 main.BackgroundTransparency = 1
 mainShadow.BackgroundTransparency = 1
 
-TweenService:Create(main, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0.88, 0, 0, 308), BackgroundTransparency = 0.1}):Play()
-TweenService:Create(mainShadow, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0.88, 18, 0, 330), BackgroundTransparency = 0.72}):Play()
+TweenService:Create(main, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0.88, 0, 0, 368), BackgroundTransparency = 0.1}):Play()
+TweenService:Create(mainShadow, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0.88, 18, 0, 390), BackgroundTransparency = 0.72}):Play()
 
 print("UI加载完成")
-
-
