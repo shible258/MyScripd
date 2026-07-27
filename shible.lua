@@ -3111,14 +3111,7 @@ local MainTab = Window:Tab({
         Locked = false,
     })
 
-MainTab:Paragraph({ Title="shible主群", Desc ="1081045774" })
-MainTab:Button({
-    Title = "复制QQ群",
-    Callback = function()
-        if setclipboard then
-            setclipboard("1081045774")
-        end
-end
+
 })
 MainTab:Paragraph({
         Title = "shibleV1.2版本更新",
