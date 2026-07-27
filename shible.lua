@@ -204,6 +204,29 @@ btnReset.MouseButton1Click:Connect(function()
         LocalPlayer.Character.Humanoid.JumpPower = 50
     end
 end)
+-- 无敌按钮（金色）
+local godMode = false
+local btnGod = CreateButton(main, "GodBtn", "无敌: 关", UDim2.new(0, 28, 0, 275), UDim2.new(0.42, -14, 0, 42), Color3.fromRGB(255, 170, 0), Color3.fromRGB(255, 255, 255))
+CreateStroke(btnGod, Color3.fromRGB(255, 255, 255), 1.5, 0.35)
+
+btnGod.MouseButton1Click:Connect(function()
+    godMode = not godMode
+    if godMode then
+        btnGod.Text = "无敌: 开"
+        -- 每帧锁定血量
+        spawn(function()
+            while godMode and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") do
+                local hum = LocalPlayer.Character.Humanoid
+                if hum.Health < hum.MaxHealth then
+                    hum.Health = hum.MaxHealth
+                end
+                task.wait(0.1)
+            end
+        end)
+    else
+        btnGod.Text = "无敌: 关"
+    end
+end)
 
 -- 关闭按钮（红色）
 local btnClose = CreateButton(main, "CloseBtn", "关闭", UDim2.new(0.5, 14, 0, 220), UDim2.new(0.42, -14, 0, 42), red, Color3.fromRGB(255, 255, 255))
