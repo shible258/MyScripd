@@ -1,384 +1,237 @@
 --==========================================
--- 最终版：彩色玻璃拟态 + 拖动 + 缩放 + 多功能
+-- 1:1 复刻 yejiaoben 启动弹窗 UI（纯界面，无功能逻辑）
 --==========================================
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
-local UIS = game:GetService("UserInputService")
 
--- 防重复注入
-getgenv()._HUB_RUNNING = getgenv()._HUB_RUNNING or false
-if getgenv()._HUB_RUNNING then return end
-getgenv()._HUB_RUNNING = true
+local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+local PlayerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+    or LocalPlayer:WaitForChild("PlayerGui", 10)
 
--- 等待角色
-local lp = Players.LocalPlayer or Players.PlayerAdded:Wait()
-local pg = lp:WaitForChild("PlayerGui", 15)
-if not pg then warn("[Hub] PlayerGui 获取失败") return end
+if not PlayerGui then return end
 
-local char = lp.Character or lp.CharacterAdded:Wait()
-local hum = char:WaitForChild("Humanoid", 10)
-if not hum then warn("[Hub] Humanoid 获取失败") return end
+-- 防重复
+getgenv()._YEUI_RUNNING = getgenv()._YEUI_RUNNING or false
+if getgenv()._YEUI_RUNNING then return end
+getgenv()._YEUI_RUNNING = true
 
--- 模糊背景
+-- 模糊背景（和 yejiaoben 完全一样）
 local blur = Instance.new("BlurEffect")
-blur.Name = "HubBlur"
+blur.Name = "ScriptStartupWarningBlur"
 blur.Size = 0
 blur.Parent = Lighting
-TweenService:Create(blur, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = 14}):Play()
 
---================ 工具函数 ================
-local function SafeDestroy(inst)
-    if inst and inst.Parent then inst:Destroy() end
+TweenService:Create(blur, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = 18}):Play()
+
+-- 工具函数（和 yejiaoben 一模一样）
+local function SafeDestroy(instance)
+    if instance and instance.Parent then
+        instance:Destroy()
+    end
 end
 
-local function MakeCorner(parent, radius)
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, radius)
-    c.Parent = parent
-    return c
+local function CreateCorner(parent, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius)
+    corner.Parent = parent
+    return corner
 end
 
-local function MakeStroke(parent, color, thick, transp)
-    local s = Instance.new("UIStroke")
-    s.Color = color
-    s.Thickness = thick
-    s.Transparency = transp or 0
-    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    s.Parent = parent
-    return s
+local function CreateStroke(parent, color, thickness, transparency)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = color
+    stroke.Thickness = thickness
+    stroke.Transparency = transparency or 0
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = parent
+    return stroke
 end
 
-local function MakeText(parent, name, text, pos, size, color, fontSize, font)
-    local t = Instance.new("TextLabel")
-    t.Name = name
-    t.Parent = parent
-    t.Position = pos
-    t.Size = size
-    t.BackgroundTransparency = 1
-    t.BorderSizePixel = 0
-    t.Text = text
-    t.TextColor3 = color
-    t.TextSize = fontSize
-    t.Font = font
-    t.TextWrapped = true
-    t.TextXAlignment = Enum.TextXAlignment.Left
-    t.TextYAlignment = Enum.TextYAlignment.Center
-    return t
+local function CreateText(parent, name, text, position, size, color, textSize, font)
+    local label = Instance.new("TextLabel")
+    label.Name = name
+    label.Parent = parent
+    label.Position = position
+    label.Size = size
+    label.BackgroundTransparency = 1
+    label.BorderSizePixel = 0
+    label.Text = text
+    label.TextColor3 = color
+    label.TextSize = textSize
+    label.Font = font
+    label.TextWrapped = true
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Center
+    return label
 end
 
---================ ScreenGui ================
-local sg = Instance.new("ScreenGui")
-sg.Name = "GlassHubUI"
-sg.Parent = pg
-sg.ResetOnSpawn = false
-sg.IgnoreGuiInset = true
-sg.DisplayOrder = 999999
-sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local function CreateButton(parent, name, text, position, size, bgColor, textColor)
+    local button = Instance.new("TextButton")
+    button.Name = name
+    button.Parent = parent
+    button.Position = position
+    button.Size = size
+    button.BackgroundColor3 = bgColor
+    button.BackgroundTransparency = 0.06
+    button.BorderSizePixel = 0
+    button.AutoButtonColor = true
+    button.Text = text
+    button.TextColor3 = textColor
+    button.TextSize = 14
+    button.Font = Enum.Font.GothamBold
+    button.TextWrapped = true
+    CreateCorner(button, 14)
+    return button
+end
 
--- 半透明遮罩
-local bg = Instance.new("Frame")
-bg.Parent = sg
-bg.Size = UDim2.fromScale(1, 1)
-bg.Position = UDim2.fromScale(0, 0)
-bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-bg.BackgroundTransparency = 0.5
-bg.BorderSizePixel = 0
-bg.Active = true
+-- ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ScriptStartupWarningUI"
+screenGui.Parent = PlayerGui
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.DisplayOrder = 999999
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
---================ 主窗口 ================
+-- 半透明白色遮罩（和 yejiaoben 一样）
+local background = Instance.new("Frame")
+background.Name = "Background"
+background.Parent = screenGui
+background.Position = UDim2.fromScale(0, 0)
+background.Size = UDim2.fromScale(1, 1)
+background.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+background.BackgroundTransparency = 0.45
+background.BorderSizePixel = 0
+
+-- 外层阴影卡片（SoftShadow，和 yejiaoben 参数一致）
+local mainShadow = Instance.new("Frame")
+mainShadow.Name = "SoftShadow"
+mainShadow.Parent = background
+mainShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+mainShadow.Position = UDim2.fromScale(0.5, 0.5)
+mainShadow.Size = UDim2.new(0.88, 18, 0, 330)
+mainShadow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+mainShadow.BackgroundTransparency = 0.72
+mainShadow.BorderSizePixel = 0
+
+local shadowLimit = Instance.new("UISizeConstraint")
+shadowLimit.MaxSize = Vector2.new(520, 355)
+shadowLimit.MinSize = Vector2.new(320, 300)
+shadowLimit.Parent = mainShadow
+
+CreateCorner(mainShadow, 32)
+CreateStroke(mainShadow, Color3.fromRGB(255, 255, 255), 5, 0.32)
+
+-- 内层主卡片（Main）
 local main = Instance.new("Frame")
-main.Parent = bg
+main.Name = "Main"
+main.Parent = background
 main.AnchorPoint = Vector2.new(0.5, 0.5)
 main.Position = UDim2.fromScale(0.5, 0.5)
-main.Size = UDim2.new(0, 340, 0, 460)
-main.BackgroundColor3 = Color3.fromRGB(25, 15, 50)
-main.BackgroundTransparency = 0.05
+main.Size = UDim2.new(0.88, 0, 0, 308)
+main.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+main.BackgroundTransparency = 0.1
 main.BorderSizePixel = 0
-main.Active = true
 
-MakeCorner(main, 20)
-local mainStroke = MakeStroke(main, Color3.fromRGB(160, 100, 255), 2, 0.15)
+local mainLimit = Instance.new("UISizeConstraint")
+mainLimit.MaxSize = Vector2.new(490, 335)
+mainLimit.MinSize = Vector2.new(305, 290)
+mainLimit.Parent = main
 
--- 紫蓝渐变
-local mainGrad = Instance.new("UIGradient")
-mainGrad.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 20, 70)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(25, 15, 55)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 10, 35)),
+CreateCorner(main, 26)
+CreateStroke(main, Color3.fromRGB(255, 255, 255), 2, 0.08)
+
+-- 白色渐变（和 yejiaoben 一致）
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(236, 240, 248)),
 })
-mainGrad.Rotation = 135
-mainGrad.Parent = main
+gradient.Rotation = 90
+gradient.Parent = main
 
---================ 标题栏（拖动区） ================
-local titleBar = Instance.new("Frame")
-titleBar.Parent = main
-titleBar.Size = UDim2.new(1, 0, 0, 38)
-titleBar.BackgroundColor3 = Color3.fromRGB(100, 50, 200)
-titleBar.BackgroundTransparency = 0.08
-titleBar.BorderSizePixel = 0
-titleBar.Active = true
+-- 顶部高光线
+local topHighlight = Instance.new("Frame")
+topHighlight.Name = "TopHighlight"
+topHighlight.Parent = main
+topHighlight.Position = UDim2.new(0, 22, 0, 11)
+topHighlight.Size = UDim2.new(1, -44, 0, 2)
+topHighlight.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+topHighlight.BackgroundTransparency = 0.06
+topHighlight.BorderSizePixel = 0
+CreateCorner(topHighlight, 999)
 
-local titleCorner = MakeCorner(titleBar, 20)
+-- 左侧蓝色发光条
+local leftGlow = Instance.new("Frame")
+leftGlow.Name = "LeftGlow"
+leftGlow.Parent = main
+leftGlow.Position = UDim2.new(0, 0, 0, 28)
+leftGlow.Size = UDim2.new(0, 2, 1, -56)
+leftGlow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+leftGlow.BackgroundTransparency = 0.16
+leftGlow.BorderSizePixel = 0
+CreateCorner(leftGlow, 999)
 
--- 盖住下半圆角
-local titleFix = Instance.new("Frame")
-titleFix.Parent = titleBar
-titleFix.Size = UDim2.new(1, 0, 0, 20)
-titleFix.Position = UDim2.new(0, 0, 0.5, 0)
-titleFix.BackgroundColor3 = Color3.fromRGB(100, 50, 200)
-titleFix.BackgroundTransparency = 0.08
-titleFix.BorderSizePixel = 0
+-- 颜色定义（和 yejiaoben 一致）
+local red = Color3.fromRGB(220, 38, 38)
+local blue = Color3.fromRGB(37, 99, 235)
+local black = Color3.fromRGB(18, 18, 22)
+local gray = Color3.fromRGB(90, 90, 98)
 
--- 标题文字
-local titleText = Instance.new("TextLabel")
-titleText.Parent = titleBar
-titleText.Size = UDim2.new(1, -80, 1, 0)
-titleText.Position = UDim2.new(0, 12, 0, 0)
-titleText.BackgroundTransparency = 1
-titleText.Text = "✦ 全能Hub ✦"
-titleText.TextColor3 = Color3.fromRGB(230, 210, 255)
-titleText.Font = Enum.Font.GothamBold
-titleText.TextSize = 17
-titleText.TextXAlignment = Enum.TextXAlignment.Left
+-- 文字（和 yejiaoben 布局一致）
+CreateText(main, "SmallTitle", "启动保护", UDim2.new(0, 28, 0, 22), UDim2.new(1, -56, 0, 24), gray, 13, Enum.Font.GothamMedium)
+CreateText(main, "IdText", "检测到你的游戏id为 " .. tostring(game.PlaceId), UDim2.new(0, 28, 0, 55), UDim2.new(1, -56, 0, 42), red, 19, Enum.Font.GothamBold)
+CreateText(main, "PauseText", "脚本已暂停启动，请你选择是否继续", UDim2.new(0, 28, 0, 105), UDim2.new(1, -56, 0, 40), black, 17, Enum.Font.GothamMedium)
+CreateText(main, "DangerText", "如果你选择继续使用夜脚本可能会出现问题请谨慎选择", UDim2.new(0, 28, 0, 153), UDim2.new(1, -56, 0, 58), red, 16, Enum.Font.GothamBold)
+CreateText(main, "MatchedText", "当前匹配：" .. tostring(game.PlaceId), UDim2.new(0, 28, 0, 212), UDim2.new(1, -56, 0, 22), gray, 12, Enum.Font.Gotham)
 
--- 关闭按钮（标题栏右上角）
-local closeBtn = Instance.new("TextButton")
-closeBtn.Parent = titleBar
-closeBtn.Size = UDim2.new(0, 34, 0, 34)
-closeBtn.Position = UDim2.new(1, -36, 0, 2)
-closeBtn.BackgroundColor3 = Color3.fromRGB(220, 40, 40)
-closeBtn.BackgroundTransparency = 0.1
-closeBtn.Text = "✕"
-closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 14
-closeBtn.BorderSizePixel = 0
-MakeCorner(closeBtn, 10)
+-- 三个按钮（和 yejiaoben 位置/颜色完全一致）
+-- 取消启动（灰色描边）
+local cancelButton = CreateButton(main, "CancelButton", "取消启动", UDim2.new(0, 28, 1, -60), UDim2.new(1/3, -14, 0, 42), Color3.fromRGB(245, 245, 247), black)
+CreateStroke(cancelButton, Color3.fromRGB(210, 210, 218), 1.5, 0.15)
 
---================ 拖动逻辑 ================
-local dragging, dragStart, startPos
-titleBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = main.Position
-    end
-end)
-titleBar.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
-    end
-end)
-UIS.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
-        main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
+-- 加载其他脚本（蓝色）
+local otherButton = CreateButton(main, "OtherScriptButton", "加载其他脚本", UDim2.new(1/3, 7, 1, -60), UDim2.new(1/3, -14, 0, 42), blue, Color3.fromRGB(255, 255, 255))
+CreateStroke(otherButton, Color3.fromRGB(255, 255, 255), 1.5, 0.35)
 
---================ 缩放手柄 ================
-local resizeHandle = Instance.new("TextButton")
-resizeHandle.Parent = main
-resizeHandle.Size = UDim2.new(0, 22, 0, 22)
-resizeHandle.Position = UDim2.new(1, -24, 1, -24)
-resizeHandle.BackgroundColor3 = Color3.fromRGB(160, 100, 255)
-resizeHandle.BackgroundTransparency = 0.2
-resizeHandle.Text = "⤡"
-resizeHandle.TextColor3 = Color3.fromRGB(255, 255, 255)
-resizeHandle.Font = Enum.Font.GothamBold
-resizeHandle.TextSize = 12
-resizeHandle.BorderSizePixel = 0
-resizeHandle.Active = true
-MakeCorner(resizeHandle, 6)
+-- 继续启动（红色）
+local continueButton = CreateButton(main, "ContinueButton", "继续启动", UDim2.new(2/3, 0, 1, -60), UDim2.new(1/3, -14, 0, 42), red, Color3.fromRGB(255, 255, 255))
+CreateStroke(continueButton, Color3.fromRGB(255, 255, 255), 1.5, 0.35)
 
-local resizing, resizeStart, origSize
-resizeHandle.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        resizing = true
-        resizeStart = input.Position
-        origSize = main.Size
-    end
-end)
-resizeHandle.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        resizing = false
-    end
-end)
-UIS.InputChanged:Connect(function(input)
-    if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - resizeStart
-        local newW = math.clamp(origSize.X.Offset + delta.X, 300, 650)
-        local newH = math.clamp(origSize.Y.Offset + delta.Y, 370, 780)
-        main.Size = UDim2.new(0, newW, 0, newH)
-        for _, child in ipairs(main:GetChildren()) do
-            if child:IsA("TextButton") and child ~= resizeHandle and child ~= closeBtn then
-                local idx = child.LayoutOrder
-                if idx > 0 then
-                    child.Position = UDim2.new(0.04, 0, 0, 48 + (idx - 1) * 50)
-                    child.Size = UDim2.new(0.915, 0, 0, 44)
-                end
-            end
-        end
-    end
-end)
+-- 入场动画（和 yejiaoben 完全一致）
+main.Size = UDim2.new(0.88, 0, 0, 280)
+mainShadow.Size = UDim2.new(0.88, 18, 0, 302)
+main.BackgroundTransparency = 1
+mainShadow.BackgroundTransparency = 1
 
---================ 按钮工厂 ================
-local btnCount = 0
-local function MakeBtn(text, color, callback)
-    btnCount = btnCount + 1
-    local btn = Instance.new("TextButton")
-    btn.Parent = main
-    btn.LayoutOrder = btnCount
-    btn.Size = UDim2.new(0.905, 0, 0, 44)
-    btn.Position = UDim2.new(0.045, 0, 0, 48 + (btnCount - 1) * 50)
-    btn.BackgroundColor3 = color
-    btn.BackgroundTransparency = 0.09
-    btn.BorderSizePixel = 0
-    btn.Text = text
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 15
-    btn.AutoButtonColor = true
-    MakeCorner(btn, 12)
-    MakeStroke(btn, Color3.fromRGB(255, 255, 255), 1.5, 0.375)
+TweenService:Create(main, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0.88, 0, 0, 308), BackgroundTransparency = 0.1}):Play()
+TweenService:Create(mainShadow, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0.88, 18, 0, 330), BackgroundTransparency = 0.72}):Play()
 
-    btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundTransparency = 0}):Play()
+-- 关闭逻辑（只保留关闭，不加载任何脚本）
+local function Cleanup()
+    TweenService:Create(blur, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = 0}):Play()
+    TweenService:Create(main, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+    TweenService:Create(mainShadow, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+    task.delay(0.25, function()
+        SafeDestroy(screenGui)
+        SafeDestroy(blur)
+        getgenv()._YEUI_RUNNING = false
     end)
-    btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundTransparency = 0.085}):Play()
-    end)
-
-    btn.MouseButton1Click:Connect(function()
-        local ok, err = pcall(callback)
-        if not ok then warn("[Hub] 功能错误:", err) end
-    end)
-
-    return btn
 end
 
---================ 功能区 ================
-
--- 飞行
-local flying = false
-local flyBV
-MakeBtn("🚀 飞行: 关", Color3.fromRGB(37, 99, 235), function()
-    flying = not flying
-    local btn = main:FindFirstChild("FlyBtn")
-    if flying then
-        if btn then btn.Text = "🚀 飞行: 开" end
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            flyBV = Instance.new("BodyVelocity")
-            flyBV.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-            flyBV.Velocity = Vector3.new(0, 0, 0)
-            flyBV.Parent = hrp
-            spawn(function()
-                while flying and flyBV and flyBV.Parent do
-                    local dir = Vector3.new(0, 0, 0)
-                    if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 50, 0) end
-                    if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir + Vector3.new(0, -50, 0) end
-                    if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + workspace.CurrentCamera.CFrame.LookVector * 50 end
-                    if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - workspace.CurrentCamera.CFrame.LookVector * 50 end
-                    if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - workspace.CurrentCamera.CFrame.RightVector * 50 end
-                    if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + workspace.CurrentCamera.CFrame.RightVector * 50 end
-                    flyBV.Velocity = dir
-                    task.wait(0.035)
-                end
-            end)
-        end
-    else
-        if btn then btn.Text = "🚀 飞行: 关" end
-        if flyBV then flyBV:Destroy() end
-    end
-end).Name = "FlyBtn"
-
--- 加速
-MakeBtn("⚡ 加速 (60)", Color3.fromRGB(22, 163, 74), function()
-    hum.WalkSpeed = 60
+cancelButton.MouseButton1Click:Connect(function()
+    Cleanup()
 end)
 
--- 跳高
-MakeBtn("🦘 跳高 (120)", Color3.fromRGB(217, 119, 6), function()
-    hum.JumpPower = 120
+continueButton.MouseButton1Click:Connect(function()
+    Cleanup()
 end)
 
--- 夜视
-MakeBtn("🌙 夜视", Color3.fromRGB(15, 23, 42), function()
-    Lighting.Ambient = Color3.fromRGB(255, 255, 255)
-    Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
-    Lighting.Brightness = 2
+otherButton.MouseButton1Click:Connect(function()
+    Cleanup()
 end)
 
--- 穿墙
-MakeBtn("👻 穿墙", Color3.fromRGB(120, 40, 200), function()
-    for _, part in ipairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = false
-        end
-    end
-end)
+print("[YEUI] 弹窗已加载（纯UI版）")
 
--- 瞬移到鼠标
-MakeBtn("📍 瞬移(鼠标)", Color3.fromRGB(6, 148, 162), function()
-    local mouse = lp:GetMouse()
-    if mouse and mouse.Hit then
-        char:SetPrimaryPartCFrame(CFrame.new(mouse.Hit.Position + Vector3.new(0, 3, 0)))
-    end
-end)
-
--- 无冷却
-MakeBtn("💨 无冷却", Color3.fromRGB(190, 18, 90), function()
-    hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, true)
-    hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, true)
-    hum.AutoRotate = true
-end)
-
--- 清除所有效果
-MakeBtn("🧹 清除效果", Color3.fromRGB(75, 85, 99), function()
-    hum.WalkSpeed = 16
-    hum.JumpPower = 50
-    if flyBV then flyBV:Destroy() flyBV = nil end
-    flying = false
-    local flyBtn = main:FindFirstChild("FlyBtn")
-    if flyBtn then flyBtn.Text = "🚀 飞行: 关" end
-    Lighting.Ambient = Color3.fromRGB(128, 128, 128)
-    Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
-    Lighting.Brightness = 1
-    for _, part in ipairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = true
-        end
-    end
-end)
-
--- 关闭脚本
-MakeBtn("🗑 关闭脚本", Color3.fromRGB(220, 38, 38), function()
-    getgenv()._HUB_RUNNING = false
-    TweenService:Create(blur, TweenInfo.new(0.2), {Size = 0}):Play()
-    TweenService:Create(main, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
-    task.delay(0.25, function()
-        SafeDestroy(sg)
-        SafeDestroy(blur)
-    end)
-end)
-
---================ 标题栏关闭按钮 ================
-closeBtn.MouseButton1Click:Connect(function()
-    getgenv()._HUB_RUNNING = false
-    TweenService:Create(blur, TweenInfo.new(0.2), {Size = 0}):Play()
-    TweenService:Create(main, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
-    task.delay(0.25, function()
-        SafeDestroy(sg)
-        SafeDestroy(blur)
-    end)
-end)
-
---================ 入场动画 ================
-main.Size = UDim2.new(0, 338, 0, 448)
-TweenService:Create(main, TweenInfo.new(0.365, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 342, 0, 462)}):Play()
-
-print("[Hub] 加载完成 - 共 " .. btnCount .. " 个功能")
