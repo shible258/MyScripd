@@ -1,4 +1,7 @@
--- MyScript.lua
+--==========================================
+-- 1:1 复刻 yejiaoben 弹窗UI（优化版 + 缩小面板保持风格一致）
+--==========================================
+
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
