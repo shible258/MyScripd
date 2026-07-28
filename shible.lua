@@ -1,498 +1,378 @@
---==========================================
--- 1:1 复刻 yejiaoben 弹窗UI（优化版 + 缩小面板保持风格一致）
---==========================================
-
-local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local Lighting = game:GetService("Lighting")
 local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
+local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-
--- 常量配置
-local CONSTANTS = {
-    BlurSize = 18,
-    AnimationDuration = 0.25,
-    CloseAnimationDuration = 0.2,
-    MainMaxSize = Vector2.new(510, 385),
-    MainMinSize = Vector2.new(298, 285),
-    ShadowMaxSize = Vector2.new(540, 395),
-    ShadowMinSize = Vector2.new(325, 300),
-    ButtonCornerRadius = 14,
-    MainCornerRadius = 26,
-    ShadowCornerRadius = 32,
-    MiniBarWidth = 280,
-    MiniBarHeight = 130,
+-- ====== 高级参数 ======
+local C = {
+	Width = 280,
+	Height = 200,
+	Radius = 22,
+	Blur = 24,
+	Spring = Enum.EasingStyle.Elastic,
+	Duration = 0.55,
+	DragSmoothness = 0.25, -- 拖动平滑度（越低越跟手）
 }
 
--- 颜色配置
-local COLORS = {
-    Red = Color3.fromRGB(220, 38, 38),
-    Blue = Color3.fromRGB(37, 99, 235),
-    Black = Color3.fromRGB(18, 18, 22),
-    Gray = Color3.fromRGB(90, 90, 98),
-    White = Color3.fromRGB(255, 255, 255),
-    LightGray = Color3.fromRGB(245, 245, 247),
-    BorderGray = Color3.fromRGB(210, 210, 218),
-    GradientStart = Color3.fromRGB(255, 255, 255),
-    GradientEnd = Color3.fromRGB(238, 242, 249),
+local Theme = {
+	Glass = Color3.fromRGB(30, 30, 32),
+	TextPrimary = Color3.fromRGB(255, 255, 255),
+	TextSecondary = Color3.fromRGB(160, 160, 165),
+	Accent = Color3.fromRGB(0, 122, 255),
+	Danger = Color3.fromRGB(255, 59, 48),
+	Grabber = Color3.fromRGB(120, 120, 128),
 }
 
--- UI工具函数
-local UIUtils = {}
-
-function UIUtils.createCorner(parent, radius)
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, radius)
-    corner.Parent = parent
-    return corner
+-- ====== 工具函数 ======
+local function corner(f, r)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, r)
+	c.Parent = f
 end
 
-function UIUtils.createStroke(parent, color, thickness, transparency)
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = color
-    stroke.Thickness = thickness
-    stroke.Transparency = transparency or 0
-    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    stroke.Parent = parent
-    return stroke
+local function spring(target, props, dur)
+	dur = dur or C.Duration
+	return TweenService:Create(target, TweenInfo.new(dur, C.Spring, Enum.EasingDirection.Out), props)
 end
 
-function UIUtils.createTextLabel(parent, name, text, position, size, color, textSize, font)
-    local label = Instance.new("TextLabel")
-    label.Name = name
-    label.Parent = parent
-    label.Position = position
-    label.Size = size
-    label.BackgroundTransparency = 1
-    label.BorderSizePixel = 0
-    label.Text = text
-    label.TextColor3 = color
-    label.TextSize = textSize
-    label.Font = font or Enum.Font.GothamMedium
-    label.TextWrapped = true
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.TextYAlignment = Enum.TextYAlignment.Center
-    return label
+local function tween(target, props, dur, style, dir)
+	dur = dur or 0.25
+	style = style or Enum.EasingStyle.Quad
+	dir = dir or Enum.EasingDirection.Out
+	return TweenService:Create(target, TweenInfo.new(dur, style, dir), props)
 end
 
-function UIUtils.createButton(parent, name, text, position, size, bgColor, textColor)
-    local button = Instance.new("TextButton")
-    button.Name = name
-    button.Parent = parent
-    button.Position = position
-    button.Size = size
-    button.BackgroundColor3 = bgColor
-    button.BackgroundTransparency = 0.06
-    button.BorderSizePixel = 0
-    button.AutoButtonColor = true
-    button.Text = text
-    button.TextColor3 = textColor
-    button.TextSize = 14
-    button.Font = Enum.Font.GothamBold
-    button.TextWrapped = true
-    UIUtils.createCorner(button, CONSTANTS.ButtonCornerRadius)
-    return button
+-- 按压反馈
+local function pressEffect(btn, scaleX, scaleY)
+	scaleX = scaleX or 0.96
+	scaleY = scaleY or 0.9
+	local origSize = btn.Size
+	local pressedSize = UDim2.new(
+		origSize.X.Scale * scaleX, origSize.X.Offset * scaleX,
+		origSize.Y.Scale * scaleY, origSize.Y.Offset * scaleY
+	)
+	btn.MouseButton1Down:Connect(function()
+		tween(btn, {Size = pressedSize}, 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out):Play()
+	end)
+	btn.MouseButton1Up:Connect(function()
+		tween(btn, {Size = origSize}, 0.12, Enum.EasingStyle.Back, Enum.EasingDirection.Out):Play()
+	end)
+	btn.MouseLeave:Connect(function()
+		tween(btn, {Size = origSize}, 0.12):Play()
+	end)
 end
 
--- 创建卡片样式（带渐变和描边）
-local function styleCard(frame, radius)
-    frame.BackgroundColor3 = COLORS.White
-    frame.BackgroundTransparency = 0.085
-    frame.BorderSizePixel = 0
-    UIUtils.createCorner(frame, radius)
-    UIUtils.createStroke(frame, COLORS.White, 1.8, 0.075)
+-- ====== 模糊背景 ======
+local blur = Instance.new("BlurEffect", Lighting)
+blur.Size = 0
+tween(blur, {Size = C.Blur}, 0.4):Play()
 
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, COLORS.GradientStart),
-        ColorSequenceKeypoint.new(1, COLORS.GradientEnd),
-    })
-    gradient.Rotation = 95
-    gradient.Parent = frame
+-- ====== ScreenGui ======
+local gui = Instance.new("ScreenGui")
+gui.Name = "iOS_Pro_Draggable"
+gui.Parent = PlayerGui
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 999999
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- ====== 主容器（毛玻璃面板）======
+local root = Instance.new("Frame", gui)
+root.AnchorPoint = Vector2.new(0.5, 0.5)
+root.Position = UDim2.fromScale(0.5, 0.45)
+root.Size = UDim2.new(0, C.Width, 0, C.Height)
+root.BackgroundColor3 = Theme.Glass
+root.BackgroundTransparency = 0.18
+root.BorderSizePixel = 0
+root.Active = true -- 关键：允许接收输入
+root.Selectable = true
+corner(root, C.Radius)
+
+-- 微投影（阴影）
+local shadow = Instance.new("ImageLabel", root)
+shadow.Size = UDim2.new(1, 50, 1, 50)
+shadow.Position = UDim2.new(0, -25, 0, -15)
+shadow.Image = "rbxassetid://1316045217"
+shadow.ImageTransparency = 0.85
+shadow.BackgroundTransparency = 1
+shadow.ZIndex = -1
+shadow.ScaleType = Enum.ScaleType.Slice
+shadow.SliceCenter = Rect.new(10, 10, 10, 10)
+
+-- ====== 顶部拖拽条（Grabber）======
+local grabberArea = Instance.new("Frame", root)
+grabberArea.Name = "GrabberArea"
+grabberArea.Size = UDim2.new(1, 0, 0, 36)
+grabberArea.Position = UDim2.new(0, 0, 0, 0)
+grabberArea.BackgroundTransparency = 1
+grabberArea.Active = true
+
+local grabber = Instance.new("Frame", grabberArea)
+grabber.AnchorPoint = Vector2.new(0.5, 0.5)
+grabber.Position = UDim2.new(0.5, 0, 0.5, 0)
+grabber.Size = UDim2.new(0, 36, 0, 4)
+grabber.BackgroundColor3 = Theme.Grabber
+grabber.BackgroundTransparency = 0.3
+grabber.BorderSizePixel = 0
+corner(grabber, 999)
+
+-- ====== 导航栏 ======
+local nav = Instance.new("Frame", root)
+nav.Size = UDim2.new(1, 0, 0, 44)
+nav.Position = UDim2.new(0, 0, 0, 0)
+nav.BackgroundTransparency = 1
+
+local title = Instance.new("TextLabel", nav)
+title.Text = "我的脚本"
+title.Font = Enum.Font.GothamSemibold
+title.TextSize = 15
+title.TextColor3 = Theme.TextPrimary
+title.BackgroundTransparency = 1
+title.Position = UDim2.new(0, 16, 0, 12)
+title.Size = UDim2.new(1, -80, 0, 20)
+
+local minBtn = Instance.new("TextButton", nav)
+minBtn.Text = "—"
+minBtn.Font = Enum.Font.GothamBold
+minBtn.TextSize = 14
+minBtn.TextColor3 = Theme.TextSecondary
+minBtn.BackgroundTransparency = 1
+minBtn.Position = UDim2.new(1, -40, 0, 10)
+minBtn.Size = UDim2.new(0, 28, 0, 24)
+minBtn.AutoButtonColor = false
+
+-- ====== 内容区域 ======
+local contentY = 52
+local subtitle = Instance.new("TextLabel", root)
+subtitle.Text = "欢迎使用\n界面已就绪"
+subtitle.Font = Enum.Font.Gotham
+subtitle.TextSize = 13
+subtitle.TextColor3 = Theme.TextSecondary
+subtitle.BackgroundTransparency = 1
+subtitle.Position = UDim2.new(0, 16, 0, contentY)
+subtitle.Size = UDim2.new(1, -32, 0, 50)
+subtitle.TextYAlignment = Enum.TextYAlignment.Top
+subtitle.TextWrapped = true
+
+-- ====== 按钮区域 ======
+local btnY = C.Height - 56
+
+-- 确认按钮（无边框文字按钮，iOS 风格）
+local confirm = Instance.new("TextButton", root)
+confirm.Text = "确认"
+confirm.Font = Enum.Font.GothamSemibold
+confirm.TextSize = 14
+confirm.TextColor3 = Theme.Accent
+confirm.BackgroundTransparency = 1
+confirm.Position = UDim2.new(0, 16, 0, btnY)
+confirm.Size = UDim2.new(0.5, -22, 0, 36)
+confirm.AutoButtonColor = false
+pressEffect(confirm)
+
+-- 关闭按钮
+local closeBtn = Instance.new("TextButton", root)
+closeBtn.Text = "关闭"
+closeBtn.Font = Enum.Font.GothamSemibold
+closeBtn.TextSize = 14
+closeBtn.TextColor3 = Theme.Danger
+closeBtn.BackgroundTransparency = 1
+closeBtn.Position = UDim2.new(0.5, 6, 0, btnY)
+closeBtn.Size = UDim2.new(0.5, -22, 0, 36)
+closeBtn.AutoButtonColor = false
+pressEffect(closeBtn)
+
+-- ====== 迷你面板（缩小状态）======
+local mini = Instance.new("Frame", gui)
+mini.Visible = false
+mini.AnchorPoint = Vector2.new(0.5, 0.5)
+mini.Position = UDim2.fromScale(0.5, 0.08)
+mini.Size = UDim2.new(0, 160, 0, 48)
+mini.BackgroundColor3 = Theme.Glass
+mini.BackgroundTransparency = 0.12
+mini.BorderSizePixel = 0
+mini.Active = true
+corner(mini, 16)
+
+-- 迷你面板投影
+local miniShadow = Instance.new("ImageLabel", mini)
+miniShadow.Size = UDim2.new(1, 30, 1, 30)
+miniShadow.Position = UDim2.new(0, -15, 0, -8)
+miniShadow.Image = "rbxassetid://1316045217"
+miniShadow.ImageTransparency = 0.88
+miniShadow.BackgroundTransparency = 1
+miniShadow.ZIndex = -1
+
+local miniGrabber = Instance.new("Frame", mini)
+miniGrabber.AnchorPoint = Vector2.new(0.5, 0)
+miniGrabber.Size = UDim2.new(0, 28, 0, 3)
+miniGrabber.Position = UDim2.new(0.5, 0, 0, 5)
+miniGrabber.BackgroundColor3 = Theme.Grabber
+miniGrabber.BackgroundTransparency = 0.35
+miniGrabber.BorderSizePixel = 0
+corner(miniGrabber, 999)
+
+local miniLabel = Instance.new("TextLabel", mini)
+miniLabel.Text = "已最小化"
+miniLabel.Font = Enum.Font.Gotham
+miniLabel.TextSize = 12
+miniLabel.TextColor3 = Theme.TextPrimary
+miniLabel.BackgroundTransparency = 1
+miniLabel.Position = UDim2.new(0, 12, 0, 12)
+miniLabel.Size = UDim2.new(1, -70, 1, -24)
+
+local restore = Instance.new("TextButton", mini)
+restore.Text = "恢复"
+restore.Font = Enum.Font.GothamSemibold
+restore.TextSize = 12
+restore.TextColor3 = Theme.Accent
+restore.BackgroundTransparency = 1
+restore.Position = UDim2.new(1, -64, 0, 8)
+restore.Size = UDim2.new(0, 56, 1, -16)
+restore.AutoButtonColor = false
+pressEffect(restore, 0.92, 0.85)
+
+-- ====== 🔥 拖拽系统（核心） ======
+local DragSystem = {}
+
+function DragSystem.enable(frame, opts)
+	opts = opts or {}
+	local smoothness = opts.smoothness or C.DragSmoothness
+	local clampY = opts.clampY or true
+
+	local dragging = false
+	local startMousePos
+	local startFramePos
+
+	-- 拖动时放大阴影（iOS 浮起效果）
+	local children = frame:GetChildren()
+	local shadowObj
+	for _, c in ipairs(children) do
+		if c:IsA("ImageLabel") then
+			shadowObj = c
+			break
+		end
+	end
+
+	frame.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or
+		   input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			startMousePos = input.Position
+			startFramePos = frame.Position
+
+			-- 浮起效果
+			if shadowObj then
+				tween(shadowObj, {ImageTransparency = 0.7, Size = shadowObj.Size + UDim2.new(0, 10, 0, 10)}, 0.15):Play()
+			end
+			-- 轻微放大
+			tween(frame, {Size = frame.Size + UDim2.new(0, 4, 0, 2)}, 0.15):Play()
+		end
+	end)
+
+	frame.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or
+		   input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+
+			-- 恢复阴影
+			if shadowObj then
+				tween(shadowObj, {ImageTransparency = 0.85, Size = shadowObj.Size - UDim2.new(0, 10, 0, 10)}, 0.2):Play()
+			end
+			-- 恢复大小
+			tween(frame, {Size = frame.Size - UDim2.new(0, 4, 0, 2)}, 0.2):Play()
+		end
+	end)
+
+	-- 使用 RenderStepped 实现丝滑拖拽
+	local RunService = game:GetService("RunService")
+	local lastPos = UDim2.new()
+
+	RunService.RenderStepped:Connect(function()
+		if dragging and startMousePos then
+			local mouse = UserInputService:GetMouseLocation()
+			local delta = mouse - startMousePos
+
+			local newX = startFramePos.X.Offset + delta.X
+			local newY = startFramePos.Y.Offset + delta.Y
+
+			-- 限制 Y 不超出屏幕顶部
+			if clampY then
+				newY = math.max(0, newY)
+			end
+
+			-- 限制 X 不超出屏幕左右
+			local screenSize = gui.AbsoluteSize
+			local frameSize = frame.AbsoluteSize
+			newX = math.clamp(newX, -frameSize.X / 2, screenSize.X - frameSize.X / 2)
+
+			local targetPos = UDim2.new(0, newX, 0, newY)
+
+			-- 平滑插值（Lerp）
+			lastPos = UDim2.new(
+				lastPos.X.Scale + (targetPos.X.Scale - lastPos.X.Scale) * smoothness,
+				lastPos.X.Offset + (targetPos.X.Offset - lastPos.X.Offset) * smoothness,
+				lastPos.Y.Scale + (targetPos.Y.Scale - lastPos.Y.Scale) * smoothness,
+				lastPos.Y.Offset + (targetPos.Y.Offset - lastPos.Y.Offset) * smoothness
+			)
+
+			frame.Position = lastPos
+		end
+	end)
 end
 
--- 创建模糊效果
-local function createBlurEffect()
-    local blur = Instance.new("BlurEffect")
-    blur.Name = "ScriptStartupWarningBlur"
-    blur.Size = 0
-    blur.Parent = Lighting
-    
-    TweenService:Create(
-        blur, 
-        TweenInfo.new(CONSTANTS.AnimationDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), 
-        { Size = CONSTANTS.BlurSize }
-    ):Play()
-    
-    return blur
-end
+-- 启用拖拽（主面板用 grabber 区域，迷你面板用整个面板）
+DragSystem.enable(root, {clampY = true, smoothness = 0.3})
+DragSystem.enable(mini, {clampY = true, smoothness = 0.3})
 
--- 安全销毁实例
-local function safeDestroy(instance)
-    if instance and instance.Parent then
-        instance:Destroy()
-    end
-end
+-- ====== 按钮逻辑 ======
+minBtn.MouseButton1Click:Connect(function()
+	-- 缩小动画
+	tween(root, {Size = UDim2.new(0, C.Width, 0, 0), BackgroundTransparency = 1}, 0.25):Play()
+	tween(blur, {Size = 6}, 0.25):Play()
+	task.delay(0.2, function()
+		root.Visible = false
+		mini.Visible = true
+		-- 迷你面板弹出
+		mini.Size = UDim2.new(0, 140, 0, 40)
+		mini.BackgroundTransparency = 1
+		tween(mini, {Size = UDim2.new(0, 160, 0, 48), BackgroundTransparency = 0.12}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out):Play()
+	end)
+end)
 
--- 创建主UI
-local function createMainUI(screenGui)
-    -- 背景遮罩
-    local background = Instance.new("Frame")
-    background.Name = "Background"
-    background.Parent = screenGui
-    background.Position = UDim2.fromScale(0, 0)
-    background.Size = UDim2.fromScale(1, 1)
-    background.BackgroundColor3 = COLORS.White
-    background.BackgroundTransparency = 0.47
-    background.BorderSizePixel = 0
+restore.MouseButton1Click:Connect(function()
+	mini.Visible = false
+	root.Visible = true
+	tween(blur, {Size = C.Blur}, 0.25):Play()
+	-- 恢复弹入
+	root.Size = UDim2.new(0, C.Width, 0, 0)
+	root.BackgroundTransparency = 1
+	spring(root, {Size = UDim2.new(0, C.Width, 0, C.Height), BackgroundTransparency = 0.18}, 0.5):Play()
+end)
 
-    -- 阴影层
-    local mainShadow = Instance.new("Frame")
-    mainShadow.Name = "SoftShadow"
-    mainShadow.Parent = background
-    mainShadow.AnchorPoint = Vector2.new(0.5, 0.5)
-    mainShadow.Position = UDim2.fromScale(0.5, 0.53)
-    mainShadow.Size = UDim2.new(0.86, 22, 0, 348)
-    mainShadow.BackgroundColor3 = COLORS.White
-    mainShadow.BackgroundTransparency = 0.74
-    mainShadow.BorderSizePixel = 0
-    
-    local shadowLimit = Instance.new("UISizeConstraint")
-    shadowLimit.MaxSize = CONSTANTS.ShadowMaxSize
-    shadowLimit.MinSize = CONSTANTS.ShadowMinSize
-    shadowLimit.Parent = mainShadow
-    
-    UIUtils.createCorner(mainShadow, CONSTANTS.ShadowCornerRadius)
-    UIUtils.createStroke(mainShadow, COLORS.White, 6, 0.29)
+closeBtn.MouseButton1Click:Connect(function()
+	tween(blur, {Size = 0}, 0.3):Play()
+	spring(root, {Size = UDim2.new(0, C.Width, 0, 0), BackgroundTransparency = 1}):Play()
+	task.wait(0.45)
+	gui:Destroy()
+	blur:Destroy()
+end)
 
-    -- 主面板
-    local main = Instance.new("Frame")
-    main.Name = "Main"
-    main.Parent = background
-    main.AnchorPoint = Vector2.new(0.5, 0.52)
-    main.Position = UDim2.fromScale(0.5, 0.51)
-    main.Size = UDim2.new(0.87, 0, 0, 326)
-    main.BackgroundColor3 = COLORS.White
-    main.BackgroundTransparency = 0.095
-    main.BorderSizePixel = 0
-    
-    local mainLimit = Instance.new("UISizeConstraint")
-    mainLimit.MaxSize = CONSTANTS.MainMaxSize
-    mainLimit.MinSize = CONSTANTS.MainMinSize
-    mainLimit.Parent = main
-    
-    styleCard(main, CONSTANTS.MainCornerRadius)
+confirm.MouseButton1Click:Connect(function()
+	-- 按钮微动效
+	spring(confirm, {TextSize = 16}, 0.15):Play()
+	task.delay(0.15, function()
+		spring(confirm, {TextSize = 14}, 0.2):Play()
+	end)
+	print("确认按钮被点击")
+end)
 
-    -- 顶部高光
-    local topHighlight = Instance.new("Frame")
-    topHighlight.Name = "TopHighlight"
-    topHighlight.Parent = main
-    topHighlight.Position = UDim2.new(0, 24, 0, 10)
-    topHighlight.Size = UDim2.new(1, -46, 0, 2)
-    topHighlight.BackgroundColor3 = COLORS.White
-    topHighlight.BackgroundTransparency = 0.055
-    topHighlight.BorderSizePixel = 0
-    UIUtils.createCorner(topHighlight, 888)
+-- ====== 入场动画 ======
+root.Size = UDim2.new(0, C.Width, 0, 0)
+root.BackgroundTransparency = 1
+spring(root, {Size = UDim2.new(0, C.Width, 0, C.Height), BackgroundTransparency = 0.18}, 0.6):Play()
 
-    -- 左侧发光条
-    local leftGlow = Instance.new("Frame")
-    leftGlow.Name = "LeftGlow"
-    leftGlow.Parent = main
-    leftGlow.Position = UDim2.new(0, 0, 0, 28)
-    leftGlow.Size = UDim2.new(0, 2, 1, -54)
-    leftGlow.BackgroundColor3 = COLORS.White
-    leftGlow.BackgroundTransparency = 0.145
-    leftGlow.BorderSizePixel = 0
-    UIUtils.createCorner(leftGlow, 777)
+-- 模糊渐进
+tween(blur, {Size = C.Blur}, 0.5):Play()
 
-    return background, mainShadow, main
-end
-
--- 创建文本内容
-local function createTextContent(main)
-    UIUtils.createTextLabel(main, "SmallTitle", "我的脚本", 
-        UDim2.new(0, 30, 0, 21), UDim2.new(1, -58, 0, 22), 
-        COLORS.Gray, 13)
-    
-    UIUtils.createTextLabel(main, "MainTitle", "欢迎使用", 
-        UDim2.new(0, 31, 0, 57), UDim2.new(1, -62, 0, 43), 
-        COLORS.Red, 20, Enum.Font.GothamBold)
-    
-    UIUtils.createTextLabel(main, "Desc", "点击下方按钮开启功能", 
-        UDim2.new(0, 30, 0, 108), UDim2.new(1, -59, 0, 41), 
-        COLORS.Black, 17)
-end
-
--- 创建功能按钮
-local function createActionButtons(main)
-    local buttons = {}
-    
-    -- 加速按钮
-    local btnSpeed = UIUtils.createButton(main, "SpeedBtn", "加速", 
-        UDim2.new(0, 28, 0, 168), UDim2.new(0.425, -15, 0, 44), 
-        COLORS.Red, COLORS.White)
-    UIUtils.createStroke(btnSpeed, COLORS.White, 1.5, 0.335)
-    table.insert(buttons, btnSpeed)
-    
-    -- 跳高按钮
-    local btnJump = UIUtils.createButton(main, "JumpBtn", "跳高", 
-        UDim2.new(0.505, 14, 0, 169), UDim2.new(0.422, -14, 0, 44), 
-        COLORS.Blue, COLORS.White)
-    UIUtils.createStroke(btnJump, COLORS.White, 1.5, 0.332)
-    table.insert(buttons, btnJump)
-    
-    -- 重置按钮
-    local btnReset = UIUtils.createButton(main, "ResetBtn", "重置", 
-        UDim2.new(0, 28, 0, 225), UDim2.new(0.423, -14, 0, 43), 
-        COLORS.LightGray, COLORS.Black)
-    UIUtils.createStroke(btnReset, COLORS.BorderGray, 1.5, 0.135)
-    table.insert(buttons, btnReset)
-    
-    -- 关闭按钮
-    local btnClose = UIUtils.createButton(main, "CloseBtn", "关闭", 
-        UDim2.new(0.502, 14, 0, 226), UDim2.new(0.424, -15, 0, 43), 
-        COLORS.Red, COLORS.White)
-    UIUtils.createStroke(btnClose, COLORS.White, 1.5, 0.336)
-    table.insert(buttons, btnClose)
-    
-    return buttons
-end
-
--- 绑定功能逻辑
-local function bindFunctionality(buttons)
-    local btnSpeed, btnJump, btnReset, btnClose = unpack(buttons)
-    
-    btnSpeed.MouseButton1Click:Connect(function()
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("Humanoid") then
-            char.Humanoid.WalkSpeed = 65
-        end
-    end)
-
-    btnJump.MouseButton1Click:Connect(function()
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("Humanoid") then
-            char.Humanoid.JumpPower = 120
-        end
-    end)
-
-    btnReset.MouseButton1Click:Connect(function()
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("Humanoid") then
-            char.Humanoid.WalkSpeed = 16
-            char.Humanoid.JumpPower = 70
-        end
-    end)
-
-    return btnClose
-end
-
--- 创建最小化按钮
-local function createMinimizeButton(main)
-    local minBtn = UIUtils.createButton(main, "MinBtn", "—", 
-        UDim2.new(1, -82, 0, 13), UDim2.new(0, 34, 0, 29), 
-        Color3.fromRGB(182, 172, 192), COLORS.White)
-    UIUtils.createStroke(minBtn, Color3.fromRGB(203, 193, 213), 1.1, 0.215)
-    return minBtn
-end
-
--- 创建缩小面板（风格与主UI一致）
-local function createMiniPanel(screenGui)
-    local miniPanel = Instance.new("Frame", screenGui)
-    miniPanel.Name = "MiniPanel"
-    miniPanel.AnchorPoint = Vector2.new(0.5, 0)
-    miniPanel.Position = UDim2.new(0.49, 0, 0, 12)
-    miniPanel.Size = UDim2.new(0, CONSTANTS.MiniBarWidth, 0, CONSTANTS.MiniBarHeight)
-    miniPanel.Visible = false
-    miniPanel.Active = true
-    miniPanel.Selectable = false
-    
-    styleCard(miniPanel, 20)
-
-    -- 顶部高光（风格一致）
-    local miniHL = Instance.new("Frame", miniPanel)
-    miniHL.Size = UDim2.new(1, -34, 0, 2)
-    miniHL.Position = UDim2.new(0, 17, 0, 8)
-    miniHL.BackgroundColor3 = COLORS.White
-    miniHL.BackgroundTransparency = 0.048
-    miniHL.BorderSizePixel = 0
-    UIUtils.createCorner(miniHL, 666)
-
-    -- 左侧发光条（风格一致）
-    local miniGlow = Instance.new("Frame", miniPanel)
-    miniGlow.Size = UDim2.new(0, 1.5, 1, -24)
-    miniGlow.Position = UDim2.new(0, 0, 0, 12)
-    miniGlow.BackgroundColor3 = COLORS.White
-    miniGlow.BackgroundTransparency = 0.125
-    miniGlow.BorderSizePixel = 0
-    UIUtils.createCorner(miniGlow, 555)
-
-    -- 标题（风格一致）
-    UIUtils.createTextLabel(miniPanel, "MiniSmallTitle", "我的脚本",
-        UDim2.new(0, 18, 0, 14),
-        UDim2.new(1, -36, 0, 18),
-        COLORS.Gray, 12
-    )
-
-    UIUtils.createTextLabel(miniPanel, "MiniMainTitle", "已最小化",
-        UDim2.new(0, 18, 0, 36),
-        UDim2.new(1, -36, 0, 24),
-        COLORS.Red, 15, Enum.Font.GothamBold
-    )
-
-    -- 恢复按钮（风格与主按钮一致）
-    local restBtn = UIUtils.createButton(miniPanel, "RestoreBtn", "恢复窗口",
-        UDim2.new(0.115, 0, 1, -44),
-        UDim2.new(0.76, 0, 0, 34),
-        COLORS.Red, COLORS.White
-    )
-    UIUtils.createStroke(restBtn, COLORS.White, 1.3, 0.305)
-
-    return miniPanel, restBtn
-end
-
--- 设置拖拽功能（整个面板可拖）
-local function setupDragging(targetFrame)
-    local isDragging = false
-    local dragStart = nil
-    local barStartPos = nil
-
-    targetFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
-           input.UserInputType == Enum.UserInputType.Touch then
-            isDragging = true
-            dragStart = input.Position
-            barStartPos = targetFrame.Position
-        end
-    end)
-
-    targetFrame.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
-           input.UserInputType == Enum.UserInputType.Touch then
-            isDragging = false
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
-                          input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            targetFrame.Position = UDim2.new(
-                barStartPos.X.Scale, 
-                barStartPos.X.Offset + delta.X, 
-                barStartPos.Y.Scale, 
-                math.max(0, barStartPos.Y.Offset + delta.Y)
-            )
-        end
-    end)
-end
-
--- 播放入场动画
-local function playEntranceAnimation(main, mainShadow)
-    main.Size = UDim2.new(0.865, 0, 0, 288)
-    mainShadow.Size = UDim2.new(0.855, 22, 0, 310)
-    main.BackgroundTransparency = 1
-    mainShadow.BackgroundTransparency = 1
-    
-    TweenService:Create(
-        main, 
-        TweenInfo.new(0.375, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 
-        { Size = UDim2.new(0.875, 0, 0, 328), BackgroundTransparency = 0.088 }
-    ):Play()
-    
-    TweenService:Create(
-        mainShadow, 
-        TweenInfo.new(0.315, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), 
-        { Size = UDim2.new(0.868, 24, 0, 352), BackgroundTransparency = 0.71 }
-    ):Play()
-end
-
--- 关闭UI
-local function closeUI(screenGui, main, mainShadow, blur)
-    local blurTween = TweenService:Create(
-        blur, 
-        TweenInfo.new(CONSTANTS.CloseAnimationDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), 
-        { Size = 0 }
-    )
-    blurTween:Play()
-    
-    TweenService:Create(main, TweenInfo.new(CONSTANTS.CloseAnimationDuration), { BackgroundTransparency = 1 }):Play()
-    TweenService:Create(mainShadow, TweenInfo.new(CONSTANTS.CloseAnimationDuration), { BackgroundTransparency = 1 }):Play()
-    
-    task.delay(CONSTANTS.CloseAnimationDuration + 0.045, function()
-        safeDestroy(screenGui)
-        safeDestroy(blur)
-    end)
-end
-
--- 最小化UI
-local function minimizeUI(main, mainShadow, background, blur, miniPanel)
-    main.Visible = false
-    mainShadow.Visible = false
-    background.BackgroundTransparency = 1
-    
-    TweenService:Create(blur, TweenInfo.new(0.148), { Size = 0 }):Play()
-    miniPanel.Visible = true
-end
-
--- 恢复UI
-local function restoreUI(main, mainShadow, background, blur, miniPanel)
-    miniPanel.Visible = false
-    background.BackgroundTransparency = 0.465
-    
-    TweenService:Create(blur, TweenInfo.new(0.152), { Size = CONSTANTS.BlurSize }):Play()
-    main.Visible = true
-    mainShadow.Visible = true
-end
-
--- 主初始化函数
-local function initialize()
-    local blur = createBlurEffect()
-
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "MyScriptUI"
-    screenGui.Parent = PlayerGui
-    screenGui.ResetOnSpawn = false
-    screenGui.IgnoreGuiInset = true
-    screenGui.DisplayOrder = 999999
-    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-    -- 创建UI组件
-    local background, mainShadow, main = createMainUI(screenGui)
-    createTextContent(main)
-    local buttons = createActionButtons(main)
-    local btnClose = bindFunctionality(buttons)
-    local minBtn = createMinimizeButton(main)
-    local miniPanel, restBtn = createMiniPanel(screenGui)
-
-    -- 设置拖拽
-    setupDragging(miniPanel)
-
-    -- 关闭按钮
-    btnClose.MouseButton1Click:Connect(function()
-        closeUI(screenGui, main, mainShadow, blur)
-    end)
-
-    -- 最小化按钮
-    minBtn.MouseButton1Click:Connect(function()
-        minimizeUI(main, mainShadow, background, blur, miniPanel)
-    end)
-
-    -- 恢复按钮
-    restBtn.MouseButton1Click:Connect(function()
-        restoreUI(main, mainShadow, background, blur, miniPanel)
-    end)
-
-    -- 入场动画
-    playEntranceAnimation(main, mainShadow)
-
-    print("UI加载完成 - 缩小面板风格一致版")
-end
-
--- 启动
-local success, err = pcall(initialize)
-if not success then
-    warn("UI初始化失败:", err)
-end
+print("✅ iOS 高级拖拽 UI 加载完成")
