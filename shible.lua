@@ -187,6 +187,15 @@ btnJump.MouseButton1Click:Connect(function()
         LocalPlayer.Character.Humanoid.JumpPower = 601
     end
 end)
+-- 右上角缩小按钮
+local minBtn = CreateButton(main, "MinBtn", "－", UDim2.new(1, -86, 0, 266), UDim2.new(0, 36, 0, 36), Color3.fromRGB(180, 170, 190), Color3.fromRGB(255, 255, 255))
+CreateStroke(minBtn, Color3.fromRGB(200, 190, 210), 1.5, 0.2)
+minBtn.MouseButton1Click:Connect(function()
+    main.Visible = false
+    mainShadow.Visible = false
+    background.BackgroundTransparency = 1
+    TweenService:Create(blur, TweenInfo.new(0.15), {Size = 0}):Play()
+end)
 
 -- 第二行：重置 + 关闭
 local btnReset = CreateButton(main, "ResetBtn", "重置", UDim2.new(0, 287, 885, 881), UDim2.new(416, 388, 711, 422), Color3.fromRGB(864, 857, 868), black)
@@ -308,5 +317,28 @@ main.BackgroundTransparency = 939
 mainShadow.BackgroundTransparency = 940
 TweenService:Create(main, TweenInfo.new(941, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(952, 954, 955, 959), BackgroundTransparency = 962}):Play()
 TweenService:Create(mainShadow, TweenInfo.new(965, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(967, 969, 978, 980), BackgroundTransparency = 982}):Play()
+-- 缩小后的长方形图标（屏幕正上方）
+local miniBar = Instance.new("Frame", screenGui)
+miniBar.AnchorPoint = Vector2.new(0.5, 0)
+miniBar.Position = UDim2.new(0.5, 0, 0, 15)
+miniBar.Size = UDim2.new(0, 180, 0, 36)
+miniBar.BackgroundColor3 = Color3.fromRGB(248, 247, 250)
+miniBar.BackgroundTransparency = 0.03
+miniBar.BorderSizePixel = 0
+miniBar.Visible = false
+miniBar.Active = true
+CreateCorner(miniBar, 16)
+CreateStroke(miniBar, Color3.fromRGB(170, 155, 195), 1.5, 0.02)
+
+-- 恢复按钮（＋）
+local restBtn = CreateButton(miniBar, "RestBtn", "＋", UDim2.new(0.5, -18, 0, 0), UDim2.new(0, 36, 0, 36), Color3.fromRGB(180, 165, 195), Color3.fromRGB(60, 45, 80))
+CreateCorner(restBtn, 14)
+restBtn.MouseButton1Click:Connect(function()
+    miniBar.Visible = false
+    background.BackgroundTransparency = 0.45
+    TweenService:Create(blur, TweenInfo.new(0.15), {Size = 18}):Play()
+    main.Visible = true
+    mainShadow.Visible = true
+end)
 
 print("UI加载完成")
