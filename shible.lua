@@ -1,10 +1,11 @@
 --==========================================
--- 1:1 复刻 yejiaoben 弹窗UI（对齐版）
+-- 1:1 复刻 yejiaoben 弹窗UI（对齐版 + 缩小按钮）
 --==========================================
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
+local UIS = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local PlayerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
@@ -200,6 +201,18 @@ btnClose.MouseButton1Click:Connect(function()
     end)
 end)
 
+--========== 新增：右上角缩小按钮 ==========
+local minBtn = CreateButton(main, "MinBtn", "－", UDim2.new(1, -80, 0, 12), UDim2.new(0, 32, 0, 28), Color3.fromRGB(180, 170, 190), Color3.fromRGB(255, 255, 255))
+CreateStroke(minBtn, Color3.fromRGB(200, 190, 210), 1, 0.25)
+minBtn.MouseButton1Click:Connect(function()
+    main.Visible = false
+    mainShadow.Visible = false
+    background.BackgroundTransparency = 1
+    TweenService:Create(blur, TweenInfo.new(0.15), {Size = 0}):Play()
+    miniBar.Visible = true
+end)
+--==========================================
+
 -- 入场动画
 main.Size = UDim2.new(0.88, 0, 0, 291)
 mainShadow.Size = UDim2.new(0.88, 18, 0, 313)
@@ -207,5 +220,76 @@ main.BackgroundTransparency = 1
 mainShadow.BackgroundTransparency = 1
 TweenService:Create(main, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0.88, 0, 0, 324), BackgroundTransparency = 0.1}):Play()
 TweenService:Create(mainShadow, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0.88, 18, 0, 346), BackgroundTransparency = 0.72}):Play()
+
+--========== 新增：缩小后的 miniBar（屏幕正上方）==========
+local miniBar = Instance.new("Frame", screenGui)
+miniBar.AnchorPoint = Vector2.new(0.5, 0)
+miniBar.Position = UDim2.new(0.5, 0, 0, 10)
+miniBar.Size = UDim2.new(0, 160, 0, 32)
+miniBar.BackgroundColor3 = Color3.fromRGB(248, 247, 250)
+miniBar.BackgroundTransparency = 0.05
+miniBar.BorderSizePixel = 0
+miniBar.Visible = false
+miniBar.Active = true
+CreateCorner(miniBar, 14)
+CreateStroke(miniBar, Color3.fromRGB(170, 155, 195), 1.5, 0.03)
+
+-- 移动手柄（✥）
+local moveBtn = Instance.new("TextButton", miniBar)
+moveBtn.Size = UDim2.new(0, 32, 0, 32)
+moveBtn.BackgroundColor3 = Color3.fromRGB(175, 155, 205)
+moveBtn.BackgroundTransparency = 0.05
+moveBtn.Text = "✥"
+moveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+moveBtn.Font = Enum.Font.GothamBold
+moveBtn.TextSize = 14
+moveBtn.BorderSizePixel = 0
+moveBtn.Active = true
+CreateCorner(moveBtn, 12)
+
+-- 恢复按钮（＋）
+local restBtn = Instance.new("TextButton", miniBar)
+restBtn.Size = UDim2.new(0, 32, 0, 32)
+restBtn.Position = UDim2.new(1, -32, 0, 0)
+restBtn.BackgroundColor3 = Color3.fromRGB(185, 170, 200)
+restBtn.BackgroundTransparency = 0.05
+restBtn.Text = "＋"
+restBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+restBtn.Font = Enum.Font.GothamBold
+restBtn.TextSize = 16
+restBtn.BorderSizePixel = 0
+restBtn.Active = true
+CreateCorner(restBtn, 12)
+
+-- 拖动 miniBar
+local isDragging, dragStart, barStartPos
+moveBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDragging = true
+        dragStart = input.Position
+        barStartPos = miniBar.Position
+    end
+end)
+moveBtn.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDragging = false
+    end
+end)
+UIS.InputChanged:Connect(function(input)
+    if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        miniBar.Position = UDim2.new(barStartPos.X.Scale, barStartPos.X.Offset + delta.X, barStartPos.Y.Scale, math.max(0, barStartPos.Y.Offset + delta.Y))
+    end
+end)
+
+-- 恢复
+restBtn.MouseButton1Click:Connect(function()
+    miniBar.Visible = false
+    background.BackgroundTransparency = 0.45
+    TweenService:Create(blur, TweenInfo.new(0.15), {Size = 18}):Play()
+    main.Visible = true
+    mainShadow.Visible = true
+end)
+--==========================================
 
 print("UI加载完成")
