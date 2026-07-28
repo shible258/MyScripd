@@ -124,7 +124,7 @@ nav.Position = UDim2.new(0, 0, 0, 0)
 nav.BackgroundTransparency = 1
 
 local title = Instance.new("TextLabel", nav)
-title.Text = "我的脚本"
+title.Text = "shible"
 title.Font = Enum.Font.GothamSemibold
 title.TextSize = 15
 title.TextColor3 = Theme.TextPrimary
@@ -158,7 +158,7 @@ subtitle.TextWrapped = true
 -- ====== 按钮区域 ======
 local btnY = C.Height - 56
 
--- 确认按钮（无边框文字按钮，iOS 风格）
+-- 确认按钮
 local confirm = Instance.new("TextButton", root)
 confirm.Text = "确认"
 confirm.Font = Enum.Font.GothamSemibold
@@ -182,7 +182,7 @@ closeBtn.Size = UDim2.new(0.5, -22, 0, 36)
 closeBtn.AutoButtonColor = false
 pressEffect(closeBtn)
 
--- ====== 迷你面板（缩小状态）======
+-- ====== 迷你面板 ======
 local mini = Instance.new("Frame", gui)
 mini.Visible = false
 mini.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -232,7 +232,7 @@ restore.Size = UDim2.new(0, 56, 1, -16)
 restore.AutoButtonColor = false
 pressEffect(restore, 0.92, 0.85)
 
--- ====== 🔥 拖拽系统（核心） ======
+-- ====== 拖拽系统 ======
 local DragSystem = {}
 
 function DragSystem.enable(frame, opts)
@@ -283,8 +283,7 @@ function DragSystem.enable(frame, opts)
 			tween(frame, {Size = frame.Size - UDim2.new(0, 4, 0, 2)}, 0.2):Play()
 		end
 	end)
-
-	-- 使用 RenderStepped 实现丝滑拖拽
+	
 	local RunService = game:GetService("RunService")
 	local lastPos = UDim2.new()
 
@@ -375,4 +374,4 @@ spring(root, {Size = UDim2.new(0, C.Width, 0, C.Height), BackgroundTransparency 
 -- 模糊渐进
 tween(blur, {Size = C.Blur}, 0.5):Play()
 
-print("✅ iOS 高级拖拽 UI 加载完成")
+print("iOS 高级拖拽 UI 加载完成")
