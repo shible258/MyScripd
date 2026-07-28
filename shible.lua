@@ -12,7 +12,7 @@ local C = {
 	Blur = 24,
 	Spring = Enum.EasingStyle.Elastic,
 	Duration = 0.55,
-	DragSmoothness = 0.25, -- 拖动平滑度（越低越跟手）
+	DragSmoothness = 0.25,
 }
 
 local Theme = {
@@ -43,7 +43,6 @@ local function tween(target, props, dur, style, dir)
 	return TweenService:Create(target, TweenInfo.new(dur, style, dir), props)
 end
 
--- 按压反馈
 local function pressEffect(btn, scaleX, scaleY)
 	scaleX = scaleX or 0.96
 	scaleY = scaleY or 0.9
@@ -53,10 +52,10 @@ local function pressEffect(btn, scaleX, scaleY)
 		origSize.Y.Scale * scaleY, origSize.Y.Offset * scaleY
 	)
 	btn.MouseButton1Down:Connect(function()
-		tween(btn, {Size = pressedSize}, 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out):Play()
+		tween(btn, {Size = pressedSize}, 0.08):Play()
 	end)
 	btn.MouseButton1Up:Connect(function()
-		tween(btn, {Size = origSize}, 0.12, Enum.EasingStyle.Back, Enum.EasingDirection.Out):Play()
+		tween(btn, {Size = origSize}, 0.12, Enum.EasingStyle.Back):Play()
 	end)
 	btn.MouseLeave:Connect(function()
 		tween(btn, {Size = origSize}, 0.12):Play()
@@ -77,7 +76,7 @@ gui.IgnoreGuiInset = true
 gui.DisplayOrder = 999999
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- ====== 主容器（毛玻璃面板）======
+-- ====== 主容器 ======
 local root = Instance.new("Frame", gui)
 root.AnchorPoint = Vector2.new(0.5, 0.5)
 root.Position = UDim2.fromScale(0.5, 0.45)
@@ -85,11 +84,9 @@ root.Size = UDim2.new(0, C.Width, 0, C.Height)
 root.BackgroundColor3 = Theme.Glass
 root.BackgroundTransparency = 0.18
 root.BorderSizePixel = 0
-root.Active = true -- 关键：允许接收输入
-root.Selectable = true
+root.Active = true
 corner(root, C.Radius)
 
--- 微投影（阴影）
 local shadow = Instance.new("ImageLabel", root)
 shadow.Size = UDim2.new(1, 50, 1, 50)
 shadow.Position = UDim2.new(0, -25, 0, -15)
@@ -100,11 +97,10 @@ shadow.ZIndex = -1
 shadow.ScaleType = Enum.ScaleType.Slice
 shadow.SliceCenter = Rect.new(10, 10, 10, 10)
 
--- ====== 顶部拖拽条（Grabber）======
+-- ====== 拖拽条 ======
 local grabberArea = Instance.new("Frame", root)
 grabberArea.Name = "GrabberArea"
 grabberArea.Size = UDim2.new(1, 0, 0, 36)
-grabberArea.Position = UDim2.new(0, 0, 0, 0)
 grabberArea.BackgroundTransparency = 1
 grabberArea.Active = true
 
@@ -120,17 +116,18 @@ corner(grabber, 999)
 -- ====== 导航栏 ======
 local nav = Instance.new("Frame", root)
 nav.Size = UDim2.new(1, 0, 0, 44)
-nav.Position = UDim2.new(0, 0, 0, 0)
 nav.BackgroundTransparency = 1
 
+-- shible
 local title = Instance.new("TextLabel", nav)
 title.Text = "shible"
 title.Font = Enum.Font.GothamSemibold
-title.TextSize = 15
+title.TextSize = 17
 title.TextColor3 = Theme.TextPrimary
 title.BackgroundTransparency = 1
-title.Position = UDim2.new(0, 16, 0, 12)
-title.Size = UDim2.new(1, -80, 0, 20)
+title.Position = UDim2.new(0, 14, 0, 0)
+title.Size = UDim2.new(1, -80, 1, 0)
+title.TextXAlignment = Enum.TextXAlignment.Left
 
 local minBtn = Instance.new("TextButton", nav)
 minBtn.Text = "—"
@@ -142,24 +139,34 @@ minBtn.Position = UDim2.new(1, -40, 0, 10)
 minBtn.Size = UDim2.new(0, 28, 0, 24)
 minBtn.AutoButtonColor = false
 
--- ====== 内容区域 ======
-local contentY = 52
-local subtitle = Instance.new("TextLabel", root)
-subtitle.Text = "欢迎使用\n界面已就绪"
+-- ====== 内容容器 ======
+local contentContainer = Instance.new("Frame", root)
+contentContainer.Name = "ContentContainer"
+contentContainer.Size = UDim2.new(1, 0, 1, -44)
+contentContainer.Position = UDim2.new(0, 0, 0, 44)
+contentContainer.BackgroundTransparency = 1
+contentContainer.ClipsDescendants = true
+
+-- ====== 主页面 ======
+local pageMain = Instance.new("Frame", contentContainer)
+pageMain.Name = "Page_Main"
+pageMain.Size = UDim2.new(1, 0, 1, 0)
+pageMain.BackgroundTransparency = 1
+
+local subtitle = Instance.new("TextLabel", pageMain)
+subtitle.Text = "欢迎使用\n请进🐧："
 subtitle.Font = Enum.Font.Gotham
 subtitle.TextSize = 13
 subtitle.TextColor3 = Theme.TextSecondary
 subtitle.BackgroundTransparency = 1
-subtitle.Position = UDim2.new(0, 16, 0, contentY)
+subtitle.Position = UDim2.new(0, 16, 0, 8)
 subtitle.Size = UDim2.new(1, -32, 0, 50)
 subtitle.TextYAlignment = Enum.TextYAlignment.Top
 subtitle.TextWrapped = true
 
--- ====== 按钮区域 ======
-local btnY = C.Height - 56
+local btnY = C.Height - 96
 
--- 确认按钮
-local confirm = Instance.new("TextButton", root)
+local confirm = Instance.new("TextButton", pageMain)
 confirm.Text = "确认"
 confirm.Font = Enum.Font.GothamSemibold
 confirm.TextSize = 14
@@ -170,8 +177,7 @@ confirm.Size = UDim2.new(0.5, -22, 0, 36)
 confirm.AutoButtonColor = false
 pressEffect(confirm)
 
--- 关闭按钮
-local closeBtn = Instance.new("TextButton", root)
+local closeBtn = Instance.new("TextButton", pageMain)
 closeBtn.Text = "关闭"
 closeBtn.Font = Enum.Font.GothamSemibold
 closeBtn.TextSize = 14
@@ -181,6 +187,45 @@ closeBtn.Position = UDim2.new(0.5, 6, 0, btnY)
 closeBtn.Size = UDim2.new(0.5, -22, 0, 36)
 closeBtn.AutoButtonColor = false
 pressEffect(closeBtn)
+
+-- ====== 功能面板 ======
+local pageFunction = Instance.new("Frame", contentContainer)
+pageFunction.Name = "Page_Function"
+pageFunction.Size = UDim2.new(1, 0, 1, 0)
+pageFunction.BackgroundTransparency = 1
+pageFunction.Visible = false
+pageFunction.Position = UDim2.new(1, 0, 0, 0)
+
+local funcTitle = Instance.new("TextLabel", pageFunction)
+funcTitle.Text = "功能面板"
+funcTitle.Font = Enum.Font.GothamSemibold
+funcTitle.TextSize = 15
+funcTitle.TextColor3 = Theme.TextPrimary
+funcTitle.BackgroundTransparency = 1
+funcTitle.Position = UDim2.new(0, 16, 0, 8)
+funcTitle.Size = UDim2.new(1, -32, 0, 22)
+
+local funcDesc = Instance.new("TextLabel", pageFunction)
+funcDesc.Text = "这里是确认后加载的功能内容\n可放置开关、滑块、列表等"
+funcDesc.Font = Enum.Font.Gotham
+funcDesc.TextSize = 13
+funcDesc.TextColor3 = Theme.TextSecondary
+funcDesc.BackgroundTransparency = 1
+funcDesc.Position = UDim2.new(0, 16, 0, 38)
+funcDesc.Size = UDim2.new(1, -32, 0, 50)
+funcDesc.TextYAlignment = Enum.TextYAlignment.Top
+funcDesc.TextWrapped = true
+
+local backBtn = Instance.new("TextButton", pageFunction)
+backBtn.Text = "返回"
+backBtn.Font = Enum.Font.GothamSemibold
+backBtn.TextSize = 14
+backBtn.TextColor3 = Theme.Accent
+backBtn.BackgroundTransparency = 1
+backBtn.Position = UDim2.new(0, 16, 1, -44)
+backBtn.Size = UDim2.new(0, 60, 0, 36)
+backBtn.AutoButtonColor = false
+pressEffect(backBtn)
 
 -- ====== 迷你面板 ======
 local mini = Instance.new("Frame", gui)
@@ -194,7 +239,6 @@ mini.BorderSizePixel = 0
 mini.Active = true
 corner(mini, 16)
 
--- 迷你面板投影
 local miniShadow = Instance.new("ImageLabel", mini)
 miniShadow.Size = UDim2.new(1, 30, 1, 30)
 miniShadow.Position = UDim2.new(0, -15, 0, -8)
@@ -230,7 +274,7 @@ restore.BackgroundTransparency = 1
 restore.Position = UDim2.new(1, -64, 0, 8)
 restore.Size = UDim2.new(0, 56, 1, -16)
 restore.AutoButtonColor = false
-pressEffect(restore, 0.92, 0.85)
+pressEffect(restore)
 
 -- ====== 拖拽系统 ======
 local DragSystem = {}
@@ -238,52 +282,40 @@ local DragSystem = {}
 function DragSystem.enable(frame, opts)
 	opts = opts or {}
 	local smoothness = opts.smoothness or C.DragSmoothness
-	local clampY = opts.clampY or true
+	local clampY = opts.clampY ~= false
 
 	local dragging = false
 	local startMousePos
 	local startFramePos
 
-	-- 拖动时放大阴影（iOS 浮起效果）
-	local children = frame:GetChildren()
 	local shadowObj
-	for _, c in ipairs(children) do
-		if c:IsA("ImageLabel") then
-			shadowObj = c
-			break
-		end
+	for _, c in ipairs(frame:GetChildren()) do
+		if c:IsA("ImageLabel") then shadowObj = c break end
 	end
 
 	frame.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or
-		   input.UserInputType == Enum.UserInputType.Touch then
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			dragging = true
 			startMousePos = input.Position
 			startFramePos = frame.Position
 
-			-- 浮起效果
 			if shadowObj then
-				tween(shadowObj, {ImageTransparency = 0.7, Size = shadowObj.Size + UDim2.new(0, 10, 0, 10)}, 0.15):Play()
+				tween(shadowObj, {ImageTransparency = 0.7, Size = shadowObj.Size + UDim2.new(0,10,0,10)}, 0.15):Play()
 			end
-			-- 轻微放大
-			tween(frame, {Size = frame.Size + UDim2.new(0, 4, 0, 2)}, 0.15):Play()
+			tween(frame, {Size = frame.Size + UDim2.new(0,4,0,2)}, 0.15):Play()
 		end
 	end)
 
 	frame.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or
-		   input.UserInputType == Enum.UserInputType.Touch then
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
 			dragging = false
-
-			-- 恢复阴影
 			if shadowObj then
-				tween(shadowObj, {ImageTransparency = 0.85, Size = shadowObj.Size - UDim2.new(0, 10, 0, 10)}, 0.2):Play()
+				tween(shadowObj, {ImageTransparency = 0.85, Size = shadowObj.Size - UDim2.new(0,10,0,10)}, 0.2):Play()
 			end
-			-- 恢复大小
-			tween(frame, {Size = frame.Size - UDim2.new(0, 4, 0, 2)}, 0.2):Play()
+			tween(frame, {Size = frame.Size - UDim2.new(0,4,0,2)}, 0.2):Play()
 		end
 	end)
-	
+
 	local RunService = game:GetService("RunService")
 	local lastPos = UDim2.new()
 
@@ -291,51 +323,40 @@ function DragSystem.enable(frame, opts)
 		if dragging and startMousePos then
 			local mouse = UserInputService:GetMouseLocation()
 			local delta = mouse - startMousePos
-
 			local newX = startFramePos.X.Offset + delta.X
 			local newY = startFramePos.Y.Offset + delta.Y
 
-			-- 限制 Y 不超出屏幕顶部
-			if clampY then
-				newY = math.max(0, newY)
-			end
+			if clampY then newY = math.max(0, newY) end
 
-			-- 限制 X 不超出屏幕左右
 			local screenSize = gui.AbsoluteSize
 			local frameSize = frame.AbsoluteSize
-			newX = math.clamp(newX, -frameSize.X / 2, screenSize.X - frameSize.X / 2)
+			newX = math.clamp(newX, -frameSize.X/2, screenSize.X-frameSize.X/2)
 
 			local targetPos = UDim2.new(0, newX, 0, newY)
-
-			-- 平滑插值（Lerp）
 			lastPos = UDim2.new(
-				lastPos.X.Scale + (targetPos.X.Scale - lastPos.X.Scale) * smoothness,
-				lastPos.X.Offset + (targetPos.X.Offset - lastPos.X.Offset) * smoothness,
-				lastPos.Y.Scale + (targetPos.Y.Scale - lastPos.Y.Scale) * smoothness,
-				lastPos.Y.Offset + (targetPos.Y.Offset - lastPos.Y.Offset) * smoothness
+				lastPos.X.Scale + (targetPos.X.Scale - lastPos.X.Scale)*smoothness,
+				lastPos.X.Offset + (targetPos.X.Offset - lastPos.X.Offset)*smoothness,
+				lastPos.Y.Scale + (targetPos.Y.Scale - lastPos.Y.Scale)*smoothness,
+				lastPos.Y.Offset + (targetPos.Y.Offset - lastPos.Y.Offset)*smoothness
 			)
-
 			frame.Position = lastPos
 		end
 	end)
 end
 
--- 启用拖拽（主面板用 grabber 区域，迷你面板用整个面板）
-DragSystem.enable(root, {clampY = true, smoothness = 0.3})
-DragSystem.enable(mini, {clampY = true, smoothness = 0.3})
+DragSystem.enable(root)
+DragSystem.enable(mini)
 
 -- ====== 按钮逻辑 ======
 minBtn.MouseButton1Click:Connect(function()
-	-- 缩小动画
-	tween(root, {Size = UDim2.new(0, C.Width, 0, 0), BackgroundTransparency = 1}, 0.25):Play()
+	tween(root, {Size = UDim2.new(0,C.Width,0,0), BackgroundTransparency = 1}, 0.25):Play()
 	tween(blur, {Size = 6}, 0.25):Play()
 	task.delay(0.2, function()
 		root.Visible = false
 		mini.Visible = true
-		-- 迷你面板弹出
-		mini.Size = UDim2.new(0, 140, 0, 40)
+		mini.Size = UDim2.new(0,140,0,40)
 		mini.BackgroundTransparency = 1
-		tween(mini, {Size = UDim2.new(0, 160, 0, 48), BackgroundTransparency = 0.12}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out):Play()
+		tween(mini, {Size = UDim2.new(0,160,0,48), BackgroundTransparency = 0.12}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out):Play()
 	end)
 end)
 
@@ -343,35 +364,45 @@ restore.MouseButton1Click:Connect(function()
 	mini.Visible = false
 	root.Visible = true
 	tween(blur, {Size = C.Blur}, 0.25):Play()
-	-- 恢复弹入
-	root.Size = UDim2.new(0, C.Width, 0, 0)
+	root.Size = UDim2.new(0,C.Width,0,0)
 	root.BackgroundTransparency = 1
-	spring(root, {Size = UDim2.new(0, C.Width, 0, C.Height), BackgroundTransparency = 0.18}, 0.5):Play()
+	spring(root, {Size = UDim2.new(0,C.Width,0,C.Height), BackgroundTransparency = 0.18}):Play()
 end)
 
 closeBtn.MouseButton1Click:Connect(function()
 	tween(blur, {Size = 0}, 0.3):Play()
-	spring(root, {Size = UDim2.new(0, C.Width, 0, 0), BackgroundTransparency = 1}):Play()
+	spring(root, {Size = UDim2.new(0,C.Width,0,0), BackgroundTransparency = 1}):Play()
 	task.wait(0.45)
 	gui:Destroy()
 	blur:Destroy()
 end)
 
 confirm.MouseButton1Click:Connect(function()
-	-- 按钮微动效
-	spring(confirm, {TextSize = 16}, 0.15):Play()
+	spring(confirm, {TextSize = 16}, 0.15)
 	task.delay(0.15, function()
-		spring(confirm, {TextSize = 14}, 0.2):Play()
+		spring(confirm, {TextSize = 14}, 0.2)
 	end)
-	print("确认按钮被点击")
+
+	tween(pageMain, {Position = UDim2.new(-1,0,0,0)}, 0.3, Enum.EasingStyle.Quint):Play()
+	pageFunction.Visible = true
+	pageFunction.Position = UDim2.new(1,0,0,0)
+	tween(pageFunction, {Position = UDim2.new(0,0,0,0)}, 0.3, Enum.EasingStyle.Quint):Play()
+end)
+
+backBtn.MouseButton1Click:Connect(function()
+	tween(pageFunction, {Position = UDim2.new(1,0,0,0)}, 0.3, Enum.EasingStyle.Quint):Play()
+	pageMain.Visible = true
+	pageMain.Position = UDim2.new(-1,0,0,0)
+	tween(pageMain, {Position = UDim2.new(0,0,0,0)}, 0.3, Enum.EasingStyle.Quint):Play()
+	task.delay(0.3, function()
+		pageFunction.Visible = false
+	end)
 end)
 
 -- ====== 入场动画 ======
-root.Size = UDim2.new(0, C.Width, 0, 0)
+root.Size = UDim2.new(0,C.Width,0,0)
 root.BackgroundTransparency = 1
-spring(root, {Size = UDim2.new(0, C.Width, 0, C.Height), BackgroundTransparency = 0.18}, 0.6):Play()
-
--- 模糊渐进
+spring(root, {Size = UDim2.new(0,C.Width,0,C.Height), BackgroundTransparency = 0.18}):Play()
 tween(blur, {Size = C.Blur}, 0.5):Play()
 
-print("iOS 高级拖拽 UI 加载完成")
+print("iOS 高级拖拽 UI（shible 左对齐版）加载完成")
