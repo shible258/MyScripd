@@ -1,5 +1,7 @@
 -- ============================================================
-by-IOS-shible
+--  shible · 完整源码（UI 保底可见 + ESP不闪 + 血条纤细 + 甩飞不碰自己）
+--  基础UI：UI保底可见版（已修复所有拼写错误）
+--  新增功能：SkidFling（只推目标，不推自己）
 -- ============================================================
 
 local TweenService = game:GetService("TweenService")
@@ -13,7 +15,7 @@ if not LocalPlayer then
 	LocalPlayer = Players.PlayerAdded:Wait()
 end
 
--- 安全获取 PlayerGui
+-- 安全获取 PlayerGui（带超时）
 local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
 if not PlayerGui then
 	PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 15)
@@ -99,7 +101,7 @@ gui.DisplayOrder = 999999
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Enabled = true
 
--- ====== 主容器 =====
+-- ====== 主容器（✅ 直接设正常尺寸，不先设0）=====
 local root = Instance.new("Frame")
 root.Name = "MainFrame"
 root.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -337,7 +339,7 @@ local function getRootPart()
 	return c and c:FindFirstChild("HumanoidRootPart")
 end
 
--- ====== SkidFling 甩飞核心 =====
+-- ====== ✅【关键】SkidFling 甩飞核心（只推别人，不碰自己）=====
 local function SkidFling(targetPlr)
 	if Flinging then return end
 	Flinging = true
@@ -348,12 +350,14 @@ local function SkidFling(targetPlr)
 		local hum = char:FindFirstChildOfClass("Humanoid")
 		if not (hrp and hum and hum.Health > 0) then return end
 
+		-- 清旧力
 		for _,v in ipairs(hrp:GetChildren()) do
 			if v:IsA("BodyVelocity") or v:IsA("BodyAngularVelocity") then
 				v:Destroy()
 			end
 		end
 
+		-- 【视觉起飞】你站着不动，别人往上飞
 		hrp.AssemblyLinearVelocity = Vector3.new(
 			math.random(-40, 40),
 			420,
@@ -365,7 +369,7 @@ local function SkidFling(targetPlr)
 			math.random(-90, 90)
 		)
 
-		-- BodyVelocity 
+		-- BodyVelocity 补一发
 		local bv = Instance.new("BodyVelocity")
 		bv.Name = "ShibleFling"
 		bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
@@ -1593,7 +1597,7 @@ backBtn.MouseButton1Click:Connect(function()
 	task.delay(0.3, function() pageFunction.Visible = false end)
 end)
 
--- ====== 入场动画 =====
+-- ====== 入场动画（✅ 保底方案：先显示再弹动）=====
 root.Size = UDim2.new(0, C.Width, 0, C.Height)
 root.BackgroundTransparency = 0.18
 root.Visible = true
@@ -1604,4 +1608,4 @@ pcall(function()
 end)
 makeTween(blur, {Size = C.Blur}, 0.5)
 
-print("[shible] UI 加载完成 ")
+print("[shible] UI 加载完成 ✅")
