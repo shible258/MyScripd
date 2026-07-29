@@ -13,9 +13,9 @@ local C = {
 	Spring = Enum.EasingStyle.Elastic,
 	Duration = 0.55,
 	DragSmoothness = 0.25,
-	NavHeight = 44,        -- 导航栏高度
-	FuncPanelGap = 0,      -- 与导航栏间距（0 = 完全贴住）
-	BackBtnHeight = 40,    -- 返回按钮区域高度
+	NavHeight = 44,
+	FuncPanelGap = 0,
+	BackBtnHeight = 40,
 }
 
 local Theme = {
@@ -155,12 +155,11 @@ pageMain.Name = "Page_Main"
 pageMain.Size = UDim2.new(1, 0, 1, 0)
 pageMain.BackgroundTransparency = 1
 
--- 自适应容器（自动填满可用空间，按钮除外）
-local introContainer = Instance.new("Frame", pageMain)
+local introContainer = Instance.new("Frame", introContainer)
 introContainer.Name = "IntroContainer"
 introContainer.BackgroundTransparency = 1
 introContainer.Position = UDim2.new(0, 16, 0, 8)
-introContainer.Size = UDim2.new(1, -32, 1, -96)  -- 底部留 96px 给按钮
+introContainer.Size = UDim2.new(1, -32, 1, -96)
 introContainer.ClipsDescendants = false
 
 local subtitle = Instance.new("TextLabel", introContainer)
@@ -173,25 +172,18 @@ subtitle.Position = UDim2.new(0, 0, 0, 0)
 subtitle.Size = UDim2.new(1, 0, 1, 0)
 subtitle.TextYAlignment = Enum.TextYAlignment.Top
 subtitle.TextWrapped = true
-subtitle.AutomaticSize = Enum.AutomaticSize.Y  -- ✅ 自适应高度
+subtitle.AutomaticSize = Enum.AutomaticSize.Y
 
--- 监听容器尺寸变化，自动调整字号
 local function fitTextToContainer()
 	local containerHeight = introContainer.AbsoluteSize.Y
 	local containerWidth = introContainer.AbsoluteSize.X
-	-- 根据容器高度动态计算字号
-	local textLen = #subtitle.Text
 	local lineHeight = math.max(16, containerHeight / 4)
 	local fontSize = math.clamp(math.floor(lineHeight * 0.55), 12, 22)
 	subtitle.TextSize = fontSize
-	-- 根据宽度自动换行
 	subtitle.TextWrapped = true
 end
 
--- 初始适配
 task.defer(fitTextToContainer)
-
--- 窗口尺寸变化时重新适配
 pageMain:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitTextToContainer)
 introContainer:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitTextToContainer)
 
@@ -227,15 +219,14 @@ pageFunction.BackgroundTransparency = 1
 pageFunction.Visible = false
 pageFunction.Position = UDim2.new(1, 0, 0, 0)
 
--- ====== 计算面板偏移量（贴住导航栏底部）======
-local panelY = C.NavHeight + C.FuncPanelGap  -- 紧贴导航栏
-local panelBottomReserved = C.BackBtnHeight   -- 底部留返回按钮空间
+local panelY = C.NavHeight + C.FuncPanelGap
+local panelBottomReserved = C.BackBtnHeight
 
--- ====== 左侧功能列表（✅ 紧贴顶部）======
+-- ====== 左侧功能列表 ======
 local funcList = Instance.new("ScrollingFrame", pageFunction)
 funcList.Name = "FuncList"
 funcList.Size = UDim2.new(0.25, -6, 1, -panelBottomReserved - 8)
-funcList.Position = UDim2.new(0, 6, 0, 0)  -- Y=0，直接贴着 pageFunction 顶部
+funcList.Position = UDim2.new(0, 6, 0, 0)
 funcList.BackgroundColor3 = Theme.Glass
 funcList.BackgroundTransparency = 0.35
 funcList.BorderSizePixel = 0
@@ -254,11 +245,11 @@ listPadding.PaddingBottom = UDim.new(0, 6)
 listPadding.PaddingLeft = UDim.new(0, 6)
 listPadding.PaddingRight = UDim.new(0, 6)
 
--- ====== 右侧内容容器（✅ 紧贴顶部）======
+-- ====== 右侧内容容器 ======
 local funcContent = Instance.new("Frame", pageFunction)
 funcContent.Name = "FuncContent"
 funcContent.Size = UDim2.new(0.75, -12, 1, -panelBottomReserved - 8)
-funcContent.Position = UDim2.new(0.25, 6, 0, 0)  -- Y=0，直接贴着 pageFunction 顶部
+funcContent.Position = UDim2.new(0.25, 6, 0, 0)
 funcContent.BackgroundColor3 = Theme.Glass
 funcContent.BackgroundTransparency = 0.25
 funcContent.BorderSizePixel = 0
@@ -276,14 +267,631 @@ local function createContentPage(name)
 	return page
 end
 
+-- ✅ 关键修改：Aim 改为 ScrollingFrame，其他不变
 local pages = {
-	Aim = createContentPage("Aim"),
+	Aim = nil,
 	Speed = createContentPage("Speed"),
-	God = createContentPage("God"),
 	Resource = createContentPage("Resource"),
 }
 
--- ====== 左侧列表项 ======
+do
+	local scroll = Instance.new("ScrollingFrame")
+	scroll.Name = "Aim_Page"
+	scroll.Size = UDim2.new(1, 0, 1, 0)
+	scroll.BackgroundTransparency = 1
+	scroll.BorderSizePixel = 0
+	scroll.ScrollBarThickness = 5
+	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+	scroll.Parent = funcContent
+
+	local pad = Instance.new("UIPadding", scroll)
+	pad.PaddingTop = UDim.new(0, 10)
+	pad.PaddingBottom = UDim.new(0, 20)
+	pad.PaddingLeft = UDim.new(0, 12)
+	pad.PaddingRight = UDim.new(0, 12)
+
+	pages.Aim = scroll
+end
+
+-- ====== 功能状态存储 ======
+local FuncState = {
+	AimEnabled = false,
+	SpeedEnabled = false,
+	SpeedValue = 16,
+	HealthBarEnabled = false,
+	ShowFovCircle = true,
+}
+
+-- ====== 工具：创建 iOS 风格开关按钮 ======
+local function createToggle(parent, yPos, labelText, getState, onToggle)
+	local row = Instance.new("Frame", parent)
+	row.Size = UDim2.new(1, -24, 0, 36)
+	row.Position = UDim2.new(0, 12, 0, yPos)
+	row.BackgroundTransparency = 1
+
+	local lbl = Instance.new("TextLabel", row)
+	lbl.Text = labelText
+	lbl.Font = Enum.Font.Gotham
+	lbl.TextSize = 13
+	lbl.TextColor3 = Theme.TextPrimary
+	lbl.BackgroundTransparency = 1
+	lbl.Size = UDim2.new(1, -70, 1, 0)
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+
+	local track = Instance.new("Frame", row)
+	track.Size = UDim2.new(0, 50, 0, 28)
+	track.Position = UDim2.new(1, -50, 0, 4)
+	track.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+	track.BorderSizePixel = 0
+	corner(track, 14)
+
+	local thumb = Instance.new("Frame", track)
+	thumb.Size = UDim2.new(0, 22, 0, 22)
+	thumb.Position = UDim2.new(0, 3, 0, 3)
+	thumb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	thumb.BorderSizePixel = 0
+	corner(thumb, 11)
+
+	local on = getState()
+	if on then
+		track.BackgroundColor3 = Theme.Accent
+		thumb.Position = UDim2.new(1, -25, 0, 3)
+	end
+
+	local function setState(val)
+		on = val
+		if on then
+			tween(track, {BackgroundColor3 = Theme.Accent}, 0.2):Play()
+			tween(thumb, {Position = UDim2.new(1, -25, 0, 3)}, 0.2):Play()
+		else
+			tween(track, {BackgroundColor3 = Color3.fromRGB(60, 60, 65)}, 0.2):Play()
+			tween(thumb, {Position = UDim2.new(0, 3, 0, 3)}, 0.2):Play()
+		end
+		onToggle(val)
+	end
+
+	track.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			setState(not on)
+		end
+	end)
+
+	return {setState = setState, getState = function() return on end}
+end
+
+-- ====== 工具：创建滑块 ======
+local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, onChanged)
+	local row = Instance.new("Frame", parent)
+	row.Size = UDim2.new(1, -24, 0, 54)
+	row.Position = UDim2.new(0, 12, 0, yPos)
+	row.BackgroundTransparency = 1
+
+	local lbl = Instance.new("TextLabel", row)
+	lbl.Text = labelText
+	lbl.Font = Enum.Font.GothamSemibold
+	lbl.TextSize = 13
+	lbl.TextColor3 = Theme.TextPrimary
+	lbl.BackgroundTransparency = 1
+	lbl.Position = UDim2.new(0, 0, 0, 0)
+	lbl.Size = UDim2.new(0.45, 0, 0, 18)
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+
+	local inputBox = Instance.new("TextBox", row)
+	inputBox.Text = tostring(initial)
+	inputBox.Font = Enum.Font.GothamBold
+	inputBox.TextSize = 12
+	inputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+	inputBox.PlaceholderText = "输入"
+	inputBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+	inputBox.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
+	inputBox.BackgroundTransparency = 0.2
+	inputBox.Position = UDim2.new(1, -56, 0, -1)
+	inputBox.Size = UDim2.new(0, 56, 0, 22)
+	inputBox.TextXAlignment = Enum.TextXAlignment.Center
+	inputBox.ClearTextOnFocus = true
+	inputBox.BorderSizePixel = 0
+	inputBox.ZIndex = 5
+	corner(inputBox, 5)
+
+	local track = Instance.new("TextButton", row)
+	track.Size = UDim2.new(1, 0, 0, 12)
+	track.Position = UDim2.new(0, 0, 0, 30)
+	track.BackgroundColor3 = Color3.fromRGB(65, 65, 70)
+	track.BorderSizePixel = 0
+	track.Text = ""
+	track.AutoButtonColor = false
+	corner(track, 6)
+	track.ZIndex = 2
+	track.ClipsDescendants = true
+
+	local fill = Instance.new("Frame", track)
+	fill.Size = UDim2.new(0, 0, 1, 0)
+	fill.BackgroundColor3 = Theme.Accent
+	fill.BorderSizePixel = 0
+	fill.ZIndex = 3
+	corner(fill, 6)
+
+	local thumb = Instance.new("Frame", track)
+	thumb.Size = UDim2.new(0, 18, 0, 18)
+	thumb.Position = UDim2.new(0, -9, 0, -3)
+	thumb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	thumb.BorderSizePixel = 0
+	thumb.ZIndex = 4
+	corner(thumb, 9)
+
+	local thumbShadow = Instance.new("Frame", track)
+	thumbShadow.Size = UDim2.new(0, 22, 0, 22)
+	thumbShadow.Position = UDim2.new(0, -11, 0, -5)
+	thumbShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	thumbShadow.BackgroundTransparency = 0.7
+	thumbShadow.BorderSizePixel = 0
+	thumbShadow.ZIndex = 3
+	corner(thumbShadow, 11)
+
+	local dragging = false
+
+	local function setVal(val, fromInput)
+		val = math.floor(math.clamp(val, minVal, maxVal))
+		local ratio = (val - minVal) / (maxVal - minVal)
+		if inputBox.Text ~= tostring(val) then
+			inputBox.Text = tostring(val)
+		end
+		thumb.Position = UDim2.new(ratio, -9, 0, -3)
+		fill.Size = UDim2.new(ratio, 0, 1, 0)
+		onChanged(val)
+	end
+
+	local function updateFromMouse()
+		local mouse = UserInputService:GetMouseLocation()
+		local trackAbsPos = track.AbsolutePosition
+		local trackAbsSize = track.AbsoluteSize
+		local ratio = math.clamp((mouse.X - trackAbsPos.X) / trackAbsSize.X, 0, 1)
+		local val = math.floor(minVal + ratio * (maxVal - minVal))
+		setVal(val, false)
+	end
+
+	track.MouseButton1Down:Connect(function()
+		dragging = true
+		updateFromMouse()
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			updateFromMouse()
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+
+	local function applyInput()
+		local txt = inputBox.Text:gsub("[^0-9%-]", "")
+		if txt == "" or txt == "-" then txt = tostring(minVal) end
+		local val = tonumber(txt) or minVal
+		setVal(val, true)
+	end
+
+	inputBox.FocusLost:Connect(function()
+		applyInput()
+	end)
+
+	inputBox.Focused:Connect(function()
+		task.defer(function()
+			inputBox.CursorPosition = 0
+			inputBox.SelectionStart = 0
+		end)
+	end)
+
+	setVal(initial, true)
+
+	return {update = function(v) setVal(v, true) end}
+end
+
+-- ====== 获取本地玩家 ======
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+local function getChar()
+	return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+end
+
+local function getHumanoid()
+	local c = getChar()
+	return c and c:FindFirstChildOfClass("Humanoid")
+end
+
+local function getRootPart()
+	local c = getChar()
+	return c and c:FindFirstChild("HumanoidRootPart")
+end
+
+-- ====== 自动瞄准（静默 · 可滚动面板）=====
+do
+	local p = pages.Aim
+	local y = 10
+
+	local titleLbl = Instance.new("TextLabel", p)
+	titleLbl.Text = "自动瞄准"
+	titleLbl.Font = Enum.Font.GothamSemibold
+	titleLbl.TextSize = 14
+	titleLbl.TextColor3 = Theme.TextPrimary
+	titleLbl.BackgroundTransparency = 1
+	titleLbl.Position = UDim2.new(0, 0, 0, y)
+	titleLbl.Size = UDim2.new(1, 0, 0, 20)
+	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+	y = y + 30
+	local aimToggle = createToggle(p, y, "启用静默自瞄", function() return FuncState.AimEnabled end, function(val)
+		FuncState.AimEnabled = val
+	end)
+
+	y = y + 46
+	local fovSlider = createSlider(p, y, "瞄准 FOV", 5, 120, 45, function(val)
+		FuncState.AimFOV = val
+	end)
+	FuncState.AimFOV = 45
+
+	y = y + 60
+	local smoothSlider = createSlider(p, y, "平滑度", 1, 50, 20, function(val)
+		FuncState.AimSmooth = val
+	end)
+	FuncState.AimSmooth = 20
+
+	y = y + 60
+	local predictSlider = createSlider(p, y, "预判补偿", 0, 100, 40, function(val)
+		FuncState.AimPredict = val / 100
+	end)
+	FuncState.AimPredict = 0.4
+
+	y = y + 60
+	local fovCircleToggle = createToggle(p, y, "显示 FOV 圈", function() return FuncState.ShowFovCircle end, function(val)
+		FuncState.ShowFovCircle = val
+	end)
+
+	-- FOV 圈
+	local function getFovRadiusPixels(cam)
+		local fovDeg = FuncState.AimFOV or 45
+		local halfHeight = cam.ViewportSize.Y * 0.5
+		return math.tan(math.rad(fovDeg) * 0.5) * halfHeight
+	end
+
+	local fovGui = Instance.new("ScreenGui")
+	fovGui.Name = "FOV_Circle"
+	fovGui.Parent = PlayerGui
+	fovGui.ResetOnSpawn = false
+	fovGui.IgnoreGuiInset = true
+	fovGui.DisplayOrder = 999998
+
+	local fovFrame = Instance.new("Frame", fovGui)
+	fovFrame.BackgroundTransparency = 1
+	fovFrame.Size = UDim2.new(1, 0, 1, 0)
+
+	local fovDots = {}
+	local numDots = 128
+	local dotSize = 2
+	for i = 1, numDots do
+		local dot = Instance.new("Frame", fovFrame)
+		dot.Size = UDim2.new(0, dotSize, 0, dotSize)
+		dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		dot.BackgroundTransparency = 0
+		dot.BorderSizePixel = 0
+		local c = Instance.new("UICorner", dot)
+		c.CornerRadius = UDim.new(1, 0)
+		fovDots[i] = dot
+	end
+
+	local function updateFovCircle()
+		local cam = workspace.CurrentCamera
+		local cx = cam.ViewportSize.X * 0.5
+		local cy = cam.ViewportSize.Y * 0.5
+		local r = getFovRadiusPixels(cam)
+		local visible = FuncState.AimEnabled and FuncState.ShowFovCircle
+		for i, dot in ipairs(fovDots) do
+			dot.Visible = visible
+			if visible then
+				local angle = (i / numDots) * math.pi * 2
+				dot.Position = UDim2.new(0, cx + math.cos(angle) * r - dotSize * 0.5, 0, cy + math.sin(angle) * r - dotSize * 0.5)
+			end
+		end
+	end
+
+	RunService.RenderStepped:Connect(updateFovCircle)
+
+	local function isInFov(cam, screenPos)
+		local cx = cam.ViewportSize.X * 0.5
+		local cy = cam.ViewportSize.Y * 0.5
+		local dx = screenPos.X - cx
+		local dy = screenPos.Y - cy
+		local dist = math.sqrt(dx*dx + dy*dy)
+		return dist <= getFovRadiusPixels(cam)
+	end
+
+	local function getClosestEnemy()
+		local cam = workspace.CurrentCamera
+		local center = Vector2.new(cam.ViewportSize.X * 0.5, cam.ViewportSize.Y * 0.5)
+		local closest, closestDist = nil, math.huge
+
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LocalPlayer then
+				local char = plr.Character
+				if char then
+					local head = char:FindFirstChild("Head")
+					local hrp = char:FindFirstChild("HumanoidRootPart")
+					local hum = char:FindFirstChild("Humanoid")
+					if head and hrp and hum and hum.Health > 0 then
+						local screenPos, onScreen = cam:WorldToScreenPoint(head.Position)
+						if onScreen and isInFov(cam, Vector2.new(screenPos.X, screenPos.Y)) then
+							local dx = screenPos.X - center.X
+							local dy = screenPos.Y - center.Y
+							local dist = dx*dx + dy*dy
+							if dist < closestDist then
+								closestDist = dist
+								closest = {head = head, hrp = hrp}
+							end
+						end
+					end
+				end
+			end
+		end
+		return closest
+	end
+
+	local function silentAimSmooth(targetPos, smoothAmount)
+		local cam = workspace.CurrentCamera
+		local camPos = cam.CFrame.Position
+		local targetDir = (targetPos - camPos).Unit
+		local currentDir = cam.CFrame.LookVector
+		local dot = math.clamp(currentDir:Dot(targetDir), -1, 1)
+		local angle = math.acos(dot)
+
+		smoothAmount = math.clamp(smoothAmount, 0.01, 1)
+		if angle < 0.001 then
+			cam.CFrame = CFrame.new(camPos, camPos + targetDir)
+			return
+		end
+
+		local targetCFrame = CFrame.new(camPos, camPos + targetDir)
+		cam.CFrame = cam.CFrame:Lerp(targetCFrame, smoothAmount)
+	end
+
+	RunService.RenderStepped:Connect(function(dt)
+		if not FuncState.AimEnabled then return end
+		local target = getClosestEnemy()
+		if not target then return end
+
+		local head = target.head
+		local hrp = target.hrp
+		if not head or not hrp then return end
+
+		local predict = FuncState.AimPredict or 0.4
+		local aimPos = head.Position + Vector3.new(0, -0.2, 0)
+		if hrp.Velocity.Magnitude > 0.5 then
+			aimPos = aimPos + hrp.Velocity * predict * dt
+		end
+
+		local smoothVal = FuncState.AimSmooth or 20
+		local t = 1 / (smoothVal * 0.6 + 1)
+		silentAimSmooth(aimPos, math.clamp(t, 0.03, 0.95))
+	end)
+end
+
+-- ====== 速度增强 ======
+do
+	local p = pages.Speed
+	local y = 10
+
+	local titleLbl = Instance.new("TextLabel", p)
+	titleLbl.Text = "速度增强"
+	titleLbl.Font = Enum.Font.GothamSemibold
+	titleLbl.TextSize = 14
+	titleLbl.TextColor3 = Theme.TextPrimary
+	titleLbl.BackgroundTransparency = 1
+	titleLbl.Position = UDim2.new(0, 12, 0, y)
+	titleLbl.Size = UDim2.new(1, -24, 0, 20)
+	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+	y = y + 30
+	local speedToggle = createToggle(p, y, "启用加速", function() return FuncState.SpeedEnabled end, function(val)
+		FuncState.SpeedEnabled = val
+		local h = getHumanoid()
+		if h then
+			h.WalkSpeed = val and (FuncState.SpeedValue or 16) or 16
+		end
+	end)
+
+	y = y + 46
+	local speedSlider = createSlider(p, y, "移动速度 (16-700)", 16, 700, 50, function(val)
+		FuncState.SpeedValue = val
+		if FuncState.SpeedEnabled then
+			local h = getHumanoid()
+			if h then h.WalkSpeed = val end
+		end
+	end)
+
+	LocalPlayer.CharacterAdded:Connect(function(char)
+		char:WaitForChild("Humanoid")
+		if FuncState.SpeedEnabled then
+			local h = char:FindFirstChild("Humanoid")
+			if h then h.WalkSpeed = FuncState.SpeedValue or 50 end
+		end
+	end)
+end
+
+-- ====== 玩家透视 ======
+do
+	local p = pages.Resource
+	local y = 10
+
+	local titleLbl = Instance.new("TextLabel", p)
+	titleLbl.Text = "玩家透视"
+	titleLbl.Font = Enum.Font.GothamSemibold
+	titleLbl.TextSize = 14
+	titleLbl.TextColor3 = Theme.TextPrimary
+	titleLbl.BackgroundTransparency = 1
+	titleLbl.Position = UDim2.new(0, 12, 0, y)
+	titleLbl.Size = UDim2.new(1, -24, 0, 20)
+	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+	y = y + 30
+	local espToggle = createToggle(p, y, "全身透视", function() return FuncState.ESPEnabled end, function(val)
+		FuncState.ESPEnabled = val
+	end)
+
+	y = y + 46
+	local healthBarToggle = createToggle(p, y, "头顶血条", function() return FuncState.HealthBarEnabled end, function(val)
+		FuncState.HealthBarEnabled = val
+	end)
+
+	local function clearAll()
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LocalPlayer and plr.Character then
+				local hl = plr.Character:FindFirstChild("ESP_Highlight")
+				if hl then hl:Destroy() end
+				local head = plr.Character:FindFirstChild("Head")
+				if head then
+					local hb = head:FindFirstChild("ESP_HealthBar")
+					if hb then hb:Destroy() end
+				end
+			end
+		end
+	end
+
+	local function createHealthBar(plr, head)
+		local bb = Instance.new("BillboardGui")
+		bb.Name = "ESP_HealthBar"
+		bb.Size = UDim2.new(0, 70, 0, 14)
+		bb.StudsOffset = Vector3.new(0, 1.5, 0)
+		bb.Adornee = head
+		bb.AlwaysOnTop = true
+		bb.MaxDistance = 500
+		bb.Parent = head
+
+		local bg = Instance.new("Frame", bb)
+		bg.Size = UDim2.new(1, 0, 1, 0)
+		bg.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+		bg.BorderSizePixel = 0
+		local bgCorner = Instance.new("UICorner", bg)
+		bgCorner.CornerRadius = UDim.new(0, 4)
+
+		local fill = Instance.new("Frame", bb)
+		fill.Size = UDim2.new(1, 0, 1, 0)
+		fill.BackgroundColor3 = Color3.fromRGB(0, 255, 60)
+		fill.BorderSizePixel = 0
+		local fillCorner = Instance.new("UICorner", fill)
+		fillCorner.CornerRadius = UDim.new(0, 4)
+
+		local pctLabel = Instance.new("TextLabel", bb)
+		pctLabel.Size = UDim2.new(1, 0, 1, 0)
+		pctLabel.BackgroundTransparency = 1
+		pctLabel.Text = "100%"
+		pctLabel.Font = Enum.Font.GothamBold
+		pctLabel.TextSize = 9
+		pctLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+		pctLabel.TextStrokeTransparency = 0.4
+	end
+
+	local function updateHealthBars()
+		if not FuncState.HealthBarEnabled then return end
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LocalPlayer then
+				local char = plr.Character
+				if char then
+					local head = char:FindFirstChild("Head")
+					local hum = char:FindFirstChild("Humanoid")
+					if head and hum and hum.Health > 0 then
+						local bb = head:FindFirstChild("ESP_HealthBar")
+						if not bb then
+							pcall(function() createHealthBar(plr, head) end)
+							bb = head:FindFirstChild("ESP_HealthBar")
+						end
+						if bb then
+							local fill = bb:FindFirstChild("Fill")
+							local pctLabel = bb:FindFirstChild("PctLabel")
+							local ratio = math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1)
+							if fill then
+								fill.Size = UDim2.new(ratio, 0, 1, 0)
+								if ratio > 0.5 then
+									fill.BackgroundColor3 = Color3.fromRGB(0, 255, 60)
+								elseif ratio > 0.25 then
+									fill.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+								else
+									fill.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+								end
+							end
+							if pctLabel then
+								pctLabel.Text = math.floor(ratio * 100) .. "%"
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	local function createHighlightESP(plr, char)
+		local hl = char:FindFirstChild("ESP_Highlight")
+		if hl then hl:Destroy() end
+		hl = Instance.new("Highlight")
+		hl.Name = "ESP_Highlight"
+		hl.Adornee = char
+		hl.FillColor = Color3.fromRGB(255, 0, 0)
+		hl.FillTransparency = 0.5
+		hl.OutlineColor = Color3.fromRGB(255, 50, 50)
+		hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		hl.Parent = char
+	end
+
+	local function updateESP()
+		clearAll()
+		if not (FuncState.ESPEnabled or FuncState.HealthBarEnabled) then return end
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LocalPlayer then
+				local char = plr.Character
+				if char then
+					local head = char:FindFirstChild("Head")
+					local hum = char:FindFirstChild("Humanoid")
+					if head and hum and hum.Health > 0 then
+						if FuncState.ESPEnabled then
+							pcall(function() createHighlightESP(plr, char) end)
+						end
+						if FuncState.HealthBarEnabled then
+							pcall(function() createHealthBar(plr, head) end)
+						end
+					end
+				end
+			end
+		end
+	end
+
+	spawn(function()
+		while true do
+			if FuncState.HealthBarEnabled then
+				pcall(updateHealthBars)
+			end
+			wait(0.1)
+		end
+	end)
+
+	spawn(function()
+		while true do
+			updateESP()
+			wait(1)
+		end
+	end)
+
+	Players.PlayerAdded:Connect(function(plr)
+		plr.CharacterAdded:Connect(function()
+			task.wait(0.5)
+			updateESP()
+		end)
+	end)
+end
+
+-- ====== 初始化功能列表 ======
 local selectedItem = nil
 
 local function createFuncItem(name, key)
@@ -328,800 +936,11 @@ local function createFuncItem(name, key)
 		for _, p in pairs(pages) do p.Visible = false end
 		pages[key].Visible = true
 	end)
-
-	return item
 end
 
--- ====== 功能状态存储 ======
-local FuncState = {
-	AimEnabled = false,
-	SpeedValue = 16,
-	GodEnabled = false,
-	HealthBarEnabled = false,   -- 头顶血条默认关闭
-	ShowFovCircle = true,       -- FOV 圈默认显示
-}
-
--- ====== 工具：创建 iOS 风格开关按钮 ======
-local function createToggle(parent, yPos, labelText, getState, onToggle)
-	local row = Instance.new("Frame", parent)
-	row.Size = UDim2.new(1, -24, 0, 36)
-	row.Position = UDim2.new(0, 12, 0, yPos)
-	row.BackgroundTransparency = 1
-
-	local lbl = Instance.new("TextLabel", row)
-	lbl.Text = labelText
-	lbl.Font = Enum.Font.Gotham
-	lbl.TextSize = 13
-	lbl.TextColor3 = Theme.TextPrimary
-	lbl.BackgroundTransparency = 1
-	lbl.Position = UDim2.new(0, 0, 0, 0)
-	lbl.Size = UDim2.new(1, -70, 1, 0)
-	lbl.TextXAlignment = Enum.TextXAlignment.Left
-
-	local track = Instance.new("Frame", row)
-	track.Size = UDim2.new(0, 50, 0, 28)
-	track.Position = UDim2.new(1, -50, 0, 4)
-	track.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
-	track.BorderSizePixel = 0
-	corner(track, 14)
-
-	local thumb = Instance.new("Frame", track)
-	thumb.Size = UDim2.new(0, 22, 0, 22)
-	thumb.Position = UDim2.new(0, 3, 0, 3)
-	thumb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	thumb.BorderSizePixel = 0
-	corner(thumb, 11)
-
-	local on = getState()
-	if on then
-		track.BackgroundColor3 = Theme.Accent
-		thumb.Position = UDim2.new(1, -25, 0, 3)
-	end
-
-	local function setState(val)
-		on = val
-		if on then
-			tween(track, {BackgroundColor3 = Theme.Accent}, 0.2):Play()
-			tween(thumb, {Position = UDim2.new(1, -25, 0, 3)}, 0.2, Enum.EasingStyle.Quad):Play()
-		else
-			tween(track, {BackgroundColor3 = Color3.fromRGB(60, 60, 65)}, 0.2):Play()
-			tween(thumb, {Position = UDim2.new(0, 3, 0, 3)}, 0.2, Enum.EasingStyle.Quad):Play()
-		end
-		onToggle(val)
-	end
-
-	track.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			setState(not on)
-		end
-	end)
-
-	return {setState = setState, getState = function() return on end}
-end
-
--- ====== 工具：创建滑块（超丝滑 + 输入框直输）=====
-local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, onChanged)
-	local row = Instance.new("Frame", parent)
-	row.Size = UDim2.new(1, -24, 0, 54)
-	row.Position = UDim2.new(0, 12, 0, yPos)
-	row.BackgroundTransparency = 1
-
-	local lbl = Instance.new("TextLabel", row)
-	lbl.Text = labelText
-	lbl.Font = Enum.Font.GothamSemibold
-	lbl.TextSize = 13
-	lbl.TextColor3 = Theme.TextPrimary
-	lbl.BackgroundTransparency = 1
-	lbl.Position = UDim2.new(0, 0, 0, 0)
-	lbl.Size = UDim2.new(0.45, 0, 0, 18)
-	lbl.TextXAlignment = Enum.TextXAlignment.Left
-
-	-- 数值输入框（点击直接输数字，回车/失焦生效）
-	local inputBox = Instance.new("TextBox", row)
-	inputBox.Text = tostring(initial)
-	inputBox.Font = Enum.Font.GothamBold
-	inputBox.TextSize = 12
-	inputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-	inputBox.PlaceholderText = "输入"
-	inputBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
-	inputBox.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
-	inputBox.BackgroundTransparency = 0.2
-	inputBox.Position = UDim2.new(1, -56, 0, -1)
-	inputBox.Size = UDim2.new(0, 56, 0, 22)
-	inputBox.TextXAlignment = Enum.TextXAlignment.Center
-	inputBox.ClearTextOnFocus = true
-	inputBox.BorderSizePixel = 0
-	inputBox.ZIndex = 5
-	corner(inputBox, 5)
-
-	-- Track 热区（更粗更高，容易点到）
-	local track = Instance.new("TextButton", row)
-	track.Size = UDim2.new(1, 0, 0, 12)
-	track.Position = UDim2.new(0, 0, 0, 30)
-	track.BackgroundColor3 = Color3.fromRGB(65, 65, 70)
-	track.BorderSizePixel = 0
-	track.Text = ""
-	track.AutoButtonColor = false
-	corner(track, 6)
-	track.ZIndex = 2
-
-	-- 填充条
-	local fill = Instance.new("Frame", track)
-	fill.Size = UDim2.new(0, 0, 1, 0)
-	fill.BackgroundColor3 = Theme.Accent
-	fill.BorderSizePixel = 0
-	fill.ZIndex = 3
-	corner(fill, 6)
-
-	-- Thumb（大圆点，好抓）
-	local thumb = Instance.new("Frame", track)
-	thumb.Size = UDim2.new(0, 18, 0, 18)
-	thumb.Position = UDim2.new(0, -9, 0, -3)
-	thumb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	thumb.BorderSizePixel = 0
-	thumb.ZIndex = 4
-	corner(thumb, 9)
-
-	-- 阴影
-	local thumbShadow = Instance.new("Frame", track)
-	thumbShadow.Size = UDim2.new(0, 22, 0, 22)
-	thumbShadow.Position = UDim2.new(0, -11, 0, -5)
-	thumbShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-	thumbShadow.BackgroundTransparency = 0.7
-	thumbShadow.BorderSizePixel = 0
-	thumbShadow.ZIndex = 3
-	corner(thumbShadow, 11)
-
-	local dragging = false
-
-	local function setVal(val, fromInput)
-		val = math.floor(math.clamp(val, minVal, maxVal))
-		local ratio = (val - minVal) / (maxVal - minVal)
-		if inputBox.Text ~= tostring(val) then
-			inputBox.Text = tostring(val)
-		end
-		thumb.Position = UDim2.new(ratio, -9, 0, -3)
-		fill.Size = UDim2.new(ratio, 0, 1, 0)
-		onChanged(val)
-	end
-
-	local function updateFromMouse()
-		local mouse = UserInputService:GetMouseLocation()
-		local trackAbsPos = track.AbsolutePosition
-		local trackAbsSize = track.AbsoluteSize
-		local ratio = math.clamp((mouse.X - trackAbsPos.X) / trackAbsSize.X, 0, 1)
-		local val = math.floor(minVal + ratio * (maxVal - minVal))
-		setVal(val, false)
-	end
-
-	-- Track 点击即跳
-	track.MouseButton1Down:Connect(function()
-		dragging = true
-		updateFromMouse()
-	end)
-
-	track.MouseButton1Up:Connect(function()
-		dragging = false
-	end)
-
-	-- 全局鼠标移动追踪（即使移出 track 也跟）
-	UserInputService.InputChanged:Connect(function(input)
-		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			updateFromMouse()
-		end
-	end)
-
-	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = false
-		end
-	end)
-
-	-- 输入框
-	local function applyInput()
-		local txt = inputBox.Text:gsub("[^0-9%-]", "")
-		if txt == "" or txt == "-" then txt = tostring(minVal) end
-		local val = tonumber(txt) or minVal
-		setVal(val, true)
-	end
-
-	inputBox.FocusLost:Connect(function(enterPressed)
-		applyInput()
-	end)
-
-	inputBox.Focused:Connect(function()
-		task.defer(function()
-			inputBox.CursorPosition = 0
-			inputBox.SelectionStart = 0
-		end)
-	end)
-
-	-- 初始化
-	setVal(initial, true)
-
-	return {update = function(v) setVal(v, true) end}
-end
-
--- ====== 获取本地玩家角色 ======
-local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
-
-local function getChar()
-	return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-end
-
-local function getHumanoid()
-	local c = getChar()
-	return c and c:FindFirstChildOfClass("Humanoid")
-end
-
-local function getRootPart()
-	local c = getChar()
-	return c and c:FindFirstChild("HumanoidRootPart")
-end
-
--- ====== 自动瞄准（完全静默） ======
-do
-	local p = pages.Aim
-	local y = 10
-
-	local titleLbl = Instance.new("TextLabel", p)
-	titleLbl.Text = "自动瞄准"
-	titleLbl.Font = Enum.Font.GothamSemibold
-	titleLbl.TextSize = 14
-	titleLbl.TextColor3 = Theme.TextPrimary
-	titleLbl.BackgroundTransparency = 1
-	titleLbl.Position = UDim2.new(0, 12, 0, y)
-	titleLbl.Size = UDim2.new(1, -24, 0, 20)
-	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
-
-	y = y + 30
-	local aimToggle = createToggle(p, y, "启用静默自瞄", function() return FuncState.AimEnabled end, function(val)
-		FuncState.AimEnabled = val
-	end)
-
-	y = y + 46
-	local fovSlider = createSlider(p, y, "瞄准 FOV", 5, 120, 45, function(val)
-		FuncState.AimFOV = val
-	end)
-	FuncState.AimFOV = 45
-
-	y = y + 60
-	local smoothSlider = createSlider(p, y, "平滑度", 1, 50, 20, function(val)
-		FuncState.AimSmooth = val
-	end)
-	FuncState.AimSmooth = 20
-
-	y = y + 60
-	local predictSlider = createSlider(p, y, "预判补偿", 0, 100, 40, function(val)
-		FuncState.AimPredict = val / 100
-	end)
-	FuncState.AimPredict = 0.4
-
-	y = y + 60
-	local fovCircleToggle = createToggle(p, y, "显示 FOV 圈", function() return FuncState.ShowFovCircle end, function(val)
-		FuncState.ShowFovCircle = val
-	end)
-
-	-- =====================================================
-	-- 完全静默自瞄
-	-- - 不移动鼠标
-	-- - 不移动摄像机（观察者看不到镜头抖动/旋转）
-	-- - 不画 FOV 圈（完全隐形）
-	-- - FOV 角度计算与标准自瞄一致（atan2 屏幕空间）
-	-- - 通过 Camera:WorldToScreenPoint 做目标选取
-	--   只在本地渲染线程悄悄调整 CFrame
-	-- =====================================================
-
-	-- FOV 圈半径（像素）= tan(FOV_deg/2) * (屏幕高度/2)
-	-- 这是标准自瞄 FOV 圈宽度公式，与大多数付费自瞄一致
-	local function getFovRadiusPixels(cam)
-		local fovDeg = FuncState.AimFOV or 45
-		local halfHeight = cam.ViewportSize.Y * 0.5
-		local radius = math.tan(math.rad(fovDeg) * 0.5) * halfHeight
-		return radius
-	end
-
-	-- ====== 可见 FOV 圈（白色圆环）======
-	local fovGui = Instance.new("ScreenGui")
-	fovGui.Name = "FOV_Circle"
-	fovGui.Parent = PlayerGui
-	fovGui.ResetOnSpawn = false
-	fovGui.IgnoreGuiInset = true
-	fovGui.DisplayOrder = 999998
-
-	local fovFrame = Instance.new("Frame", fovGui)
-	fovFrame.BackgroundTransparency = 1
-	fovFrame.Size = UDim2.new(1, 0, 1, 0)
-	fovFrame.Position = UDim2.new(0, 0, 0, 0)
-	fovFrame.Active = false
-
-	-- 用 128 个纯白小圆点拼成连续圆环
-	local fovDots = {}
-	local numDots = 128
-	local dotSize = 2
-	for i = 1, numDots do
-		local dot = Instance.new("Frame", fovFrame)
-		dot.Size = UDim2.new(0, dotSize, 0, dotSize)
-		dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)  -- ⚪ 纯白
-		dot.BackgroundTransparency = 0
-		dot.BorderSizePixel = 0
-		dot.ZIndex = 12
-		local c = Instance.new("UICorner", dot)
-		c.CornerRadius = UDim.new(1, 0)
-		fovDots[i] = dot
-	end
-
-	local function updateFovCircle()
-		local cam = workspace.CurrentCamera
-		local cx = cam.ViewportSize.X * 0.5
-		local cy = cam.ViewportSize.Y * 0.5
-		local r = getFovRadiusPixels(cam)
-		local visible = FuncState.AimEnabled and FuncState.ShowFovCircle
-		for i, dot in ipairs(fovDots) do
-			dot.Visible = visible
-			if visible then
-				local angle = (i / numDots) * math.pi * 2
-				local x = cx + math.cos(angle) * (r + 1) - dotSize * 0.5
-				local y = cy + math.sin(angle) * (r + 1) - dotSize * 0.5
-				dot.Position = UDim2.new(0, x, 0, y)
-			end
-		end
-	end
-
-	RunService.RenderStepped:Connect(function()
-		updateFovCircle()
-	end)
-
-	-- 屏幕空间 FOV 检测（标准做法）
-	local function isInFov(cam, screenPos)
-		local cx = cam.ViewportSize.X * 0.5
-		local cy = cam.ViewportSize.Y * 0.5
-		local dx = screenPos.X - cx
-		local dy = screenPos.Y - cy
-		local dist = math.sqrt(dx*dx + dy*dy)
-		local radius = getFovRadiusPixels(cam)
-		return dist <= radius
-	end
-
-	local function getClosestEnemy()
-		local cam = workspace.CurrentCamera
-		local center = Vector2.new(cam.ViewportSize.X * 0.5, cam.ViewportSize.Y * 0.5)
-		local closest, closestDist = nil, math.huge
-
-		for _, plr in ipairs(Players:GetPlayers()) do
-			if plr ~= LocalPlayer then
-				local char = plr.Character
-				if char then
-					local head = char:FindFirstChild("Head")
-					local hrp = char:FindFirstChild("HumanoidRootPart")
-					local hum = char:FindFirstChild("Humanoid")
-					if head and hrp and hum and hum.Health > 0 then
-						-- 屏幕空间投影
-						local screenPos, onScreen = cam:WorldToScreenPoint(head.Position)
-						if onScreen then
-							-- FOV 圈检测（标准像素半径）
-							local sp = Vector2.new(screenPos.X, screenPos.Y)
-							if isInFov(cam, sp) then
-								-- 计算离屏幕中心的距离
-								local dx = screenPos.X - center.X
-								local dy = screenPos.Y - center.Y
-								local dist = dx*dx + dy*dy
-								if dist < closestDist then
-									closestDist = dist
-									closest = {head = head, hrp = hrp}
-								end
-							end
-						end
-					end
-				end
-			end
-		end
-		return closest
-	end
-
-	-- 静默瞄准：直接操作 Camera CFrame
-	-- 不调用 mouse movement，不触发 input events
-	-- 外部观察者看到的画面完全正常（其实镜头已经被悄悄对齐了）
-	local function silentAim(targetPos)
-		local cam = workspace.CurrentCamera
-		local camPos = cam.CFrame.Position
-
-		-- 计算从相机到目标的朝向
-		local dir = (targetPos - camPos).Unit
-
-		-- 直接设置摄像机朝向（静默，不通过 Input）
-		cam.CFrame = CFrame.new(camPos, camPos + dir)
-	end
-
-	-- 带平滑的静默瞄准
-	local function silentAimSmooth(targetPos, smoothAmount)
-		local cam = workspace.CurrentCamera
-		local camPos = cam.CFrame.Position
-
-		-- 目标方向
-		local targetDir = (targetPos - camPos).Unit
-
-		-- 当前方向
-		local currentDir = cam.CFrame.LookVector
-
-		-- Slerp 插值（球面线性插值，最自然的旋转过渡）
-		local dot = math.clamp(currentDir:Dot(targetDir), -1, 1)
-		local angle = math.acos(dot)
-
-		smoothAmount = math.clamp(smoothAmount, 0.01, 1)
-
-		if angle < 0.001 then
-			cam.CFrame = CFrame.new(camPos, camPos + targetDir)
-			return
-		end
-
-		-- 用 CFrame Lerp 做平滑旋转
-		local targetCFrame = CFrame.new(camPos, camPos + targetDir)
-		local newCFrame = cam.CFrame:Lerp(targetCFrame, smoothAmount)
-		cam.CFrame = newCFrame
-	end
-
-	RunService.RenderStepped:Connect(function(dt)
-		if not FuncState.AimEnabled then return end
-
-		local target = getClosestEnemy()
-		if not target then return end
-
-		local head = target.head
-		local hrp = target.hrp
-		if not head or not hrp then return end
-
-		-- 预判：沿目标速度方向偏移
-		local predict = FuncState.AimPredict or 0.4
-		local aimPos = head.Position
-		local vel = hrp.Velocity
-		if vel.Magnitude > 0.5 then
-			aimPos = aimPos + vel * predict * dt
-		end
-
-		-- 微调到头部中心偏下（打脖子更稳）
-		aimPos = aimPos + Vector3.new(0, -0.2, 0)
-
-		-- 平滑系数：越大越硬锁，越小越柔和
-		-- smooth=1 → 瞬锁，smooth=50 → 很慢
-		local smoothVal = FuncState.AimSmooth or 20
-		local t = 1 / (smoothVal * 0.6 + 1)
-		t = math.clamp(t, 0.03, 0.95)
-
-		-- 完全静默：直接改 CFrame，不碰鼠标
-		silentAimSmooth(aimPos, t)
-	end)
-end
-
--- ====== 速度增强 ======
-do
-	local p = pages.Speed
-	local y = 10
-
-	local titleLbl = Instance.new("TextLabel", p)
-	titleLbl.Text = "速度增强"
-	titleLbl.Font = Enum.Font.GothamSemibold
-	titleLbl.TextSize = 14
-	titleLbl.TextColor3 = Theme.TextPrimary
-	titleLbl.BackgroundTransparency = 1
-	titleLbl.Position = UDim2.new(0, 12, 0, y)
-	titleLbl.Size = UDim2.new(1, -24, 0, 20)
-	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
-
-	y = y + 30
-	local speedToggle = createToggle(p, y, "启用加速", function() return FuncState.SpeedEnabled end, function(val)
-		FuncState.SpeedEnabled = val
-		local h = getHumanoid()
-		if h then
-			h.WalkSpeed = val and (FuncState.SpeedValue or 16) or 16
-		end
-	end)
-
-	y = y + 46
-	local speedSlider = createSlider(p, y, "移动速度 (16-700)", 16, 700, 50, function(val)
-		FuncState.SpeedValue = val
-		if FuncState.SpeedEnabled then
-			local h = getHumanoid()
-			if h then h.WalkSpeed = val end
-		end
-	end)
-
-	-- 监听角色重生，自动恢复速度
-	LocalPlayer.CharacterAdded:Connect(function(char)
-		char:WaitForChild("Humanoid")
-		if FuncState.SpeedEnabled then
-			local h = char:FindFirstChild("Humanoid")
-			if h then h.WalkSpeed = FuncState.SpeedValue or 50 end
-		end
-		if FuncState.GodEnabled then
-			local h = char:FindFirstChild("Humanoid")
-			if h then h.Health = h.MaxHealth end
-		end
-	end)
-end
-
--- ====== 无敌模式 ======
-do
-	local p = pages.God
-	local y = 10
-
-	local titleLbl = Instance.new("TextLabel", p)
-	titleLbl.Text = "无敌模式"
-	titleLbl.Font = Enum.Font.GothamSemibold
-	titleLbl.TextSize = 14
-	titleLbl.TextColor3 = Theme.TextPrimary
-	titleLbl.BackgroundTransparency = 1
-	titleLbl.Position = UDim2.new(0, 12, 0, y)
-	titleLbl.Size = UDim2.new(1, -24, 0, 20)
-	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
-
-	y = y + 30
-	local godToggle = createToggle(p, y, "启用无敌", function() return FuncState.GodEnabled end, function(val)
-		FuncState.GodEnabled = val
-		if val then
-			local h = getHumanoid()
-			if h then
-				h.MaxHealth = 1e9
-				h.Health = 1e9
-			end
-		else
-			local h = getHumanoid()
-			if h then
-				h.MaxHealth = 100
-				h.Health = 100
-			end
-		end
-	end)
-
-	y = y + 46
-	local fallToggle = createToggle(p, y, "防摔死", function() return FuncState.NoFallDamage end, function(val)
-		FuncState.NoFallDamage = val
-	end)
-
-	-- 持续维持无敌 + 防摔死
-	RunService.RenderStepped:Connect(function()
-		if FuncState.GodEnabled then
-			local h = getHumanoid()
-			if h and h.Health < h.MaxHealth * 0.9 then
-				h.Health = h.MaxHealth
-			end
-		end
-	end)
-
-	-- 防摔死：监听 Humanoid 状态
-	spawn(function()
-		while true do
-			local h = getHumanoid()
-			if h then
-				local conn
-				conn = h.StateChanged:Connect(function(oldState, newState)
-					if FuncState.NoFallDamage and (newState == Enum.HumanoidStateType.Dead or newState == Enum.HumanoidStateType.FallingDown) then
-						h:ChangeState(Enum.HumanoidStateType.GettingUp)
-						h.Health = h.MaxHealth
-					end
-				end)
-				-- 等角色重生后重新绑定
-				LocalPlayer.CharacterAdded:Wait()
-				if conn then conn:Disconnect() end
-			else
-				task.wait(0.5)
-			end
-		end
-	end)
-end
-
--- ====== 玩家透视（全身红色 + 侧边绿色血条）======
-do
-	local p = pages.Resource
-	local y = 10
-
-	local titleLbl = Instance.new("TextLabel", p)
-	titleLbl.Text = "玩家透视"
-	titleLbl.Font = Enum.Font.GothamSemibold
-	titleLbl.TextSize = 14
-	titleLbl.TextColor3 = Theme.TextPrimary
-	titleLbl.BackgroundTransparency = 1
-	titleLbl.Position = UDim2.new(0, 12, 0, y)
-	titleLbl.Size = UDim2.new(1, -24, 0, 20)
-	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
-
-	y = y + 30
-	local espToggle = createToggle(p, y, "全身透视", function() return FuncState.ESPEnabled end, function(val)
-		FuncState.ESPEnabled = val
-	end)
-
-	FuncState.HealthBarEnabled = false  -- ✅ 默认关闭（必须在 toggle 之前）
-
-	y = y + 46
-	local healthBarToggle = createToggle(p, y, "头顶血条", function() return FuncState.HealthBarEnabled end, function(val)
-		FuncState.HealthBarEnabled = val
-	end)
-
-	-- ====== 清理函数 ======
-	local function clearAll()
-		for _, plr in ipairs(Players:GetPlayers()) do
-			if plr ~= LocalPlayer and plr.Character then
-				-- 清 Highlight
-				local hl = plr.Character:FindFirstChild("ESP_Highlight")
-				if hl then hl:Destroy() end
-				-- 清血条
-				local head = plr.Character:FindFirstChild("Head")
-				if head then
-					local hb = head:FindFirstChild("ESP_HealthBar")
-					if hb then hb:Destroy() end
-				end
-			end
-		end
-	end
-
-	-- ====== 头顶绿色血条（横条，细长好看）======
-	local function createHealthBar(plr, head)
-		-- 用 BillboardGui 做 2D 血条，始终朝向相机
-		local bb = Instance.new("BillboardGui")
-		bb.Name = "ESP_HealthBar"
-		bb.Size = UDim2.new(0, 70, 0, 14)        -- 横条：宽 + 矮
-		bb.StudsOffset = Vector3.new(0, 1.5, 0)  -- 头顶上方
-		bb.Adornee = head
-		bb.AlwaysOnTop = true
-		bb.MaxDistance = 500
-		bb.Parent = head
-
-		-- 背景条（暗灰圆角）
-		local bg = Instance.new("Frame", bb)
-		bg.Name = "BG"
-		bg.Size = UDim2.new(1, 0, 1, 0)
-		bg.Position = UDim2.new(0, 0, 0, 0)
-		bg.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-		bg.BorderSizePixel = 0
-		bg.ZIndex = 1
-		local bgCorner = Instance.new("UICorner", bg)
-		bgCorner.CornerRadius = UDim.new(0, 4)
-
-		-- 绿色填充条（从左到右长）
-		local fill = Instance.new("Frame", bb)
-		fill.Name = "Fill"
-		fill.Size = UDim2.new(1, 0, 1, 0)
-		fill.Position = UDim2.new(0, 0, 0, 0)
-		fill.BackgroundColor3 = Color3.fromRGB(0, 255, 60)   -- 🟢 绿色
-		fill.BorderSizePixel = 0
-		fill.ZIndex = 2
-		local fillCorner = Instance.new("UICorner", fill)
-		fillCorner.CornerRadius = UDim.new(0, 4)
-
-		-- 血量百分比文字（居中叠在上面）
-		local pctLabel = Instance.new("TextLabel", bb)
-		pctLabel.Name = "PctLabel"
-		pctLabel.Size = UDim2.new(1, 0, 1, 0)
-		pctLabel.Position = UDim2.new(0, 0, 0, 0)
-		pctLabel.BackgroundTransparency = 1
-		pctLabel.Text = "100%"
-		pctLabel.Font = Enum.Font.GothamBold
-		pctLabel.TextSize = 9
-		pctLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-		pctLabel.TextStrokeTransparency = 0.4
-		pctLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-		pctLabel.ZIndex = 3
-	end
-
-	-- ====== 更新血条显示 ======
-	local function updateHealthBars()
-		if not FuncState.HealthBarEnabled then return end
-		for _, plr in ipairs(Players:GetPlayers()) do
-			if plr ~= LocalPlayer then
-				local char = plr.Character
-				if char then
-					local head = char:FindFirstChild("Head")
-					local hum = char:FindFirstChild("Humanoid")
-					if head and hum and hum.Health > 0 then
-						local bb = head:FindFirstChild("ESP_HealthBar")
-						if not bb then
-							-- 血条不存在，创建它
-							pcall(function() createHealthBar(plr, head) end)
-							bb = head:FindFirstChild("ESP_HealthBar")
-						end
-						if bb then
-							local fill = bb:FindFirstChild("Fill")
-							local pctLabel = bb:FindFirstChild("PctLabel")
-							local ratio = math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1)
-
-							-- 从左到右填充（横条）
-							if fill then
-								fill.Size = UDim2.new(ratio, 0, 1, 0)
-								-- 血量低变色：绿→黄→红
-								if ratio > 0.5 then
-									fill.BackgroundColor3 = Color3.fromRGB(0, 255, 60)
-								elseif ratio > 0.25 then
-									fill.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
-								else
-									fill.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-								end
-							end
-							if pctLabel then
-								pctLabel.Text = math.floor(ratio * 100) .. "%"
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-
-	-- ====== 全身红色透视（Highlight 方式）======
-	local function createHighlightESP(plr, char)
-		local existing = char:FindFirstChild("ESP_Highlight")
-		if existing then existing:Destroy() end
-
-		local hl = Instance.new("Highlight")
-		hl.Name = "ESP_Highlight"
-		hl.Adornee = char
-		hl.FillColor = Color3.fromRGB(255, 0, 0)
-		hl.FillTransparency = 0.5
-		hl.OutlineColor = Color3.fromRGB(255, 50, 50)
-		hl.OutlineTransparency = 0
-		hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-		hl.Parent = char
-	end
-
-	-- ====== 刷新 ESP ======
-	local function updateESP()
-		clearAll()
-		local needUpdate = FuncState.ESPEnabled or FuncState.HealthBarEnabled
-		if not needUpdate then return end
-
-		for _, plr in ipairs(Players:GetPlayers()) do
-			if plr ~= LocalPlayer then
-				local char = plr.Character
-				if char then
-					local head = char:FindFirstChild("Head")
-					local hum = char:FindFirstChild("Humanoid")
-					if head and hum and hum.Health > 0 then
-						-- 全身红色透视
-						if FuncState.ESPEnabled then
-							pcall(function() createHighlightESP(plr, char) end)
-						end
-						-- 侧边血条
-						if FuncState.HealthBarEnabled then
-							pcall(function() createHealthBar(plr, head) end)
-						end
-					end
-				end
-			end
-		end
-	end
-
-	-- ====== 实时更新血条（每 0.1 秒）======
-	spawn(function()
-		while true do
-			if FuncState.HealthBarEnabled then
-				pcall(updateHealthBars)
-			end
-			wait(0.1)
-		end
-	end)
-
-	-- 定时重建（防止被游戏清除）
-	spawn(function()
-		while true do
-			updateESP()
-			wait(1)
-		end
-	end)
-
-	-- 新玩家加入
-	Players.PlayerAdded:Connect(function(plr)
-		plr.CharacterAdded:Connect(function()
-			task.wait(0.5)
-			updateESP()
-		end)
-	end)
-end
-
--- ====== 初始化功能列表 ======
 local funcMap = {
 	{Name = "自动瞄准", Key = "Aim"},
 	{Name = "速度增强", Key = "Speed"},
-	{Name = "无敌模式", Key = "God"},
 	{Name = "玩家透视", Key = "Resource"},
 }
 
@@ -1239,7 +1058,6 @@ function DragSystem.enable(frame, opts)
 		end
 	end)
 
-	local RunService = game:GetService("RunService")
 	local lastPos = UDim2.new()
 
 	RunService.RenderStepped:Connect(function()
@@ -1279,7 +1097,7 @@ minBtn.MouseButton1Click:Connect(function()
 		mini.Visible = true
 		mini.Size = UDim2.new(0,140,0,40)
 		mini.BackgroundTransparency = 1
-		tween(mini, {Size = UDim2.new(0,160,0,48), BackgroundTransparency = 0.12}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out):Play()
+		tween(mini, {Size = UDim2.new(0,160,0,48), BackgroundTransparency = 0.12}, 0.3, Enum.EasingStyle.Back):Play()
 	end)
 end)
 
@@ -1296,7 +1114,6 @@ closeBtn.MouseButton1Click:Connect(function()
 	tween(blur, {Size = 0}, 0.3):Play()
 	spring(root, {Size = UDim2.new(0,C.Width,0,0), BackgroundTransparency = 1}):Play()
 	task.wait(0.45)
-	-- 清理 FOV 圈
 	local fovGui = PlayerGui:FindFirstChild("FOV_Circle")
 	if fovGui then fovGui:Destroy() end
 	gui:Destroy()
@@ -1331,4 +1148,4 @@ root.BackgroundTransparency = 1
 spring(root, {Size = UDim2.new(0,C.Width,0,C.Height), BackgroundTransparency = 0.18}):Play()
 tween(blur, {Size = C.Blur}, 0.5):Play()
 
-print("iOS 高级拖拽 UI（功能面板紧贴顶部）加载完成")
+print("iOS 高级拖拽 UI（Aim 面板已支持滚动）加载完成")
