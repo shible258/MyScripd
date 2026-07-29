@@ -3,8 +3,9 @@ local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+local RunService = game:GetService("RunService")
 
--- ====== 高级参数 ======
+-- ====== 高级参数（✅ 还原你最初的窗口大小）=====
 local C = {
 	Width = 280,
 	Height = 280,
@@ -14,7 +15,6 @@ local C = {
 	Duration = 0.55,
 	DragSmoothness = 0.25,
 	NavHeight = 44,
-	FuncPanelGap = 0,
 	BackBtnHeight = 40,
 }
 
@@ -79,7 +79,7 @@ gui.IgnoreGuiInset = true
 gui.DisplayOrder = 999999
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- ====== 主容器 ======
+-- ====== 主容器（✅ 还原原始尺寸）=====
 local root = Instance.new("Frame", gui)
 root.AnchorPoint = Vector2.new(0.5, 0.5)
 root.Position = UDim2.fromScale(0.5, 0.45)
@@ -219,13 +219,10 @@ pageFunction.BackgroundTransparency = 1
 pageFunction.Visible = false
 pageFunction.Position = UDim2.new(1, 0, 0, 0)
 
-local panelY = C.NavHeight + C.FuncPanelGap
-local panelBottomReserved = C.BackBtnHeight
-
 -- ====== 左侧功能列表 ======
 local funcList = Instance.new("ScrollingFrame", pageFunction)
 funcList.Name = "FuncList"
-funcList.Size = UDim2.new(0.25, -6, 1, -panelBottomReserved - 8)
+funcList.Size = UDim2.new(0.25, -6, 1, -C.BackBtnHeight - 8)
 funcList.Position = UDim2.new(0, 6, 0, 0)
 funcList.BackgroundColor3 = Theme.Glass
 funcList.BackgroundTransparency = 0.35
@@ -245,18 +242,30 @@ listPadding.PaddingBottom = UDim.new(0, 6)
 listPadding.PaddingLeft = UDim.new(0, 6)
 listPadding.PaddingRight = UDim.new(0, 6)
 
--- ====== 右侧内容容器 ======
-local funcContent = Instance.new("Frame", pageFunction)
+-- ====== 右侧内容容器（✅ 可滚动）=====
+local funcContent = Instance.new("ScrollingFrame", pageFunction)
 funcContent.Name = "FuncContent"
-funcContent.Size = UDim2.new(0.75, -12, 1, -panelBottomReserved - 8)
+funcContent.Size = UDim2.new(0.75, -12, 1, -C.BackBtnHeight - 8)
 funcContent.Position = UDim2.new(0.25, 6, 0, 0)
 funcContent.BackgroundColor3 = Theme.Glass
 funcContent.BackgroundTransparency = 0.25
 funcContent.BorderSizePixel = 0
 funcContent.ClipsDescendants = true
+funcContent.ScrollBarThickness = 4
+funcContent.CanvasSize = UDim2.new(0, 0, 0, 0)
+funcContent.AutomaticCanvasSize = Enum.AutomaticSize.Y
+funcContent.ScrollingDirection = Enum.ScrollingDirection.Y
 corner(funcContent, 12)
 
 -- ====== 创建功能页 ======
+local pages = {
+	Aim = nil,
+	Speed = nil,
+	Resource = nil,
+	Fly = nil,
+	Fun = nil,
+}
+
 local function createContentPage(name)
 	local page = Instance.new("Frame")
 	page.Name = name.."_Page"
@@ -267,25 +276,28 @@ local function createContentPage(name)
 	return page
 end
 
-local pages = {
-	Aim = createContentPage("Aim"),
-	Speed = createContentPage("Speed"),
-	Resource = createContentPage("Resource"),
-	Fly = createContentPage("Fly"),
-}
+pages.Aim = createContentPage("Aim")
+pages.Speed = createContentPage("Speed")
+pages.Resource = createContentPage("Resource")
+pages.Fly = createContentPage("Fly")
+pages.Fun = createContentPage("Fun")
 
 -- ====== 功能状态存储 ======
 local FuncState = {
 	AimEnabled = false,
 	SpeedEnabled = false,
 	SpeedValue = 16,
+	ESPEnabled = false,
 	HealthBarEnabled = false,
-	ShowFovCircle = true, -- ★ PVO 开关
+	ShowFovCircle = true,
 	FlyEnabled = false,
 	FlySpeed = 80,
+	SpinEnabled = false,
+	SpinSpeed = 50,          -- ✅ 默认值更合理
+	TouchKnockEnabled = false,
 }
 
--- ====== 工具：创建 iOS 风格开关按钮 ======
+-- ====== 工具：iOS 风格开关 ======
 local function createToggle(parent, yPos, labelText, getState, onToggle)
 	local row = Instance.new("Frame", parent)
 	row.Size = UDim2.new(1, -24, 0, 36)
@@ -342,7 +354,7 @@ local function createToggle(parent, yPos, labelText, getState, onToggle)
 	return {setState = setState, getState = function() return on end}
 end
 
--- ====== 工具：创建滑块 ======
+-- ====== 工具：滑块 ======
 local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, onChanged)
 	local row = Instance.new("Frame", parent)
 	row.Size = UDim2.new(1, -24, 0, 54)
@@ -401,15 +413,6 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
 	thumb.ZIndex = 4
 	corner(thumb, 9)
 
-	local thumbShadow = Instance.new("Frame", track)
-	thumbShadow.Size = UDim2.new(0, 22, 0, 22)
-	thumbShadow.Position = UDim2.new(0, -11, 0, -5)
-	thumbShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-	thumbShadow.BackgroundTransparency = 0.7
-	thumbShadow.BorderSizePixel = 0
-	thumbShadow.ZIndex = 3
-	corner(thumbShadow, 11)
-
 	local dragging = false
 
 	local function setVal(val, fromInput)
@@ -450,8 +453,8 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
 	end)
 
 	local function applyInput()
-		local txt = inputBox.Text:gsub("[^0-9%-]", "")
-		if txt == "" or txt == "-" then txt = tostring(minVal) end
+		local txt = inputBox.Text:gsub("[^0-9]", "")
+		if txt == "" then txt = tostring(minVal) end
 		local val = tonumber(txt) or minVal
 		setVal(val, true)
 	end
@@ -465,7 +468,7 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
 	return {update = function(v) setVal(v, true) end}
 end
 
--- ★ PVO 开始 ======
+-- ====== FOV 圈 ======
 local fovGui = Instance.new("ScreenGui")
 fovGui.Name = "FOV_Circle"
 fovGui.ResetOnSpawn = false
@@ -480,17 +483,14 @@ fovFrame.BackgroundTransparency = 1
 fovFrame.Size = UDim2.new(0, 0, 0, 0)
 
 local fovStroke = Instance.new("UIStroke", fovFrame)
-fovStroke.Color = Color3.fromRGB(255, 255, 255) 
+fovStroke.Color = Color3.fromRGB(255, 255, 255)
 fovStroke.Thickness = 1.6
-fovStroke.Transparency = 0.12 
-
+fovStroke.Transparency = 0.12
 
 local fovCorner = Instance.new("UICorner", fovFrame)
 fovCorner.CornerRadius = UDim.new(1, 0)
--- ★ PVO 结束 ======
 
 local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
 
 local function getChar()
 	return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -506,7 +506,7 @@ local function getRootPart()
 	return c and c:FindFirstChild("HumanoidRootPart")
 end
 
--- ====== 自动瞄准（静默）=====
+-- ====== 自动瞄准 ======
 do
 	local p = pages.Aim
 	local y = 10
@@ -522,23 +522,22 @@ do
 	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
 
 	y = y + 30
-	local aimToggle = createToggle(p, y, "启用静默自瞄", function() return FuncState.AimEnabled end, function(val)
+	createToggle(p, y, "启用静默自瞄", function() return FuncState.AimEnabled end, function(val)
 		FuncState.AimEnabled = val
 	end)
 
 	y = y + 46
-	local fovSlider = createSlider(p, y, "瞄准 FOV", 5, 120, 45, function(val)
+	createSlider(p, y, "瞄准 FOV", 5, 120, 45, function(val)
 		FuncState.AimFOV = val
 	end)
 	FuncState.AimFOV = 45
 
 	y = y + 60
-	local smoothSlider = createSlider(p, y, "平滑度", 1, 50, 20, function(val)
+	createSlider(p, y, "平滑度", 1, 50, 20, function(val)
 		FuncState.AimSmooth = val
 	end)
 	FuncState.AimSmooth = 20
 
-	-- ★ PVO 开关（可选但推荐）
 	y = y + 60
 	createToggle(p, y, "显示 FOV 圈", function()
 		return FuncState.ShowFovCircle
@@ -601,7 +600,7 @@ do
 	end)
 end
 
--- ★ PVO 实时刷新 ======
+-- ====== FOV 实时刷新 ======
 RunService.RenderStepped:Connect(function()
 	local cam = workspace.CurrentCamera
 	local center = Vector2.new(cam.ViewportSize.X * 0.5, cam.ViewportSize.Y * 0.5)
@@ -632,7 +631,7 @@ do
 	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
 
 	y = y + 30
-	local speedToggle = createToggle(p, y, "启用加速", function() return FuncState.SpeedEnabled end, function(val)
+	createToggle(p, y, "启用加速", function() return FuncState.SpeedEnabled end, function(val)
 		FuncState.SpeedEnabled = val
 		local h = getHumanoid()
 		if h then
@@ -641,7 +640,7 @@ do
 	end)
 
 	y = y + 46
-	local speedSlider = createSlider(p, y, "移动速度 (16-700)", 16, 700, 50, function(val)
+	createSlider(p, y, "移动速度 (16-700)", 16, 700, 50, function(val)
 		FuncState.SpeedValue = val
 		if FuncState.SpeedEnabled then
 			local h = getHumanoid()
@@ -674,12 +673,12 @@ do
 	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
 
 	y = y + 30
-	local espToggle = createToggle(p, y, "全身透视", function() return FuncState.ESPEnabled end, function(val)
+	createToggle(p, y, "全身透视", function() return FuncState.ESPEnabled end, function(val)
 		FuncState.ESPEnabled = val
 	end)
 
 	y = y + 46
-	local healthBarToggle = createToggle(p, y, "头顶血条", function() return FuncState.HealthBarEnabled end, function(val)
+	createToggle(p, y, "头顶血条", function() return FuncState.HealthBarEnabled end, function(val)
 		FuncState.HealthBarEnabled = val
 	end)
 
@@ -1121,6 +1120,95 @@ do
 	end)
 end
 
+-- ====== 娱乐页 ======
+do
+	local p = pages.Fun
+	local y = 10
+
+	local titleLbl = Instance.new("TextLabel", p)
+	titleLbl.Text = "娱乐"
+	titleLbl.Font = Enum.Font.GothamSemibold
+	titleLbl.TextSize = 14
+	titleLbl.TextColor3 = Theme.TextPrimary
+	titleLbl.BackgroundTransparency = 1
+	titleLbl.Position = UDim2.new(0, 12, 0, y)
+	titleLbl.Size = UDim2.new(1, -24, 0, 20)
+	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+	y = y + 36
+	createToggle(p, y, "旋转", function() return FuncState.SpinEnabled end, function(val)
+		FuncState.SpinEnabled = val
+	end)
+
+	-- ✅ 旋转倍数 10 - 999
+	y = y + 50
+	createSlider(p, y, "旋转倍数 (10 - 999)", 10, 999, 50, function(val)
+		FuncState.SpinSpeed = val
+	end)
+
+	y = y + 80
+	createToggle(p, y, "碰飞", function() return FuncState.TouchKnockEnabled end, function(val)
+		FuncState.TouchKnockEnabled = val
+	end)
+end
+
+-- ====== 旋转逻辑（✅ 使用 SpinSpeed 直接乘）=====
+RunService.RenderStepped:Connect(function(dt)
+	if not FuncState.SpinEnabled then return end
+	local rootPart = getRootPart()
+	if rootPart then
+		rootPart.CFrame *= CFrame.Angles(0, math.rad(FuncState.SpinSpeed * dt * 60), 0)
+	end
+end)
+
+-- ====== 碰飞逻辑 ======
+do
+	local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	local rootPart = character:WaitForChild("HumanoidRootPart")
+
+	local touchConn
+	local function enableTouchKnock()
+		if touchConn then return end
+		touchConn = rootPart.Touched:Connect(function(hit)
+			if not FuncState.TouchKnockEnabled then return end
+
+			local hum = hit.Parent and hit.Parent:FindFirstChildOfClass("Humanoid")
+			if not hum then return end
+
+			local otherRoot = hum.Parent:FindFirstChild("HumanoidRootPart")
+			if not otherRoot then return end
+
+			if hum.Parent == character then return end
+
+			local direction = (otherRoot.Position - rootPart.Position).Unit
+			otherRoot.Velocity = direction * 120 + Vector3.new(0, 60, 0)
+		end)
+	end
+
+	local function disableTouchKnock()
+		if touchConn then
+			touchConn:Disconnect()
+			touchConn = nil
+		end
+	end
+
+	spawn(function()
+		while true do
+			if FuncState.TouchKnockEnabled then
+				enableTouchKnock()
+			else
+				disableTouchKnock()
+			end
+			wait(0.2)
+		end
+	end)
+
+	LocalPlayer.CharacterAdded:Connect(function(char)
+		character = char
+		rootPart = char:WaitForChild("HumanoidRootPart")
+	end)
+end
+
 -- ====== 初始化功能列表 ======
 local selectedItem = nil
 
@@ -1173,6 +1261,7 @@ local funcMap = {
 	{Name = "速度增强", Key = "Speed"},
 	{Name = "玩家透视", Key = "Resource"},
 	{Name = "飞天",     Key = "Fly"},
+	{Name = "娱乐",     Key = "Fun"},
 }
 
 for _, v in ipairs(funcMap) do
@@ -1379,4 +1468,4 @@ root.BackgroundTransparency = 1
 spring(root, {Size = UDim2.new(0,C.Width,0,C.Height), BackgroundTransparency = 0.18}):Play()
 tween(blur, {Size = C.Blur}, 0.5):Play()
 
-print("iOS 高级拖拽 UI + PVO 加载完成")
+print("iOS 高级拖拽 UI + 滚动 + 旋转10-999 加载完成 ✅")
