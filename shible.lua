@@ -271,6 +271,7 @@ local pages = {
 	Aim = createContentPage("Aim"),
 	Speed = createContentPage("Speed"),
 	Resource = createContentPage("Resource"),
+	Fly = createContentPage("Fly"),
 }
 
 -- ====== 功能状态存储 ======
@@ -280,6 +281,8 @@ local FuncState = {
 	SpeedValue = 16,
 	HealthBarEnabled = false,
 	ShowFovCircle = true,
+	FlyEnabled = false,
+	FlySpeed = 80,
 }
 
 -- ====== 工具：创建 iOS 风格开关按钮 ======
@@ -434,10 +437,6 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
 		updateFromMouse()
 	end)
 
-	track.MouseButton1Up:Connect(function()
-		dragging = false
-	end)
-
 	UserInputService.InputChanged:Connect(function(input)
 		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 			updateFromMouse()
@@ -459,13 +458,6 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
 
 	inputBox.FocusLost:Connect(function()
 		applyInput()
-	end)
-
-	inputBox.Focused:Connect(function()
-		task.defer(function()
-			inputBox.CursorPosition = 0
-			inputBox.SelectionStart = 0
-		end)
 	end)
 
 	setVal(initial, true)
@@ -534,7 +526,6 @@ do
 		FuncState.ShowFovCircle = val
 	end)
 
-	-- FOV 圈
 	local function getFovRadiusPixels(cam)
 		local fovDeg = FuncState.AimFOV or 45
 		local halfHeight = cam.ViewportSize.Y * 0.5
@@ -760,6 +751,7 @@ do
 		bgCorner.CornerRadius = UDim.new(0, 4)
 
 		local fill = Instance.new("Frame", bb)
+		fill.Name = "Fill"
 		fill.Size = UDim2.new(1, 0, 1, 0)
 		fill.BackgroundColor3 = Color3.fromRGB(0, 255, 60)
 		fill.BorderSizePixel = 0
@@ -767,6 +759,7 @@ do
 		fillCorner.CornerRadius = UDim.new(0, 4)
 
 		local pctLabel = Instance.new("TextLabel", bb)
+		pctLabel.Name = "PctLabel"
 		pctLabel.Size = UDim2.new(1, 0, 1, 0)
 		pctLabel.BackgroundTransparency = 1
 		pctLabel.Text = "100%"
@@ -873,6 +866,298 @@ do
 	end)
 end
 
+-- ====== 飞天（单按钮执行飞行脚本）=====
+do
+	local p = pages.Fly
+	local y = 20
+
+	local titleLbl = Instance.new("TextLabel", p)
+	titleLbl.Text = "恐拜大帝 · 飞行"
+	titleLbl.Font = Enum.Font.GothamSemibold
+	titleLbl.TextSize = 14
+	titleLbl.TextColor3 = Theme.TextPrimary
+	titleLbl.BackgroundTransparency = 1
+	titleLbl.Position = UDim2.new(0, 12, 0, y)
+	titleLbl.Size = UDim2.new(1, -24, 0, 20)
+	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+	y = y + 36
+
+	local execBtn = Instance.new("TextButton", p)
+	execBtn.Text = "启动飞行"
+	execBtn.Font = Enum.Font.GothamSemibold
+	execBtn.TextSize = 14
+	execBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	execBtn.BackgroundColor3 = Theme.Accent
+	execBtn.AutoButtonColor = false
+	execBtn.Position = UDim2.new(0, 12, 0, y)
+	execBtn.Size = UDim2.new(1, -24, 0, 40)
+	corner(execBtn, 10)
+	pressEffect(execBtn)
+
+	-- 通知函数
+	local function sendNotification(title, text)
+		task.spawn(function()
+			local success = false
+			local retryTimes = 0
+			while not success and retryTimes < 5 do
+				retryTimes += 1
+				success = pcall(function()
+					game:GetService("StarterGui"):SetCore("SendNotification", {
+						Title = title,
+						Text = text,
+						Icon = "rbxthumb://type=Asset&id=5107182114&w=150&h=150",
+						Duration = 2
+					})
+				end)
+				if not success then
+					task.wait(0.2)
+				end
+			end
+		end)
+	end
+
+	execBtn.MouseButton1Click:Connect(function()
+		spring(execBtn, {TextSize = 16}, 0.15)
+		task.delay(0.15, function()
+			spring(execBtn, {TextSize = 14}, 0.2)
+		end)
+
+		task.spawn(function()
+			local success, err = pcall(function()
+				local main = Instance.new("ScreenGui")
+				main.Name = "恐拜大帝飞行"
+				main.ResetOnSpawn = false
+				main.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+				local Frame = Instance.new("Frame", main)
+				Frame.BackgroundColor3 = Color3.fromRGB(163, 255, 137)
+				Frame.BorderColor3 = Color3.fromRGB(103, 221, 213)
+				Frame.Position = UDim2.new(0.1, 0, 0.38, 0)
+				Frame.Size = UDim2.new(0, 190, 0, 57)
+				Frame.Active = true
+				Frame.Draggable = true
+
+				local up = Instance.new("TextButton", Frame)
+				up.Size = UDim2.new(0, 44, 0, 28)
+				up.Text = "上升"
+				up.BackgroundColor3 = Color3.fromRGB(79, 255, 152)
+
+				local down = Instance.new("TextButton", Frame)
+				down.Size = UDim2.new(0, 44, 0, 28)
+				down.Position = UDim2.new(0, 0, 0.49, 0)
+				down.Text = "下落"
+				down.BackgroundColor3 = Color3.fromRGB(215, 255, 121)
+
+				local onof = Instance.new("TextButton", Frame)
+				onof.Size = UDim2.new(0, 56, 0, 28)
+				onof.Position = UDim2.new(0.7, 0, 0.49, 0)
+				onof.Text = "飞"
+				onof.BackgroundColor3 = Color3.fromRGB(255, 249, 74)
+
+				local TextLabel = Instance.new("TextLabel", Frame)
+				TextLabel.Size = UDim2.new(0, 100, 0, 28)
+				TextLabel.Position = UDim2.new(0.47, 0, 0, 0)
+				TextLabel.Text = "恐拜大帝"
+				TextLabel.BackgroundColor3 = Color3.fromRGB(242, 60, 255)
+				TextLabel.TextScaled = true
+
+				local plus = Instance.new("TextButton", Frame)
+				plus.Size = UDim2.new(0, 45, 0, 28)
+				plus.Position = UDim2.new(0.23, 0, 0, 0)
+				plus.Text = "+"
+				plus.BackgroundColor3 = Color3.fromRGB(133, 145, 255)
+				plus.TextScaled = true
+
+				local speed = Instance.new("TextLabel", Frame)
+				speed.Size = UDim2.new(0, 44, 0, 28)
+				speed.Position = UDim2.new(0.47, 0, 0.49, 0)
+				speed.Text = "1"
+				speed.BackgroundColor3 = Color3.fromRGB(255, 85, 0)
+				speed.TextScaled = true
+
+				local mine = Instance.new("TextButton", Frame)
+				mine.Size = UDim2.new(0, 45, 0, 29)
+				mine.Position = UDim2.new(0.23, 0, 0.49, 0)
+				mine.Text = "-"
+				mine.BackgroundColor3 = Color3.fromRGB(123, 255, 247)
+				mine.TextScaled = true
+
+				local closebutton = Instance.new("TextButton", Frame)
+				closebutton.Size = UDim2.new(0, 45, 0, 28)
+				closebutton.Position = UDim2.new(0, 0, -1, 27)
+				closebutton.Text = "X"
+				closebutton.TextSize = 30
+				closebutton.BackgroundColor3 = Color3.fromRGB(225, 25, 0)
+
+				local mini = Instance.new("TextButton", Frame)
+				mini.Size = UDim2.new(0, 45, 0, 28)
+				mini.Position = UDim2.new(0, 44, -1, 27)
+				mini.Text = "-"
+				mini.TextSize = 40
+				mini.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
+
+				local mini2 = Instance.new("TextButton", Frame)
+				mini2.Size = UDim2.new(0, 45, 0, 28)
+				mini2.Position = UDim2.new(0, 44, 0, 30)
+				mini2.Text = "+"
+				mini2.TextSize = 40
+				mini2.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
+				mini2.Visible = false
+
+				local speaker = game.Players.LocalPlayer
+				local chr = speaker.Character or speaker.CharacterAdded:Wait()
+				local hum = chr:FindFirstChildOfClass("Humanoid")
+				local nowe = false
+				local speeds = 1
+
+				sendNotification("飞行脚本", "创作者：恐拜大帝")
+
+				closebutton.MouseButton1Click:Connect(function()
+					main:Destroy()
+				end)
+
+				up.MouseButton1Click:Connect(function()
+					if chr and chr:FindFirstChild("HumanoidRootPart") then
+						chr.HumanoidRootPart.CFrame += Vector3.new(0, 3, 0)
+					end
+				end)
+
+				down.MouseButton1Click:Connect(function()
+					if chr and chr:FindFirstChild("HumanoidRootPart") then
+						chr.HumanoidRootPart.CFrame += Vector3.new(0, -3, 0)
+					end
+				end)
+
+				mini.MouseButton1Click:Connect(function()
+					for _, v in ipairs({up, down, onof, plus, speed, mine, closebutton}) do
+						v.Visible = false
+					end
+					mini.Visible = false
+					mini2.Visible = true
+					Frame.Size = UDim2.new(0, 100, 0, 28)
+					TextLabel.Position = UDim2.new(0, 0, 0, 0)
+				end)
+
+				mini2.MouseButton1Click:Connect(function()
+					for _, v in ipairs({up, down, onof, plus, speed, mine, closebutton}) do
+						v.Visible = true
+					end
+					mini.Visible = true
+					mini2.Visible = false
+					Frame.Size = UDim2.new(0, 190, 0, 57)
+					TextLabel.Position = UDim2.new(0.47, 0, 0, 0)
+				end)
+
+				plus.MouseButton1Click:Connect(function()
+					speeds += 1
+					speed.Text = tostring(speeds)
+				end)
+
+				mine.MouseButton1Click:Connect(function()
+					if speeds > 1 then
+						speeds -= 1
+						speed.Text = tostring(speeds)
+					else
+						speed.Text = "错误"
+						task.wait(0.2)
+						speed.Text = "1"
+					end
+				end)
+
+				local moveConn, renderConn, bgObj, bvObj
+
+				local function resetHumanoid()
+					if hum then
+						for _, s in pairs(Enum.HumanoidStateType:GetEnumItems()) do
+							hum:SetStateEnabled(s, true)
+						end
+						hum.PlatformStand = false
+						hum:ChangeState(Enum.HumanoidStateType.Running)
+					end
+					if chr and chr:FindFirstChild("Animate") then
+						chr.Animate.Disabled = false
+					end
+				end
+
+				local function stopFlight()
+					if moveConn then moveConn:Disconnect() moveConn = nil end
+					if renderConn then renderConn:Disconnect() renderConn = nil end
+					if bgObj then bgObj:Destroy() bgObj = nil end
+					if bvObj then bvObj:Destroy() bvObj = nil end
+					resetHumanoid()
+				end
+
+				local function startFlight()
+					stopFlight()
+					if not hum then return end
+
+					chr = speaker.Character
+					hum = chr:FindFirstChildOfClass("Humanoid")
+					if not hum then return end
+
+					for _, s in pairs(Enum.HumanoidStateType:GetEnumItems()) do
+						hum:SetStateEnabled(s, false)
+					end
+					hum:ChangeState(Enum.HumanoidStateType.Swimming)
+					if chr:FindFirstChild("Animate") then
+						chr.Animate.Disabled = true
+					end
+
+					moveConn = game:GetService("RunService").Heartbeat:Connect(function()
+						if not nowe or not hum or hum.Health <= 0 then return end
+						if hum.MoveDirection.Magnitude > 0 then
+							chr:TranslateBy(hum.MoveDirection * speeds)
+						end
+					end)
+
+					local torso = chr:FindFirstChild("Torso") or chr:FindFirstChild("UpperTorso")
+					if torso then
+						bgObj = Instance.new("BodyGyro", torso)
+						bgObj.P = 9e4
+						bgObj.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+						bvObj = Instance.new("BodyVelocity", torso)
+						bvObj.Velocity = Vector3.zero
+						bvObj.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+
+						renderConn = game:GetService("RunService").RenderStepped:Connect(function()
+							if not nowe or not torso or not torso.Parent then
+								stopFlight()
+								return
+							end
+							bgObj.CFrame = workspace.CurrentCamera.CoordinateFrame
+						end)
+					end
+				end
+
+				speaker.CharacterAdded:Connect(function(newChr)
+					nowe = false
+					onof.Text = "飞"
+					chr = newChr
+					hum = chr:WaitForChild("Humanoid")
+					stopFlight()
+				end)
+
+				onof.MouseButton1Click:Connect(function()
+					nowe = not nowe
+					onof.Text = nowe and "停" or "飞"
+					if nowe then
+						startFlight()
+					else
+						stopFlight()
+					end
+				end)
+			end)
+
+			if success then
+				sendNotification("功能召唤", "飞行脚本已成功加载")
+			else
+				sendNotification("加载失败", "飞行脚本出错："..tostring(err))
+			end
+		end)
+	end)
+end
+
 -- ====== 初始化功能列表 ======
 local selectedItem = nil
 
@@ -924,6 +1209,7 @@ local funcMap = {
 	{Name = "自动瞄准", Key = "Aim"},
 	{Name = "速度增强", Key = "Speed"},
 	{Name = "玩家透视", Key = "Resource"},
+	{Name = "飞天",     Key = "Fly"},
 }
 
 for _, v in ipairs(funcMap) do
@@ -1077,7 +1363,6 @@ minBtn.MouseButton1Click:Connect(function()
 	task.delay(0.2, function()
 		root.Visible = false
 		mini.Visible = true
-		mini.Visible = true
 		mini.Size = UDim2.new(0,140,0,40)
 		mini.BackgroundTransparency = 1
 		tween(mini, {Size = UDim2.new(0,160,0,48), BackgroundTransparency = 0.12}, 0.3, Enum.EasingStyle.Back):Play()
@@ -1131,4 +1416,4 @@ root.BackgroundTransparency = 1
 spring(root, {Size = UDim2.new(0,C.Width,0,C.Height), BackgroundTransparency = 0.18}):Play()
 tween(blur, {Size = C.Blur}, 0.5):Play()
 
-print("iOS 高级拖拽 UI（已移除无敌模式）加载完成")
+print("iOS 高级拖拽 UI（飞天按钮执行恐拜大帝飞行脚本）加载完成")
