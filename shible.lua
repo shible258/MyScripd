@@ -155,7 +155,7 @@ pageMain.Name = "Page_Main"
 pageMain.Size = UDim2.new(1, 0, 1, 0)
 pageMain.BackgroundTransparency = 1
 
-local introContainer = Instance.new("Frame", introContainer)
+local introContainer = Instance.new("Frame", pageMain)
 introContainer.Name = "IntroContainer"
 introContainer.BackgroundTransparency = 1
 introContainer.Position = UDim2.new(0, 16, 0, 8)
@@ -267,32 +267,11 @@ local function createContentPage(name)
 	return page
 end
 
--- ✅ 关键修改：Aim 改为 ScrollingFrame，其他不变
 local pages = {
-	Aim = nil,
+	Aim = createContentPage("Aim"),
 	Speed = createContentPage("Speed"),
 	Resource = createContentPage("Resource"),
 }
-
-do
-	local scroll = Instance.new("ScrollingFrame")
-	scroll.Name = "Aim_Page"
-	scroll.Size = UDim2.new(1, 0, 1, 0)
-	scroll.BackgroundTransparency = 1
-	scroll.BorderSizePixel = 0
-	scroll.ScrollBarThickness = 5
-	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	scroll.ScrollingDirection = Enum.ScrollingDirection.Y
-	scroll.Parent = funcContent
-
-	local pad = Instance.new("UIPadding", scroll)
-	pad.PaddingTop = UDim.new(0, 10)
-	pad.PaddingBottom = UDim.new(0, 20)
-	pad.PaddingLeft = UDim.new(0, 12)
-	pad.PaddingRight = UDim.new(0, 12)
-
-	pages.Aim = scroll
-end
 
 -- ====== 功能状态存储 ======
 local FuncState = {
@@ -403,7 +382,6 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
 	track.AutoButtonColor = false
 	corner(track, 6)
 	track.ZIndex = 2
-	track.ClipsDescendants = true
 
 	local fill = Instance.new("Frame", track)
 	fill.Size = UDim2.new(0, 0, 1, 0)
@@ -454,6 +432,10 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
 	track.MouseButton1Down:Connect(function()
 		dragging = true
 		updateFromMouse()
+	end)
+
+	track.MouseButton1Up:Connect(function()
+		dragging = false
 	end)
 
 	UserInputService.InputChanged:Connect(function(input)
@@ -509,7 +491,7 @@ local function getRootPart()
 	return c and c:FindFirstChild("HumanoidRootPart")
 end
 
--- ====== 自动瞄准（静默 · 可滚动面板）=====
+-- ====== 自动瞄准（静默）=====
 do
 	local p = pages.Aim
 	local y = 10
@@ -520,8 +502,8 @@ do
 	titleLbl.TextSize = 14
 	titleLbl.TextColor3 = Theme.TextPrimary
 	titleLbl.BackgroundTransparency = 1
-	titleLbl.Position = UDim2.new(0, 0, 0, y)
-	titleLbl.Size = UDim2.new(1, 0, 0, 20)
+	titleLbl.Position = UDim2.new(0, 12, 0, y)
+	titleLbl.Size = UDim2.new(1, -24, 0, 20)
 	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
 
 	y = y + 30
@@ -1095,6 +1077,7 @@ minBtn.MouseButton1Click:Connect(function()
 	task.delay(0.2, function()
 		root.Visible = false
 		mini.Visible = true
+		mini.Visible = true
 		mini.Size = UDim2.new(0,140,0,40)
 		mini.BackgroundTransparency = 1
 		tween(mini, {Size = UDim2.new(0,160,0,48), BackgroundTransparency = 0.12}, 0.3, Enum.EasingStyle.Back):Play()
@@ -1148,4 +1131,4 @@ root.BackgroundTransparency = 1
 spring(root, {Size = UDim2.new(0,C.Width,0,C.Height), BackgroundTransparency = 0.18}):Play()
 tween(blur, {Size = C.Blur}, 0.5):Play()
 
-print("iOS 高级拖拽 UI（Aim 面板已支持滚动）加载完成")
+print("iOS 高级拖拽 UI（已移除无敌模式）加载完成")
