@@ -280,7 +280,7 @@ local FuncState = {
 	SpeedEnabled = false,
 	SpeedValue = 16,
 	HealthBarEnabled = false,
-	ShowFovCircle = true,
+	ShowFovCircle = true, -- ★ PVO 开关
 	FlyEnabled = false,
 	FlySpeed = 80,
 }
@@ -465,7 +465,30 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
 	return {update = function(v) setVal(v, true) end}
 end
 
--- ====== 获取本地玩家 ======
+-- ★ PVO 开始 ======
+local fovGui = Instance.new("ScreenGui")
+fovGui.Name = "FOV_Circle"
+fovGui.ResetOnSpawn = false
+fovGui.IgnoreGuiInset = true
+fovGui.Parent = PlayerGui
+
+local fovFrame = Instance.new("Frame", fovGui)
+fovFrame.Name = "Circle"
+fovFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+fovFrame.Position = UDim2.fromScale(0.5, 0.5)
+fovFrame.BackgroundTransparency = 1
+fovFrame.Size = UDim2.new(0, 0, 0, 0)
+
+local fovStroke = Instance.new("UIStroke", fovFrame)
+fovStroke.Color = Color3.fromRGB(255, 255, 255) 
+fovStroke.Thickness = 1.6
+fovStroke.Transparency = 0.12 
+
+
+local fovCorner = Instance.new("UICorner", fovFrame)
+fovCorner.CornerRadius = UDim.new(1, 0)
+-- ★ PVO 结束 ======
+
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 
@@ -514,6 +537,14 @@ do
 		FuncState.AimSmooth = val
 	end)
 	FuncState.AimSmooth = 20
+
+	-- ★ PVO 开关（可选但推荐）
+	y = y + 60
+	createToggle(p, y, "显示 FOV 圈", function()
+		return FuncState.ShowFovCircle
+	end, function(val)
+		FuncState.ShowFovCircle = val
+	end)
 
 	local function getClosestEnemy()
 		local cam = workspace.CurrentCamera
@@ -569,6 +600,21 @@ do
 		cam.CFrame = cam.CFrame:Lerp(targetCFrame, math.clamp(t, 0.03, 0.95))
 	end)
 end
+
+-- ★ PVO 实时刷新 ======
+RunService.RenderStepped:Connect(function()
+	local cam = workspace.CurrentCamera
+	local center = Vector2.new(cam.ViewportSize.X * 0.5, cam.ViewportSize.Y * 0.5)
+
+	fovFrame.Position = UDim2.fromOffset(center.X, center.Y)
+
+	local fov = FuncState.AimFOV or 45
+	local radius = math.tan(math.rad(fov / 2)) * (cam.ViewportSize.Y / 2) * 2
+
+	fovFrame.Size = UDim2.fromOffset(radius, radius)
+	fovFrame.Visible = FuncState.AimEnabled and FuncState.ShowFovCircle
+	fovStroke.Transparency = (FuncState.AimEnabled and FuncState.ShowFovCircle) and 0.15 or 1
+end)
 
 -- ====== 速度增强 ======
 do
@@ -784,7 +830,7 @@ do
 	end)
 end
 
--- ====== 飞天（单按钮执行飞行脚本）=====
+-- ====== 飞天 ======
 do
 	local p = pages.Fly
 	local y = 20
@@ -813,7 +859,6 @@ do
 	corner(execBtn, 10)
 	pressEffect(execBtn)
 
-	-- 通知函数
 	local function sendNotification(title, text)
 		task.spawn(function()
 			local success = false
@@ -1334,4 +1379,4 @@ root.BackgroundTransparency = 1
 spring(root, {Size = UDim2.new(0,C.Width,0,C.Height), BackgroundTransparency = 0.18}):Play()
 tween(blur, {Size = C.Blur}, 0.5):Play()
 
-print("iOS 高级拖拽 UI 加载完成")
+print("iOS 高级拖拽 UI + PVO 加载完成")
