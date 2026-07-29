@@ -645,7 +645,7 @@ do
 	end)
 end
 
--- ====== 玩家透视（不闪烁 + 血条纤细）=====
+-- ====== 玩家透视（不闪烁 + 血条纤细 + 开关即显隐）=====
 do
 	local p = pgESP
 	local y = 10
@@ -670,46 +670,19 @@ do
 		FuncState.HealthBarEnabled = v
 	end)
 
-	-- Highlight 缓存（不闪烁核心）
-	local hlCache = {}
+	-- ===== 缓存表（角色 → {hl=Highlight, hb=BillboardGui}）=====
+	local cache = {}
 
-	local function getOrCreateHL(char)
-		if hlCache[char] and hlCache[char].Parent == char then
-			return hlCache[char]
-		end
-		local old = char:FindFirstChild("ESP_Highlight")
-		if old then old:Destroy() end
-		local hl = Instance.new("Highlight")
-		hl.Name = "ESP_Highlight"
-		hl.Adornee = char
-		hl.FillColor = Color3.fromRGB(255, 50, 50)
-		hl.FillTransparency = 0.5
-		hl.OutlineColor = Color3.fromRGB(255, 100, 100)
-		hl.OutlineTransparency = 0.05
-		hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-		hl.Enabled = false
-		hl.Parent = char
-		hlCache[char] = hl
-		return hl
-	end
-
-	local function removeHL(char)
-		if hlCache[char] then
-			pcall(function() hlCache[char]:Destroy() end)
-			hlCache[char] = nil
-		end
-	end
-
-	-- 纤细血条
+	-- 创建纤细血条（只在第一次为这个角色创建）
 	local function createHealthBar(head)
-		if head:FindFirstChild("ESP_HB") then return end
 		local bb = Instance.new("BillboardGui")
 		bb.Name = "ESP_HB"
-		bb.Size = UDim2.new(0, 55, 0, 5)  -- 纤细
+		bb.Size = UDim2.new(0, 55, 0, 5)
 		bb.StudsOffset = Vector3.new(0, 1.3, 0)
 		bb.Adornee = head
 		bb.AlwaysOnTop = true
 		bb.MaxDistance = 500
+		bb.Enabled = false  -- 默认关，由循环统一控制
 		bb.Parent = head
 
 		local bg = Instance.new("Frame", bb)
@@ -726,51 +699,102 @@ do
 		fill.BorderSizePixel = 0
 		fill.ZIndex = 2
 		corner(fill, 2)
+
+		return bb
 	end
 
-	local function updateHealthBars()
-		for _, plr in ipairs(Players:GetPlayers()) do
-			if plr ~= LocalPlayer and plr.Character then
-				local char = plr.Character
-				local hum = char:FindFirstChild("Humanoid")
-				local head = char:FindFirstChild("Head")
-				if hum and head and hum.Health > 0 then
-					if FuncState.HealthBarEnabled then
-						createHealthBar(head)
-						local bb = head:FindFirstChild("ESP_HB")
-						if bb then
-							local fill = bb:FindFirstChild("Fill")
-							if fill then
-								local ratio = math.clamp(hum.Health / math.max(hum.MaxHealth,1), 0, 1)
-								fill.Size = UDim2.new(ratio, 0, 1, 0)
-								if ratio > 0.5 then fill.BackgroundColor3 = Color3.fromRGB(50,215,75)
-								elseif ratio > 0.25 then fill.BackgroundColor3 = Color3.fromRGB(255,200,0)
-								else fill.BackgroundColor3 = Color3.fromRGB(255,50,50) end
-							end
-						end
-					else
-						local bb = head:FindFirstChild("ESP_HB")
-						if bb then bb:Destroy() end
-					end
-				end
-			end
+	-- 获取或创建该角色的整套 ESP（HL + 血条），绝不重复创建
+	local function getOrCreateESP(char)
+		if cache[char] and cache[char].hl and cache[char].hl.Parent == char then
+			return cache[char].hl, cache[char].hb
 		end
+		-- 清理旧引用
+		cache[char] = nil
+
+		-- Highlight
+		local oldHL = char:FindFirstChild("ESP_Highlight")
+		if oldHL then oldHL:Destroy() end
+		local hl = Instance.new("Highlight")
+		hl.Name = "ESP_Highlight"
+		hl.Adornee = char
+		hl.FillColor = Color3.fromRGB(255, 50, 50)
+		hl.FillTransparency = 0.5
+		hl.OutlineColor = Color3.fromRGB(255, 100, 100)
+		hl.OutlineTransparency = 0.05
+		hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		hl.Enabled = false
+		hl.Parent = char
+
+		-- 血条（挂在 Head 上）
+		local hb
+		local head = char:FindFirstChild("Head")
+		if head then
+			local oldHB = head:FindFirstChild("ESP_HB")
+			if oldHB then oldHB:Destroy() end
+			hb = createHealthBar(head)
+		end
+
+		cache[char] = {hl = hl, hb = hb}
+		return hl, hb
 	end
 
+	-- 移除并销毁某个角色的整套 ESP
+	local function removeESP(char)
+		local entry = cache[char]
+		if entry then
+			pcall(function() if entry.hl then entry.hl:Destroy() end end)
+			pcall(function() if entry.hb then entry.hb:Destroy() end end)
+		end
+		cache[char] = nil
+	end
+
+	-- 主循环：每帧同步开关状态 + 更新血条数值
 	RunService.RenderStepped:Connect(function()
 		safeCall(function()
 			for _, plr in ipairs(Players:GetPlayers()) do
 				if plr ~= LocalPlayer and plr.Character then
-					local hl = getOrCreateHL(plr.Character)
-					if hl then hl.Enabled = FuncState.ESPEnabled end
+					local char = plr.Character
+					local hum = char:FindFirstChild("Humanoid")
+					local head = char:FindFirstChild("Head")
+
+					-- 角色死亡或没头 → 清掉
+					if not hum or hum.Health <= 0 or not head then
+						removeESP(char)
+					else
+						local hl, hb = getOrCreateESP(char)
+
+						-- 全身透视：开关即显隐
+						if hl then
+							hl.Enabled = FuncState.ESPEnabled
+						end
+
+						-- 血条：开关即显隐 + 实时数值
+						if hb then
+							hb.Enabled = FuncState.HealthBarEnabled
+							if FuncState.HealthBarEnabled then
+								local fill = hb:FindFirstChild("Fill")
+								if fill then
+									local ratio = math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1)
+									fill.Size = UDim2.new(ratio, 0, 1, 0)
+									if ratio > 0.5 then
+										fill.BackgroundColor3 = Color3.fromRGB(50, 215, 75)
+									elseif ratio > 0.25 then
+										fill.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+									else
+										fill.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+									end
+								end
+							end
+						end
+					end
 				end
 			end
-			if FuncState.HealthBarEnabled then updateHealthBars() end
 		end, "ESP")
 	end)
 
+	-- 玩家离开 → 清缓存
 	Players.PlayerRemoving:Connect(function(plr)
-		if plr.Character then removeHL(plr.Character) end
+		if plr.Character then removeESP(plr.Character) end
 	end)
 end
 
@@ -1009,6 +1033,7 @@ do
 	hdr.Size = UDim2.new(1, -24, 0, 20)
 	hdr.TextXAlignment = Enum.TextXAlignment.Left
 
+	-- ====== 旋转 ======
 	y = y + 36
 	createToggle(p, y, "旋转", function() return FuncState.SpinEnabled end, function(v)
 		FuncState.SpinEnabled = v
@@ -1019,46 +1044,60 @@ do
 		FuncState.SpinSpeed = v
 	end)
 
+	-- ====== 碰飞：别人碰到我 → 别人飞走 ======
 	y = y + 80
 	createToggle(p, y, "碰飞", function() return FuncState.TouchKnockEnabled end, function(v)
 		FuncState.TouchKnockEnabled = v
 	end)
 
-	-- 碰飞
 	local activeKnock = {}
 	local knockConn = nil
 	local rootPart = nil
 
-	local function doKnock(otherRoot, dir)
-		if activeKnock[otherRoot] then return end
-		activeKnock[otherRoot] = true
+	-- 把目标弹飞（方向：从 awayFrom 指向 target）
+	local function flingTarget(targetRoot, awayFrom)
+		if activeKnock[targetRoot] then return end
+		activeKnock[targetRoot] = true
 		pcall(function()
-			for _,v in ipairs(otherRoot:GetChildren()) do
+			local dir = (targetRoot.Position - awayFrom).Unit
+			if dir.Magnitude == 0 then dir = Vector3.new(1,0,0) end
+			-- 直接设速度（最稳）
+			targetRoot.Velocity = dir * 280 + Vector3.new(0, 170, 0)
+			-- BodyVelocity 兜底
+			for _,v in ipairs(targetRoot:GetChildren()) do
 				if v:IsA("BodyVelocity") and v.Name == "ShibleKnock" then v:Destroy() end
 			end
 			local bv = Instance.new("BodyVelocity")
 			bv.Name = "ShibleKnock"
 			bv.MaxForce = Vector3.new(1e9,1e9,1e9)
-			bv.Velocity = dir * 220 + Vector3.new(0,110,0)
-			bv.Parent = otherRoot
-			task.delay(0.15, function() if bv and bv.Parent then bv:Destroy() end end)
+			bv.Velocity = dir * 280 + Vector3.new(0, 170, 0)
+			bv.Parent = targetRoot
+			task.delay(0.18, function() if bv and bv.Parent then bv:Destroy() end end)
+			-- 乱转
+			local bav = Instance.new("BodyAngularVelocity")
+			bav.MaxTorque = Vector3.new(1e6,1e6,1e6)
+			bav.AngularVelocity = Vector3.new(math.random(-80,80), math.random(-80,80), math.random(-80,80))
+			bav.Parent = targetRoot
+			task.delay(0.3, function() if bav and bav.Parent then bav:Destroy() end end)
 		end)
-		task.delay(0.5, function() activeKnock[otherRoot] = nil end)
+		task.delay(0.5, function() activeKnock[targetRoot] = nil end)
 	end
 
+	-- 监听：任何东西碰到我的 rootPart → 对方飞
 	local function enableKnock()
 		if knockConn or not rootPart or not rootPart.Parent then return end
 		knockConn = rootPart.Touched:Connect(function(hit)
-			safeCall(function()
-				if not FuncState.TouchKnockEnabled then return end
-				local hum = hit.Parent and hit.Parent:FindFirstChildOfClass("Humanoid")
-				if not hum then return end
-				local orp = hum.Parent:FindFirstChild("HumanoidRootPart")
-				if not orp or hum.Parent == rootPart.Parent then return end
-				local d = (orp.Position - rootPart.Position).Unit
-				if d.Magnitude == 0 then d = Vector3.new(1,0,0) end
-				doKnock(orp, d)
-			end, "Touched")
+			if not FuncState.TouchKnockEnabled then return end
+			pcall(function()
+				local model = hit.Parent
+				if not model or model == rootPart.Parent then return end
+				local hum = model:FindFirstChildOfClass("Humanoid")
+				if not hum or hum.Health <= 0 then return end
+				local orp = model:FindFirstChild("HumanoidRootPart")
+				if not orp then return end
+				-- 方向：从我这里指向对方 → 对方远离我
+				flingTarget(orp, rootPart.Position)
+			end)
 		end)
 	end
 
@@ -1072,7 +1111,7 @@ do
 				if FuncState.TouchKnockEnabled and rootPart then enableKnock()
 				else disableKnock() end
 			end, "KnockLoop")
-			task.wait(0.2)
+			task.wait(0.3)
 		end
 	end)
 
@@ -1090,8 +1129,122 @@ do
 			rootPart = LocalPlayer.Character.HumanoidRootPart
 		end)
 	end
+	-- ====== 全部甩飞（强力持续版）======
+	FuncState.FlingAllEnabled = false
+	y = y + 56
+	createToggle(p, y, "全部甩飞", function() return FuncState.FlingAllEnabled end, function(v)
+		FuncState.FlingAllEnabled = v
+	end)
 
-	-- 旋转
+	task.spawn(function()
+		while true do
+			safeCall(function()
+				if not FuncState.FlingAllEnabled then return end
+				local myRoot = getRootPart()
+				if not myRoot then return end
+				local myPos = myRoot.Position
+				for _, plr in ipairs(Players:GetPlayers()) do
+					if plr ~= LocalPlayer and plr.Character then
+						local char = plr.Character
+						local hrp = char:FindFirstChild("HumanoidRootPart")
+						local hum = char:FindFirstChildOfClass("Humanoid")
+						if hrp and hum and hum.Health > 0 then
+							-- 清旧
+							for _, v in ipairs(hrp:GetChildren()) do
+								if v:IsA("BodyVelocity") and v.Name == "ShibleFling" then v:Destroy() end
+								if v:IsA("BodyAngularVelocity") and v.Name == "ShibleFlingSpin" then v:Destroy() end
+							end
+							local dir = (hrp.Position - myPos).Unit
+							if dir.Magnitude == 0 then dir = Vector3.new(1,0,0) end
+							-- 随机扰动
+							dir = (dir + Vector3.new(math.random(-60,60)/100, math.random(40,120)/100, math.random(-60,60)/100)).Unit
+							-- 直接设速度
+							hrp.Velocity = dir * 400 + Vector3.new(0, 250, 0)
+							local bv = Instance.new("BodyVelocity")
+							bv.Name = "ShibleFling"
+							bv.MaxForce = Vector3.new(1e9,1e9,1e9)
+							bv.Velocity = dir * 400 + Vector3.new(0, 250, 0)
+							bv.Parent = hrp
+							task.delay(0.25, function() if bv and bv.Parent then bv:Destroy() end end)
+							local bav = Instance.new("BodyAngularVelocity")
+							bav.Name = "ShibleFlingSpin"
+							bav.MaxTorque = Vector3.new(1e7,1e7,1e7)
+							bav.AngularVelocity = Vector3.new(math.random(-100,100), math.random(-100,100), math.random(-100,100))
+							bav.Parent = hrp
+							task.delay(0.35, function() if bav and bav.Parent then bav:Destroy() end end)
+						end
+					end
+				end
+			end, "FlingAllLoop")
+			task.wait(0.35)
+		end
+	end)
+	-- ====== 反甩飞（开关样式，可正常移动）======
+	FuncState.AntiFlingEnabled = false
+	y = y + 56
+	createToggle(p, y, "反甩飞", function() return FuncState.AntiFlingEnabled end, function(v)
+		FuncState.AntiFlingEnabled = v
+	end)
+
+	-- 不锚定、不锁帧，只在被甩时修正，平时正常走跳
+	local antiFlingConn = nil
+	local lastPos = nil
+
+	task.spawn(function()
+		while true do
+			safeCall(function()
+				if FuncState.AntiFlingEnabled then
+					if antiFlingConn then return end
+					antiFlingConn = RunService.Heartbeat:Connect(function()
+						pcall(function()
+							local char = LocalPlayer.Character
+							if not char then lastPos = nil return end
+							local hrp = char:FindFirstChild("HumanoidRootPart")
+							if not hrp then lastPos = nil return end
+							local hum = char:FindFirstChildOfClass("Humanoid")
+							if not hum or hum.Health <= 0 then lastPos = nil return end
+
+							local vel = hrp.Velocity
+							local moveDir = hum.MoveDirection
+							local isMoving = moveDir.Magnitude > 0.1
+
+							-- 没在主动移动但被高速推走 → 清零水平速度
+							if not isMoving and vel.Magnitude > 120 then
+								hrp.Velocity = Vector3.new(0, math.min(hrp.Velocity.Y, 0), 0)
+								hrp.RotVelocity = Vector3.zero
+							end
+
+							-- 一帧瞬移超 40 格 → 回到上一帧位置
+							if lastPos then
+								local dist = (hrp.Position - lastPos).Magnitude
+								if dist > 40 then
+									hrp.CFrame = CFrame.new(lastPos)
+									hrp.Velocity = Vector3.zero
+									hrp.RotVelocity = Vector3.zero
+								end
+							end
+							lastPos = hrp.Position
+						end)
+				end)
+			else
+				if antiFlingConn then pcall(function() antiFlingConn:Disconnect() end) antiFlingConn = nil end
+				lastPos = nil
+			end
+		end, "AntiFling")
+		task.wait(0.1)
+	end
+	end)
+
+	-- 角色重生时重置
+	LocalPlayer.CharacterAdded:Connect(function()
+		safeCall(function()
+			if antiFlingConn then pcall(function() antiFlingConn:Disconnect() end) antiFlingConn = nil end
+			lastPos = nil
+			FuncState.AntiFlingEnabled = false
+		end, "CharAdd:AntiFling")
+	end)
+
+	-- ====== 旋转（保持原样）======
 	RunService.RenderStepped:Connect(function(dt)
 		safeCall(function()
 			if not FuncState.SpinEnabled then return end
