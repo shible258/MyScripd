@@ -515,74 +515,6 @@ do
 	end)
 	FuncState.AimSmooth = 20
 
-	y = y + 60
-	local predictSlider = createSlider(p, y, "预判补偿", 0, 100, 40, function(val)
-		FuncState.AimPredict = val / 100
-	end)
-	FuncState.AimPredict = 0.4
-
-	y = y + 60
-	local fovCircleToggle = createToggle(p, y, "显示 FOV 圈", function() return FuncState.ShowFovCircle end, function(val)
-		FuncState.ShowFovCircle = val
-	end)
-
-	local function getFovRadiusPixels(cam)
-		local fovDeg = FuncState.AimFOV or 45
-		local halfHeight = cam.ViewportSize.Y * 0.5
-		return math.tan(math.rad(fovDeg) * 0.5) * halfHeight
-	end
-
-	local fovGui = Instance.new("ScreenGui")
-	fovGui.Name = "FOV_Circle"
-	fovGui.Parent = PlayerGui
-	fovGui.ResetOnSpawn = false
-	fovGui.IgnoreGuiInset = true
-	fovGui.DisplayOrder = 999998
-
-	local fovFrame = Instance.new("Frame", fovGui)
-	fovFrame.BackgroundTransparency = 1
-	fovFrame.Size = UDim2.new(1, 0, 1, 0)
-
-	local fovDots = {}
-	local numDots = 128
-	local dotSize = 2
-	for i = 1, numDots do
-		local dot = Instance.new("Frame", fovFrame)
-		dot.Size = UDim2.new(0, dotSize, 0, dotSize)
-		dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		dot.BackgroundTransparency = 0
-		dot.BorderSizePixel = 0
-		local c = Instance.new("UICorner", dot)
-		c.CornerRadius = UDim.new(1, 0)
-		fovDots[i] = dot
-	end
-
-	local function updateFovCircle()
-		local cam = workspace.CurrentCamera
-		local cx = cam.ViewportSize.X * 0.5
-		local cy = cam.ViewportSize.Y * 0.5
-		local r = getFovRadiusPixels(cam)
-		local visible = FuncState.AimEnabled and FuncState.ShowFovCircle
-		for i, dot in ipairs(fovDots) do
-			dot.Visible = visible
-			if visible then
-				local angle = (i / numDots) * math.pi * 2
-				dot.Position = UDim2.new(0, cx + math.cos(angle) * r - dotSize * 0.5, 0, cy + math.sin(angle) * r - dotSize * 0.5)
-			end
-		end
-	end
-
-	RunService.RenderStepped:Connect(updateFovCircle)
-
-	local function isInFov(cam, screenPos)
-		local cx = cam.ViewportSize.X * 0.5
-		local cy = cam.ViewportSize.Y * 0.5
-		local dx = screenPos.X - cx
-		local dy = screenPos.Y - cy
-		local dist = math.sqrt(dx*dx + dy*dy)
-		return dist <= getFovRadiusPixels(cam)
-	end
-
 	local function getClosestEnemy()
 		local cam = workspace.CurrentCamera
 		local center = Vector2.new(cam.ViewportSize.X * 0.5, cam.ViewportSize.Y * 0.5)
@@ -593,17 +525,16 @@ do
 				local char = plr.Character
 				if char then
 					local head = char:FindFirstChild("Head")
-					local hrp = char:FindFirstChild("HumanoidRootPart")
 					local hum = char:FindFirstChild("Humanoid")
-					if head and hrp and hum and hum.Health > 0 then
+					if head and hum and hum.Health > 0 then
 						local screenPos, onScreen = cam:WorldToScreenPoint(head.Position)
-						if onScreen and isInFov(cam, Vector2.new(screenPos.X, screenPos.Y)) then
+						if onScreen then
 							local dx = screenPos.X - center.X
 							local dy = screenPos.Y - center.Y
 							local dist = dx*dx + dy*dy
 							if dist < closestDist then
 								closestDist = dist
-								closest = {head = head, hrp = hrp}
+								closest = head
 							end
 						end
 					end
@@ -613,42 +544,29 @@ do
 		return closest
 	end
 
-	local function silentAimSmooth(targetPos, smoothAmount)
+	RunService.RenderStepped:Connect(function()
+		if not FuncState.AimEnabled then return end
+		local target = getClosestEnemy()
+		if not target then return end
+
 		local cam = workspace.CurrentCamera
+		local smoothVal = FuncState.AimSmooth or 20
+		local t = 1 / (smoothVal * 0.6 + 1)
+
 		local camPos = cam.CFrame.Position
+		local targetPos = target.Position
 		local targetDir = (targetPos - camPos).Unit
 		local currentDir = cam.CFrame.LookVector
 		local dot = math.clamp(currentDir:Dot(targetDir), -1, 1)
 		local angle = math.acos(dot)
 
-		smoothAmount = math.clamp(smoothAmount, 0.01, 1)
 		if angle < 0.001 then
 			cam.CFrame = CFrame.new(camPos, camPos + targetDir)
 			return
 		end
 
 		local targetCFrame = CFrame.new(camPos, camPos + targetDir)
-		cam.CFrame = cam.CFrame:Lerp(targetCFrame, smoothAmount)
-	end
-
-	RunService.RenderStepped:Connect(function(dt)
-		if not FuncState.AimEnabled then return end
-		local target = getClosestEnemy()
-		if not target then return end
-
-		local head = target.head
-		local hrp = target.hrp
-		if not head or not hrp then return end
-
-		local predict = FuncState.AimPredict or 0.4
-		local aimPos = head.Position + Vector3.new(0, -0.2, 0)
-		if hrp.Velocity.Magnitude > 0.5 then
-			aimPos = aimPos + hrp.Velocity * predict * dt
-		end
-
-		local smoothVal = FuncState.AimSmooth or 20
-		local t = 1 / (smoothVal * 0.6 + 1)
-		silentAimSmooth(aimPos, math.clamp(t, 0.03, 0.95))
+		cam.CFrame = cam.CFrame:Lerp(targetCFrame, math.clamp(t, 0.03, 0.95))
 	end)
 end
 
@@ -872,7 +790,7 @@ do
 	local y = 20
 
 	local titleLbl = Instance.new("TextLabel", p)
-	titleLbl.Text = "恐拜大帝 · 飞行"
+	titleLbl.Text = "shible · 飞行"
 	titleLbl.Font = Enum.Font.GothamSemibold
 	titleLbl.TextSize = 14
 	titleLbl.TextColor3 = Theme.TextPrimary
@@ -926,7 +844,7 @@ do
 		task.spawn(function()
 			local success, err = pcall(function()
 				local main = Instance.new("ScreenGui")
-				main.Name = "恐拜大帝飞行"
+				main.Name = "shible飞行"
 				main.ResetOnSpawn = false
 				main.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
@@ -958,7 +876,7 @@ do
 				local TextLabel = Instance.new("TextLabel", Frame)
 				TextLabel.Size = UDim2.new(0, 100, 0, 28)
 				TextLabel.Position = UDim2.new(0.47, 0, 0, 0)
-				TextLabel.Text = "恐拜大帝"
+				TextLabel.Text = "shible"
 				TextLabel.BackgroundColor3 = Color3.fromRGB(242, 60, 255)
 				TextLabel.TextScaled = true
 
@@ -1011,7 +929,7 @@ do
 				local nowe = false
 				local speeds = 1
 
-				sendNotification("飞行脚本", "创作者：恐拜大帝")
+				sendNotification("飞行脚本", "创作者：shible")
 
 				closebutton.MouseButton1Click:Connect(function()
 					main:Destroy()
@@ -1416,4 +1334,4 @@ root.BackgroundTransparency = 1
 spring(root, {Size = UDim2.new(0,C.Width,0,C.Height), BackgroundTransparency = 0.18}):Play()
 tween(blur, {Size = C.Blur}, 0.5):Play()
 
-print("iOS 高级拖拽 UI（飞天按钮执行恐拜大帝飞行脚本）加载完成")
+print("iOS 高级拖拽 UI 加载完成")
