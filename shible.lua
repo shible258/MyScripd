@@ -1,6 +1,5 @@
 -- ============================================================
---  shible · 完整源码（UI 保底可见 + ESP不闪 + 血条纤细）
---  核心修复：入场动画不再从 Size=0 开始，杜绝 UI 不显示
+by-IOS-shible
 -- ============================================================
 
 local TweenService = game:GetService("TweenService")
@@ -14,7 +13,7 @@ if not LocalPlayer then
 	LocalPlayer = Players.PlayerAdded:Wait()
 end
 
--- 安全获取 PlayerGui（带超时）
+-- 安全获取 PlayerGui
 local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
 if not PlayerGui then
 	PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 15)
@@ -98,19 +97,19 @@ gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 999999
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-gui.Enabled = true  -- 确保开启
+gui.Enabled = true
 
--- ====== 主容器（✅ 关键修复：直接设正常尺寸，不先设0）=====
+-- ====== 主容器 =====
 local root = Instance.new("Frame")
 root.Name = "MainFrame"
 root.AnchorPoint = Vector2.new(0.5, 0.5)
 root.Position = UDim2.fromScale(0.5, 0.45)
-root.Size = UDim2.new(0, C.Width, 0, C.Height)  -- ✅ 直接正常尺寸
+root.Size = UDim2.new(0, C.Width, 0, C.Height)
 root.BackgroundColor3 = Theme.Glass
 root.BackgroundTransparency = 0.18
 root.BorderSizePixel = 0
 root.Active = true
-root.Visible = true  -- ✅ 强制可见
+root.Visible = true
 root.Parent = gui
 corner(root, C.Radius)
 
@@ -319,7 +318,72 @@ local FuncState = {
 	SpinEnabled = false,
 	SpinSpeed = 50,
 	TouchKnockEnabled = false,
+	FlingLoopEnabled = false,
+	FlingAllEnabled = false,
+	AntiFlingEnabled = false,
 }
+local Flinging = false
+
+-- ====== 辅助 ======
+local function getChar()
+	return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+end
+local function getHumanoid()
+	local c = getChar()
+	return c and c:FindFirstChildOfClass("Humanoid")
+end
+local function getRootPart()
+	local c = getChar()
+	return c and c:FindFirstChild("HumanoidRootPart")
+end
+
+-- ====== SkidFling 甩飞核心 =====
+local function SkidFling(targetPlr)
+	if Flinging then return end
+	Flinging = true
+	pcall(function()
+		local char = targetPlr.Character
+		if not char then return end
+		local hrp = char:FindFirstChild("HumanoidRootPart")
+		local hum = char:FindFirstChildOfClass("Humanoid")
+		if not (hrp and hum and hum.Health > 0) then return end
+
+		for _,v in ipairs(hrp:GetChildren()) do
+			if v:IsA("BodyVelocity") or v:IsA("BodyAngularVelocity") then
+				v:Destroy()
+			end
+		end
+
+		hrp.AssemblyLinearVelocity = Vector3.new(
+			math.random(-40, 40),
+			420,
+			math.random(-40, 40)
+		)
+		hrp.AssemblyAngularVelocity = Vector3.new(
+			math.random(-90, 90),
+			math.random(-90, 90),
+			math.random(-90, 90)
+		)
+
+		-- BodyVelocity 
+		local bv = Instance.new("BodyVelocity")
+		bv.Name = "ShibleFling"
+		bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+		bv.Velocity = Vector3.new(math.random(-60, 60), 380, math.random(-60, 60))
+		bv.Parent = hrp
+		task.delay(0.3, function() if bv and bv.Parent then bv:Destroy() end end)
+
+		-- 乱转
+		local bav = Instance.new("BodyAngularVelocity")
+		bav.Name = "ShibleSpin"
+		bav.MaxTorque = Vector3.new(1e7, 1e7, 1e7)
+		bav.AngularVelocity = Vector3.new(math.random(-100, 100), math.random(-100, 100), math.random(-100, 100))
+		bav.Parent = hrp
+		task.delay(0.4, function() if bav and bav.Parent then bav:Destroy() end end)
+	end)
+	task.wait(0.1)
+	Flinging = false
+end
 
 -- ====== 开关组件 ======
 local function createToggle(parent, yPos, labelText, getState, onToggle)
@@ -476,19 +540,6 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
 	end)
 
 	setVal(initial)
-end
-
--- ====== 辅助 ======
-local function getChar()
-	return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-end
-local function getHumanoid()
-	local c = getChar()
-	return c and c:FindFirstChildOfClass("Humanoid")
-end
-local function getRootPart()
-	local c = getChar()
-	return c and c:FindFirstChild("HumanoidRootPart")
 end
 
 -- ====== 自动瞄准 ======
@@ -670,10 +721,8 @@ do
 		FuncState.HealthBarEnabled = v
 	end)
 
-	-- ===== 缓存表（角色 → {hl=Highlight, hb=BillboardGui}）=====
 	local cache = {}
 
-	-- 创建纤细血条（只在第一次为这个角色创建）
 	local function createHealthBar(head)
 		local bb = Instance.new("BillboardGui")
 		bb.Name = "ESP_HB"
@@ -682,7 +731,7 @@ do
 		bb.Adornee = head
 		bb.AlwaysOnTop = true
 		bb.MaxDistance = 500
-		bb.Enabled = false  -- 默认关，由循环统一控制
+		bb.Enabled = false
 		bb.Parent = head
 
 		local bg = Instance.new("Frame", bb)
@@ -703,15 +752,12 @@ do
 		return bb
 	end
 
-	-- 获取或创建该角色的整套 ESP（HL + 血条），绝不重复创建
 	local function getOrCreateESP(char)
 		if cache[char] and cache[char].hl and cache[char].hl.Parent == char then
 			return cache[char].hl, cache[char].hb
 		end
-		-- 清理旧引用
 		cache[char] = nil
 
-		-- Highlight
 		local oldHL = char:FindFirstChild("ESP_Highlight")
 		if oldHL then oldHL:Destroy() end
 		local hl = Instance.new("Highlight")
@@ -725,7 +771,6 @@ do
 		hl.Enabled = false
 		hl.Parent = char
 
-		-- 血条（挂在 Head 上）
 		local hb
 		local head = char:FindFirstChild("Head")
 		if head then
@@ -738,7 +783,6 @@ do
 		return hl, hb
 	end
 
-	-- 移除并销毁某个角色的整套 ESP
 	local function removeESP(char)
 		local entry = cache[char]
 		if entry then
@@ -748,7 +792,6 @@ do
 		cache[char] = nil
 	end
 
-	-- 主循环：每帧同步开关状态 + 更新血条数值
 	RunService.RenderStepped:Connect(function()
 		safeCall(function()
 			for _, plr in ipairs(Players:GetPlayers()) do
@@ -757,18 +800,15 @@ do
 					local hum = char:FindFirstChild("Humanoid")
 					local head = char:FindFirstChild("Head")
 
-					-- 角色死亡或没头 → 清掉
 					if not hum or hum.Health <= 0 or not head then
 						removeESP(char)
 					else
 						local hl, hb = getOrCreateESP(char)
 
-						-- 全身透视：开关即显隐
 						if hl then
 							hl.Enabled = FuncState.ESPEnabled
 						end
 
-						-- 血条：开关即显隐 + 实时数值
 						if hb then
 							hb.Enabled = FuncState.HealthBarEnabled
 							if FuncState.HealthBarEnabled then
@@ -792,7 +832,6 @@ do
 		end, "ESP")
 	end)
 
-	-- 玩家离开 → 清缓存
 	Players.PlayerRemoving:Connect(function(plr)
 		if plr.Character then removeESP(plr.Character) end
 	end)
@@ -1018,7 +1057,7 @@ do
 	end)
 end
 
--- ====== 娱乐页 ======
+-- ====== 娱乐页（UI原样 + 甩飞功能）=====
 do
 	local p = pgFun
 	local y = 10
@@ -1054,16 +1093,13 @@ do
 	local knockConn = nil
 	local rootPart = nil
 
-	-- 把目标弹飞（方向：从 awayFrom 指向 target）
 	local function flingTarget(targetRoot, awayFrom)
 		if activeKnock[targetRoot] then return end
 		activeKnock[targetRoot] = true
 		pcall(function()
 			local dir = (targetRoot.Position - awayFrom).Unit
 			if dir.Magnitude == 0 then dir = Vector3.new(1,0,0) end
-			-- 直接设速度（最稳）
 			targetRoot.Velocity = dir * 280 + Vector3.new(0, 170, 0)
-			-- BodyVelocity 兜底
 			for _,v in ipairs(targetRoot:GetChildren()) do
 				if v:IsA("BodyVelocity") and v.Name == "ShibleKnock" then v:Destroy() end
 			end
@@ -1073,7 +1109,6 @@ do
 			bv.Velocity = dir * 280 + Vector3.new(0, 170, 0)
 			bv.Parent = targetRoot
 			task.delay(0.18, function() if bv and bv.Parent then bv:Destroy() end end)
-			-- 乱转
 			local bav = Instance.new("BodyAngularVelocity")
 			bav.MaxTorque = Vector3.new(1e6,1e6,1e6)
 			bav.AngularVelocity = Vector3.new(math.random(-80,80), math.random(-80,80), math.random(-80,80))
@@ -1083,7 +1118,6 @@ do
 		task.delay(0.5, function() activeKnock[targetRoot] = nil end)
 	end
 
-	-- 监听：任何东西碰到我的 rootPart → 对方飞
 	local function enableKnock()
 		if knockConn or not rootPart or not rootPart.Parent then return end
 		knockConn = rootPart.Touched:Connect(function(hit)
@@ -1095,7 +1129,6 @@ do
 				if not hum or hum.Health <= 0 then return end
 				local orp = model:FindFirstChild("HumanoidRootPart")
 				if not orp then return end
-				-- 方向：从我这里指向对方 → 对方远离我
 				flingTarget(orp, rootPart.Position)
 			end)
 		end)
@@ -1129,8 +1162,90 @@ do
 			rootPart = LocalPlayer.Character.HumanoidRootPart
 		end)
 	end
-	-- ====== 全部甩飞（强力持续版）======
-	FuncState.FlingAllEnabled = false
+
+	-- ====== 目标输入 ======
+	y = y + 80
+	local targetBox = Instance.new("TextBox", p)
+	targetBox.Size = UDim2.new(1, -24, 0, 26)
+	targetBox.Position = UDim2.new(0, 12, 0, y)
+	targetBox.PlaceholderText = "目标: ALL 或玩家名"
+	targetBox.Text = "ALL"
+	targetBox.BackgroundColor3 = Color3.fromRGB(55,55,60)
+	targetBox.TextColor3 = Color3.fromRGB(255,255,255)
+	targetBox.Font = Enum.Font.Gotham
+	targetBox.TextSize = 12
+	targetBox.BorderSizePixel = 0
+	corner(targetBox, 5)
+	targetBox.ClearTextOnFocus = false
+
+	local function resolveTarget()
+		local txt = targetBox.Text:lower():gsub("%s","")
+		if txt == "" or txt == "all" then return "ALL" end
+		for _,plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LocalPlayer and plr.Name:lower() == txt then
+				return plr
+			end
+		end
+		return nil
+	end
+
+	-- ====== 甩飞一次 ======
+	y = y + 36
+	local flingBtn = Instance.new("TextButton", p)
+	flingBtn.Size = UDim2.new(1, -24, 0, 34)
+	flingBtn.Position = UDim2.new(0, 12, 0, y)
+	flingBtn.Text = "甩飞一次"
+	flingBtn.BackgroundColor3 = Theme.Accent
+	flingBtn.TextColor3 = Color3.fromRGB(255,255,255)
+	flingBtn.Font = Enum.Font.GothamSemibold
+	flingBtn.TextSize = 13
+	flingBtn.AutoButtonColor = false
+	corner(flingBtn, 8)
+	pressEffect(flingBtn)
+
+	flingBtn.MouseButton1Click:Connect(function()
+		local t = resolveTarget()
+		if t == "ALL" then
+			for _,plr in ipairs(Players:GetPlayers()) do
+				if plr ~= LocalPlayer then
+					SkidFling(plr)
+					repeat task.wait() until not Flinging
+					task.wait(0.1)
+				end
+			end
+		elseif t then
+			SkidFling(t)
+		end
+	end)
+
+	-- ====== 循环甩飞 ======
+	y = y + 50
+	createToggle(p, y, "循环甩飞", function() return FuncState.FlingLoopEnabled end, function(v)
+		FuncState.FlingLoopEnabled = v
+	end)
+
+	task.spawn(function()
+		while true do
+			safeCall(function()
+				if FuncState.FlingLoopEnabled and not Flinging then
+					local t = resolveTarget()
+					if t == "ALL" then
+						for _,plr in ipairs(Players:GetPlayers()) do
+							if plr ~= LocalPlayer then
+								SkidFling(plr)
+								break
+							end
+						end
+					elseif t then
+						SkidFling(t)
+					end
+				end
+			end, "FlingLoop")
+			task.wait(0.5)
+		end
+	end)
+
+	-- ====== 全部甩飞 ======
 	y = y + 56
 	createToggle(p, y, "全部甩飞", function() return FuncState.FlingAllEnabled end, function(v)
 		FuncState.FlingAllEnabled = v
@@ -1149,16 +1264,13 @@ do
 						local hrp = char:FindFirstChild("HumanoidRootPart")
 						local hum = char:FindFirstChildOfClass("Humanoid")
 						if hrp and hum and hum.Health > 0 then
-							-- 清旧
 							for _, v in ipairs(hrp:GetChildren()) do
 								if v:IsA("BodyVelocity") and v.Name == "ShibleFling" then v:Destroy() end
 								if v:IsA("BodyAngularVelocity") and v.Name == "ShibleFlingSpin" then v:Destroy() end
 							end
 							local dir = (hrp.Position - myPos).Unit
 							if dir.Magnitude == 0 then dir = Vector3.new(1,0,0) end
-							-- 随机扰动
 							dir = (dir + Vector3.new(math.random(-60,60)/100, math.random(40,120)/100, math.random(-60,60)/100)).Unit
-							-- 直接设速度
 							hrp.Velocity = dir * 400 + Vector3.new(0, 250, 0)
 							local bv = Instance.new("BodyVelocity")
 							bv.Name = "ShibleFling"
@@ -1179,14 +1291,13 @@ do
 			task.wait(0.35)
 		end
 	end)
-	-- ====== 反甩飞（开关样式，可正常移动）======
-	FuncState.AntiFlingEnabled = false
+
+	-- ====== 反甩飞 ======
 	y = y + 56
 	createToggle(p, y, "反甩飞", function() return FuncState.AntiFlingEnabled end, function(v)
 		FuncState.AntiFlingEnabled = v
 	end)
 
-	-- 不锚定、不锁帧，只在被甩时修正，平时正常走跳
 	local antiFlingConn = nil
 	local lastPos = nil
 
@@ -1208,13 +1319,11 @@ do
 							local moveDir = hum.MoveDirection
 							local isMoving = moveDir.Magnitude > 0.1
 
-							-- 没在主动移动但被高速推走 → 清零水平速度
 							if not isMoving and vel.Magnitude > 120 then
 								hrp.Velocity = Vector3.new(0, math.min(hrp.Velocity.Y, 0), 0)
 								hrp.RotVelocity = Vector3.zero
 							end
 
-							-- 一帧瞬移超 40 格 → 回到上一帧位置
 							if lastPos then
 								local dist = (hrp.Position - lastPos).Magnitude
 								if dist > 40 then
@@ -1225,17 +1334,16 @@ do
 							end
 							lastPos = hrp.Position
 						end)
-				end)
-			else
-				if antiFlingConn then pcall(function() antiFlingConn:Disconnect() end) antiFlingConn = nil end
-				lastPos = nil
-			end
-		end, "AntiFling")
-		task.wait(0.1)
-	end
+					end)
+				else
+					if antiFlingConn then pcall(function() antiFlingConn:Disconnect() end) antiFlingConn = nil end
+					lastPos = nil
+				end
+			end, "AntiFling")
+			task.wait(0.1)
+		end
 	end)
 
-	-- 角色重生时重置
 	LocalPlayer.CharacterAdded:Connect(function()
 		safeCall(function()
 			if antiFlingConn then pcall(function() antiFlingConn:Disconnect() end) antiFlingConn = nil end
@@ -1244,7 +1352,7 @@ do
 		end, "CharAdd:AntiFling")
 	end)
 
-	-- ====== 旋转（保持原样）======
+	-- ====== 旋转 ======
 	RunService.RenderStepped:Connect(function(dt)
 		safeCall(function()
 			if not FuncState.SpinEnabled then return end
@@ -1485,17 +1593,15 @@ backBtn.MouseButton1Click:Connect(function()
 	task.delay(0.3, function() pageFunction.Visible = false end)
 end)
 
--- ====== 入场动画（✅ 保底方案：先显示再弹动）======
--- 先确保 UI 完全可见
+-- ====== 入场动画 =====
 root.Size = UDim2.new(0, C.Width, 0, C.Height)
 root.BackgroundTransparency = 0.18
 root.Visible = true
 gui.Enabled = true
 
--- 再播一个轻微的弹入动画（不影响可见性）
 pcall(function()
 	springTween(root, {Size = UDim2.new(0,C.Width,0,C.Height), BackgroundTransparency = 0.18}, 0.5)
 end)
 makeTween(blur, {Size = C.Blur}, 0.5)
 
-print("[shible] UI 加载完成 ✅")
+print("[shible] UI 加载完成 ")
