@@ -1,7 +1,6 @@
 -- ============================================================
 --  shible · 完整源码（UI 保底可见 + ESP不闪 + 血条纤细 + 甩飞不碰自己）
---  基础UI：UI保底可见版（已修复所有拼写错误）
---  新增功能：SkidFling（只推目标，不推自己）
+--  【已移除碰飞】【全部甩飞→视角跟随·修复】【玩家列表·可点选·修复】【防甩飞互斥】
 -- ============================================================
 
 local TweenService = game:GetService("TweenService")
@@ -101,7 +100,7 @@ gui.DisplayOrder = 999999
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Enabled = true
 
--- ====== 主容器（✅ 直接设正常尺寸，不先设0）=====
+-- ====== 主容器 ======
 local root = Instance.new("Frame")
 root.Name = "MainFrame"
 root.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -319,7 +318,6 @@ local FuncState = {
 	HealthBarEnabled = false,
 	SpinEnabled = false,
 	SpinSpeed = 50,
-	TouchKnockEnabled = false,
 	FlingLoopEnabled = false,
 	FlingAllEnabled = false,
 	AntiFlingEnabled = false,
@@ -339,7 +337,7 @@ local function getRootPart()
 	return c and c:FindFirstChild("HumanoidRootPart")
 end
 
--- ====== ✅【关键】SkidFling 甩飞核心（只推别人，不碰自己）=====
+-- ====== ✅ SkidFling 甩飞核心（只推别人，不碰自己）=====
 local function SkidFling(targetPlr)
 	if Flinging then return end
 	Flinging = true
@@ -350,14 +348,14 @@ local function SkidFling(targetPlr)
 		local hum = char:FindFirstChildOfClass("Humanoid")
 		if not (hrp and hum and hum.Health > 0) then return end
 
-		-- 清旧力
+		-- 清掉旧的力
 		for _,v in ipairs(hrp:GetChildren()) do
-			if v:IsA("BodyVelocity") or v:IsA("BodyAngularVelocity") then
+			if v:IsA("BodyVelocity") or v:IsA("BodyAngularVelocity") or v:IsA("BodyForce") then
 				v:Destroy()
 			end
 		end
 
-		-- 【视觉起飞】你站着不动，别人往上飞
+		-- 用 AssemblyLinearVelocity（Roblox 新版物理，不会被覆盖）
 		hrp.AssemblyLinearVelocity = Vector3.new(
 			math.random(-40, 40),
 			420,
@@ -369,7 +367,7 @@ local function SkidFling(targetPlr)
 			math.random(-90, 90)
 		)
 
-		-- BodyVelocity 补一发
+		-- 额外加 BodyVelocity 作为双保险
 		local bv = Instance.new("BodyVelocity")
 		bv.Name = "ShibleFling"
 		bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
@@ -377,7 +375,6 @@ local function SkidFling(targetPlr)
 		bv.Parent = hrp
 		task.delay(0.3, function() if bv and bv.Parent then bv:Destroy() end end)
 
-		-- 乱转
 		local bav = Instance.new("BodyAngularVelocity")
 		bav.Name = "ShibleSpin"
 		bav.MaxTorque = Vector3.new(1e7, 1e7, 1e7)
@@ -419,6 +416,10 @@ local function createToggle(parent, yPos, labelText, getState, onToggle)
 	thumb.BorderSizePixel = 0
 	corner(thumb, 11)
 
+	-- 让整个 track 可点击
+	track.Active = true
+	track.Selectable = true
+
 	local on = false
 	pcall(function() on = getState() end)
 	if on then
@@ -459,7 +460,7 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
 	lbl.TextColor3 = Theme.TextPrimary
 	lbl.BackgroundTransparency = 1
 	lbl.Position = UDim2.new(0, 0, 0, 0)
-	lbl.Size = UDim2.new(0.45, 0, 0, 18)
+	lbl.Size = UDim2.new(0, 45, 0, 18)
 	lbl.TextXAlignment = Enum.TextXAlignment.Left
 
 	local inputBox = Instance.new("TextBox", row)
@@ -640,7 +641,6 @@ local fovStroke = Instance.new("UIStroke", fovFrame)
 fovStroke.Color = Color3.fromRGB(255,255,255)
 fovStroke.Thickness = 1.6
 fovStroke.Transparency = 0.12
-
 corner(fovFrame, 999)
 
 RunService.RenderStepped:Connect(function()
@@ -700,7 +700,7 @@ do
 	end)
 end
 
--- ====== 玩家透视（不闪烁 + 血条纤细 + 开关即显隐）=====
+-- ====== 玩家透视 ======
 do
 	local p = pgESP
 	local y = 10
@@ -1061,7 +1061,7 @@ do
 	end)
 end
 
--- ====== 娱乐页（UI原样 + 甩飞功能）=====
+-- ====== 娱乐页 ======
 do
 	local p = pgFun
 	local y = 10
@@ -1087,114 +1087,125 @@ do
 		FuncState.SpinSpeed = v
 	end)
 
-	-- ====== 碰飞：别人碰到我 → 别人飞走 ======
+	-- ====== ✅ 玩家选择列表（可滚动、可点选、高亮当前选中）=====
 	y = y + 80
-	createToggle(p, y, "碰飞", function() return FuncState.TouchKnockEnabled end, function(v)
-		FuncState.TouchKnockEnabled = v
-	end)
+	local selectedPlayer = "ALL"
 
-	local activeKnock = {}
-	local knockConn = nil
-	local rootPart = nil
+	local playerListLabel = Instance.new("TextLabel", p)
+	playerListLabel.Text = "甩飞目标:"
+	playerListLabel.Font = Enum.Font.GothamSemibold
+	playerListLabel.TextSize = 12
+	playerListLabel.TextColor3 = Theme.TextSecondary
+	playerListLabel.BackgroundTransparency = 1
+	playerListLabel.Position = UDim2.new(0, 12, 0, y - 18)
+	playerListLabel.Size = UDim2.new(1, -24, 0, 16)
+	playerListLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-	local function flingTarget(targetRoot, awayFrom)
-		if activeKnock[targetRoot] then return end
-		activeKnock[targetRoot] = true
-		pcall(function()
-			local dir = (targetRoot.Position - awayFrom).Unit
-			if dir.Magnitude == 0 then dir = Vector3.new(1,0,0) end
-			targetRoot.Velocity = dir * 280 + Vector3.new(0, 170, 0)
-			for _,v in ipairs(targetRoot:GetChildren()) do
-				if v:IsA("BodyVelocity") and v.Name == "ShibleKnock" then v:Destroy() end
+	local playerList = Instance.new("ScrollingFrame", p)
+	playerList.Size = UDim2.new(1, -24, 0, 90)  -- ✅ 足够高，能看见多个玩家
+	playerList.Position = UDim2.new(0, 12, 0, y)
+	playerList.BackgroundColor3 = Color3.fromRGB(45,45,50)
+	playerList.BackgroundTransparency = 0.3
+	playerList.BorderSizePixel = 0
+	playerList.ScrollBarThickness = 4
+	playerList.CanvasSize = UDim2.new(0, 0, 0, 0)
+	playerList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	playerList.Parent = p
+	corner(playerList, 6)
+
+	local plistLayout = Instance.new("UIListLayout", playerList)
+	plistLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	plistLayout.Padding = UDim.new(0, 2)
+
+	local plistPad = Instance.new("UIPadding", playerList)
+	plistPad.PaddingTop = UDim.new(0, 4)
+	plistPad.PaddingBottom = UDim.new(0, 4)
+	plistPad.PaddingLeft = UDim.new(0, 4)
+	plistPad.PaddingRight = UDim.new(0, 4)
+
+	-- 当前选中的按钮引用（用于高亮还原）
+	local selectedBtn = nil
+
+	local function createPlayerButton(name, displayName, isAll)
+		local btn = Instance.new("TextButton")
+		btn.Size = UDim2.new(1, -8, 0, 24)
+		btn.Text = displayName
+		btn.Font = Enum.Font.Gotham
+		btn.TextSize = 12
+		btn.TextColor3 = Color3.fromRGB(255,255,255)
+		btn.BackgroundColor3 = Color3.fromRGB(60,60,67)
+		btn.BackgroundTransparency = 0.2
+		btn.BorderSizePixel = 0
+		btn.AutoButtonColor = false
+		btn.Parent = playerList
+		corner(btn, 4)
+
+		btn.MouseEnter:Connect(function()
+			if selectedBtn ~= btn then
+				makeTween(btn, {BackgroundColor3 = Color3.fromRGB(80,80,90)}, 0.1)
 			end
-			local bv = Instance.new("BodyVelocity")
-			bv.Name = "ShibleKnock"
-			bv.MaxForce = Vector3.new(1e9,1e9,1e9)
-			bv.Velocity = dir * 280 + Vector3.new(0, 170, 0)
-			bv.Parent = targetRoot
-			task.delay(0.18, function() if bv and bv.Parent then bv:Destroy() end end)
-			local bav = Instance.new("BodyAngularVelocity")
-			bav.MaxTorque = Vector3.new(1e6,1e6,1e6)
-			bav.AngularVelocity = Vector3.new(math.random(-80,80), math.random(-80,80), math.random(-80,80))
-			bav.Parent = targetRoot
-			task.delay(0.3, function() if bav and bav.Parent then bav:Destroy() end end)
 		end)
-		task.delay(0.5, function() activeKnock[targetRoot] = nil end)
-	end
-
-	local function enableKnock()
-		if knockConn or not rootPart or not rootPart.Parent then return end
-		knockConn = rootPart.Touched:Connect(function(hit)
-			if not FuncState.TouchKnockEnabled then return end
-			pcall(function()
-				local model = hit.Parent
-				if not model or model == rootPart.Parent then return end
-				local hum = model:FindFirstChildOfClass("Humanoid")
-				if not hum or hum.Health <= 0 then return end
-				local orp = model:FindFirstChild("HumanoidRootPart")
-				if not orp then return end
-				flingTarget(orp, rootPart.Position)
-			end)
+		btn.MouseLeave:Connect(function()
+			if selectedBtn ~= btn then
+				makeTween(btn, {BackgroundColor3 = Color3.fromRGB(60,60,67)}, 0.1)
+			end
 		end)
+
+		btn.MouseButton1Click:Connect(function()
+			-- 还原上一个
+			if selectedBtn and selectedBtn ~= btn then
+				makeTween(selectedBtn, {BackgroundColor3 = Color3.fromRGB(60,60,67)}, 0.15)
+			end
+			-- 高亮当前
+			selectedBtn = btn
+			makeTween(btn, {BackgroundColor3 = Theme.Accent}, 0.15)
+
+			if isAll then
+				selectedPlayer = "ALL"
+			else
+				-- 找到对应的 Player 对象
+				for _, plr in ipairs(Players:GetPlayers()) do
+					if plr.Name == name then
+						selectedPlayer = plr
+						break
+					end
+				end
+			end
+		end)
+
+		return btn
 	end
 
-	local function disableKnock()
-		if knockConn then pcall(function() knockConn:Disconnect() end) knockConn = nil end
-	end
-
-	task.spawn(function()
-		while true do
-			safeCall(function()
-				if FuncState.TouchKnockEnabled and rootPart then enableKnock()
-				else disableKnock() end
-			end, "KnockLoop")
-			task.wait(0.3)
+	local function refreshPlayerList()
+		-- 清空旧按钮
+		for _, child in ipairs(playerList:GetChildren()) do
+			if child:IsA("TextButton") then child:Destroy() end
 		end
-	end)
+		selectedBtn = nil
+		selectedPlayer = "ALL"
 
-	LocalPlayer.CharacterAdded:Connect(function(char)
-		safeCall(function()
-			disableKnock(); activeKnock = {}
-			char:WaitForChild("HumanoidRootPart", 5)
-			rootPart = char.HumanoidRootPart
-		end, "CharAdd:Knock")
-	end)
+		-- ALL 按钮
+		createPlayerButton("ALL", "👥 ALL（全部玩家）", true)
 
-	if LocalPlayer.Character then
-		pcall(function()
-			LocalPlayer.Character:WaitForChild("HumanoidRootPart", 3)
-			rootPart = LocalPlayer.Character.HumanoidRootPart
-		end)
+		-- 每个玩家一个按钮
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LocalPlayer then
+				createPlayerButton(plr.Name, plr.Name, false)
+			end
+		end
 	end
 
-	-- ====== 目标输入 ======
-	y = y + 80
-	local targetBox = Instance.new("TextBox", p)
-	targetBox.Size = UDim2.new(1, -24, 0, 26)
-	targetBox.Position = UDim2.new(0, 12, 0, y)
-	targetBox.PlaceholderText = "目标: ALL 或玩家名"
-	targetBox.Text = "ALL"
-	targetBox.BackgroundColor3 = Color3.fromRGB(55,55,60)
-	targetBox.TextColor3 = Color3.fromRGB(255,255,255)
-	targetBox.Font = Enum.Font.Gotham
-	targetBox.TextSize = 12
-	targetBox.BorderSizePixel = 0
-	corner(targetBox, 5)
-	targetBox.ClearTextOnFocus = false
+	-- 初始刷新
+	refreshPlayerList()
+	Players.PlayerAdded:Connect(function() refreshPlayerList() end)
+	Players.PlayerRemoving:Connect(function() refreshPlayerList() end)
 
 	local function resolveTarget()
-		local txt = targetBox.Text:lower():gsub("%s","")
-		if txt == "" or txt == "all" then return "ALL" end
-		for _,plr in ipairs(Players:GetPlayers()) do
-			if plr ~= LocalPlayer and plr.Name:lower() == txt then
-				return plr
-			end
-		end
-		return nil
+		return selectedPlayer
 	end
 
 	-- ====== 甩飞一次 ======
-	y = y + 36
+	y = y + 100  -- ✅ 留出列表空间
 	local flingBtn = Instance.new("TextButton", p)
 	flingBtn.Size = UDim2.new(1, -24, 0, 34)
 	flingBtn.Position = UDim2.new(0, 12, 0, y)
@@ -1217,15 +1228,20 @@ do
 					task.wait(0.1)
 				end
 			end
-		elseif t then
+		elseif t and typeof(t) == "Instance" then
 			SkidFling(t)
 		end
 	end)
 
 	-- ====== 循环甩飞 ======
-	y = y + 50
+	y = y + 48
 	createToggle(p, y, "循环甩飞", function() return FuncState.FlingLoopEnabled end, function(v)
-		FuncState.FlingLoopEnabled = v
+		if v then
+			FuncState.AntiFlingEnabled = false
+			FuncState.FlingLoopEnabled = true
+		else
+			FuncState.FlingLoopEnabled = false
+		end
 	end)
 
 	task.spawn(function()
@@ -1240,7 +1256,7 @@ do
 								break
 							end
 						end
-					elseif t then
+					elseif t and typeof(t) == "Instance" then
 						SkidFling(t)
 					end
 				end
@@ -1249,57 +1265,99 @@ do
 		end
 	end)
 
-	-- ====== 全部甩飞 ======
+	-- ====== ✅ 全部甩飞 · 视角跟随（修复版）=====
 	y = y + 56
-	createToggle(p, y, "全部甩飞", function() return FuncState.FlingAllEnabled end, function(v)
-		FuncState.FlingAllEnabled = v
+	createToggle(p, y, "全部甩飞（视角跟随）", function() return FuncState.FlingAllEnabled end, function(v)
+		if v then
+			FuncState.AntiFlingEnabled = false
+			FuncState.FlingAllEnabled = true
+		else
+			FuncState.FlingAllEnabled = false
+		end
 	end)
 
 	task.spawn(function()
 		while true do
 			safeCall(function()
 				if not FuncState.FlingAllEnabled then return end
-				local myRoot = getRootPart()
-				if not myRoot then return end
-				local myPos = myRoot.Position
+				local cam = workspace.CurrentCamera
+				if not cam then return end
+
+				local lookVec = cam.CFrame.LookVector
+				-- ✅ 确保方向向量有效
+				if lookVec.Magnitude < 0.001 then
+					lookVec = Vector3.new(0, 0, -1)
+				end
+				lookVec = lookVec.Unit
+
 				for _, plr in ipairs(Players:GetPlayers()) do
 					if plr ~= LocalPlayer and plr.Character then
 						local char = plr.Character
 						local hrp = char:FindFirstChild("HumanoidRootPart")
 						local hum = char:FindFirstChildOfClass("Humanoid")
 						if hrp and hum and hum.Health > 0 then
+							-- 清理旧的力
 							for _, v in ipairs(hrp:GetChildren()) do
 								if v:IsA("BodyVelocity") and v.Name == "ShibleFling" then v:Destroy() end
 								if v:IsA("BodyAngularVelocity") and v.Name == "ShibleFlingSpin" then v:Destroy() end
+								if v:IsA("BodyForce") and v.Name == "ShibleFlingForce" then v:Destroy() end
 							end
-							local dir = (hrp.Position - myPos).Unit
-							if dir.Magnitude == 0 then dir = Vector3.new(1,0,0) end
-							dir = (dir + Vector3.new(math.random(-60,60)/100, math.random(40,120)/100, math.random(-60,60)/100)).Unit
-							hrp.Velocity = dir * 400 + Vector3.new(0, 250, 0)
+
+							-- ✅ 加一点随机散射，避免所有人完全同一轨迹
+							local scatter = Vector3.new(
+								math.random(-15, 15) / 100,
+								math.random(5, 25) / 100,
+								math.random(-15, 15) / 100
+							)
+							local dir = (lookVec + scatter).Unit
+
+							-- ✅ 用 AssemblyLinearVelocity（新版物理系统，不会被覆盖）
+							hrp.AssemblyLinearVelocity = dir * 450 + Vector3.new(0, 280, 0)
+
+							-- ✅ BodyVelocity 双保险
 							local bv = Instance.new("BodyVelocity")
 							bv.Name = "ShibleFling"
-							bv.MaxForce = Vector3.new(1e9,1e9,1e9)
-							bv.Velocity = dir * 400 + Vector3.new(0, 250, 0)
+							bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+							bv.Velocity = dir * 450 + Vector3.new(0, 280, 0)
 							bv.Parent = hrp
-							task.delay(0.25, function() if bv and bv.Parent then bv:Destroy() end end)
+							task.delay(0.3, function() if bv and bv.Parent then bv:Destroy() end end)
+
+							-- ✅ 额外加 BodyForce 持续推（防止被重力立刻拉回来）
+							local bf = Instance.new("BodyForce")
+							bf.Name = "ShibleFlingForce"
+							bf.Force = dir * 50000 + Vector3.new(0, 30000, 0)
+							bf.Parent = hrp
+							task.delay(0.25, function() if bf and bf.Parent then bf:Destroy() end end)
+
+							-- 旋转
 							local bav = Instance.new("BodyAngularVelocity")
 							bav.Name = "ShibleFlingSpin"
-							bav.MaxTorque = Vector3.new(1e7,1e7,1e7)
-							bav.AngularVelocity = Vector3.new(math.random(-100,100), math.random(-100,100), math.random(-100,100))
+							bav.MaxTorque = Vector3.new(1e7, 1e7, 1e7)
+							bav.AngularVelocity = Vector3.new(
+								math.random(-120,120),
+								math.random(-120,120),
+								math.random(-120,120)
+							)
 							bav.Parent = hrp
-							task.delay(0.35, function() if bav and bav.Parent then bav:Destroy() end end)
+							task.delay(0.4, function() if bav and bav.Parent then bav:Destroy() end end)
 						end
 					end
 				end
-			end, "FlingAllLoop")
+			end, "FlingAll_CameraFollow")
 			task.wait(0.35)
 		end
 	end)
 
-	-- ====== 反甩飞 ======
+	-- ====== ✅ 防甩飞（与甩飞互斥）=====
 	y = y + 56
-	createToggle(p, y, "反甩飞", function() return FuncState.AntiFlingEnabled end, function(v)
-		FuncState.AntiFlingEnabled = v
+	createToggle(p, y, "防甩飞", function() return FuncState.AntiFlingEnabled end, function(v)
+		if v then
+			FuncState.FlingLoopEnabled = false
+			FuncState.FlingAllEnabled = false
+			FuncState.AntiFlingEnabled = true
+		else
+			FuncState.AntiFlingEnabled = false
+		end
 	end)
 
 	local antiFlingConn = nil
@@ -1323,15 +1381,20 @@ do
 							local moveDir = hum.MoveDirection
 							local isMoving = moveDir.Magnitude > 0.1
 
+							-- ✅ 检测异常速度（被甩飞的特征）
 							if not isMoving and vel.Magnitude > 120 then
+								hrp.AssemblyLinearVelocity = Vector3.new(0, math.min(hrp.Velocity.Y, 0), 0)
 								hrp.Velocity = Vector3.new(0, math.min(hrp.Velocity.Y, 0), 0)
 								hrp.RotVelocity = Vector3.zero
+								hrp.AssemblyAngularVelocity = Vector3.zero
 							end
 
+							-- ✅ 位置回滚（防止瞬移）
 							if lastPos then
 								local dist = (hrp.Position - lastPos).Magnitude
 								if dist > 40 then
 									hrp.CFrame = CFrame.new(lastPos)
+									hrp.AssemblyLinearVelocity = Vector3.zero
 									hrp.Velocity = Vector3.zero
 									hrp.RotVelocity = Vector3.zero
 								end
@@ -1356,7 +1419,7 @@ do
 		end, "CharAdd:AntiFling")
 	end)
 
-	-- ====== 旋转 ======
+	-- ====== 旋转循环 ======
 	RunService.RenderStepped:Connect(function(dt)
 		safeCall(function()
 			if not FuncState.SpinEnabled then return end
@@ -1412,7 +1475,6 @@ createFuncItem("玩家透视", "ESP")
 createFuncItem("飞天",     "Fly")
 createFuncItem("娱乐",     "Fun")
 
--- 默认选中第一项
 task.defer(function()
 	safeCall(function()
 		for _, btn in ipairs(funcList:GetChildren()) do
@@ -1597,7 +1659,7 @@ backBtn.MouseButton1Click:Connect(function()
 	task.delay(0.3, function() pageFunction.Visible = false end)
 end)
 
--- ====== 入场动画（✅ 保底方案：先显示再弹动）=====
+-- ====== 入场动画 ======
 root.Size = UDim2.new(0, C.Width, 0, C.Height)
 root.BackgroundTransparency = 0.18
 root.Visible = true
@@ -1608,4 +1670,4 @@ pcall(function()
 end)
 makeTween(blur, {Size = C.Blur}, 0.5)
 
-print("[shible] UI 加载完成 ✅")
+print("[shible] UI 加载完成 ✅（视角跟随甩飞·已修复 | 玩家列表·可点选 | 防甩飞互斥）")
