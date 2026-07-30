@@ -1,6 +1,7 @@
 -- ============================================================
 --  shible · 完整源码（UI 保底可见 + ESP不闪 + 血条纤细 + 甩飞已移除）
 --  【已移除碰飞/甩飞一次/循环甩飞/甩飞目标/甩飞全部/防甩飞】
+--  【静默自瞄 → 开启时远程加载并执行，关闭时恢复相机】
 -- ============================================================
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -71,6 +72,49 @@ local function safeCall(fn, ctx)
 	if not ok then
 		warn("[shible] " .. (ctx or "?") .. " 出错: " .. tostring(err))
 	end
+end
+-- ====== 安全远程加载 ======
+local function SafeLoad(url, name)
+	name = name or "远程脚本"
+	print("[SafeLoad] 正在加载 " .. name .. " ...")
+	local body = nil
+	-- 方法1：game:HttpGet（最通用）
+	pcall(function() body = game:HttpGet(url) end)
+	if not body or #body < 10 then
+		-- 方法2：syn.request
+		pcall(function()
+			if syn and syn.request then
+				local r = syn.request({Url = url, Method = "GET"})
+				if r and r.Success then body = r.Body end
+			end
+		end)
+	end
+	if not body or #body < 10 then
+		-- 方法3：http_request / request
+		pcall(function()
+			local fn = http_request or request
+			if fn then
+				local r = fn({Url = url, Method = "GET"})
+				if r and (r.Success or r.StatusCode == 200) then body = r.Body end
+			end
+		end)
+	end
+	if not body or #body < 10 then
+		warn("[SafeLoad] " .. name .. " 下载失败，body为空")
+		return false
+	end
+	local func, err = loadstring(body)
+	if not func then
+		warn("[SafeLoad] " .. name .. " 编译失败: " .. tostring(err))
+		return false
+	end
+	local ok, e = pcall(func)
+	if not ok then
+		warn("[SafeLoad] " .. name .. " 执行出错: " .. tostring(e))
+		return false
+	end
+	print("[SafeLoad] " .. name .. " 加载成功 ✅")
+	return true
 end
 -- ====== 模糊背景 ======
 local blur = Instance.new("BlurEffect")
@@ -272,10 +316,6 @@ local pgFly = createPage("Fly")
 local pgFun = createPage("Fun")
 -- ====== 功能状态 ======
 local FuncState = {
-	AimEnabled = false,
-	AimFOV = 45,
-	AimSmooth = 20,
-	ShowFovCircle = true,
 	SpeedEnabled = false,
 	SpeedValue = 50,
 	ESPEnabled = false,
@@ -437,10 +477,14 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
 	end)
 	setVal(initial)
 end
--- ====== 自动瞄准 ======
+-- ============================================================
+-- ====== 自动瞄准（静默自瞄 = 远程加载）======
+-- ============================================================
 do
 	local p = pgAim
 	local y = 10
+
+	-- 标题
 	local hdr = Instance.new("TextLabel", p)
 	hdr.Text = "自动瞄准"
 	hdr.Font = Enum.Font.GothamSemibold
@@ -451,91 +495,58 @@ do
 	hdr.Size = UDim2.new(1, -24, 0, 20)
 	hdr.TextXAlignment = Enum.TextXAlignment.Left
 	y = y + 30
-	createToggle(p, y, "启用静默自瞄", function() return FuncState.AimEnabled end, function(v)
-		FuncState.AimEnabled = v
-	end)
-	y = y + 46
-	createSlider(p, y, "瞄准 FOV", 5, 120, 45, function(v)
-		FuncState.AimFOV = v
-	end)
-	y = y + 60
-	createSlider(p, y, "平滑度", 1, 50, 20, function(v)
-		FuncState.AimSmooth = v
-	end)
-	y = y + 60
-	createToggle(p, y, "显示 FOV 圈", function() return FuncState.ShowFovCircle end, function(v)
-		FuncState.ShowFovCircle = v
-	end)
-	local function getClosestEnemy()
-		local cam = workspace.CurrentCamera
-		if not cam then return nil end
-		local center = Vector2.new(cam.ViewportSize.X*0.5, cam.ViewportSize.Y*0.5)
-		local closest, cd = nil, math.huge
-		for _, plr in ipairs(Players:GetPlayers()) do
-			if plr ~= LocalPlayer and plr.Character then
-				local head = plr.Character:FindFirstChild("Head")
-				local hum = plr.Character:FindFirstChild("Humanoid")
-				if head and hum and hum.Health > 0 then
-					local sp, onScreen = cam:WorldToScreenPoint(head.Position)
-					if onScreen then
-						local dx, dy = sp.X-center.X, sp.Y-center.Y
-						local d = dx*dx+dy*dy
-						if d < cd then cd = d; closest = head end
-					end
-				end
-			end
-		end
-		return closest
-	end
-	RunService.RenderStepped:Connect(function()
-		safeCall(function()
-			if not FuncState.AimEnabled then return end
-			local target = getClosestEnemy()
-			if not target then return end
+
+	-- 保存原始相机状态，用于关闭时恢复
+	local originalCameraMode = nil
+	local originalCameraCFrame = nil
+	local scriptLoaded = false
+
+	-- ====== 静默自瞄 ======
+	createToggle(p, y, "静默自瞄", function() return scriptLoaded end, function(v)
+		if v then
+			-- ✅ 开启 → 保存相机状态 + 加载远程脚本
 			local cam = workspace.CurrentCamera
-			local t = 1 / ((FuncState.AimSmooth or 20)*0.6 + 1)
-			local cp = cam.CFrame.Position
-			local td = (target.Position - cp).Unit
-			local dot = math.clamp(cam.CFrame.LookVector:Dot(td), -1, 1)
-			local angle = math.acos(dot)
-			if angle < 0.001 then
-				cam.CFrame = CFrame.new(cp, cp + td)
-				return
+			if cam then
+				originalCameraMode = cam.CameraType
+				originalCameraCFrame = cam.CFrame
 			end
-			cam.CFrame = cam.CFrame:Lerp(CFrame.new(cp, cp+td), math.clamp(t, 0.03, 0.95))
-		end, "Aim")
+			local ok = SafeLoad(
+				"https://raw.githubusercontent.com/odhdshhe/bu/refs/heads/main/%E6%9C%88%E4%BA%AE%E5%8A%A0%E5%AF%86%E8%BF%87%E7%9A%84%E6%9E%97%E7%9A%84%E8%87%AA%E7%9E%84.lua",
+				"静默自瞄"
+			)
+			scriptLoaded = ok
+			if not ok then
+				warn("[静默自瞄] 加载失败，请检查网络或注入器是否支持 HttpGet")
+			end
+		else
+			-- ❌ 关闭 → 恢复正常
+			-- 远程脚本无法从外部停止，但我们可以尝试恢复相机
+			local cam = workspace.CurrentCamera
+			if cam then
+				-- 恢复相机模式
+				pcall(function()
+					if originalCameraMode then
+						cam.CameraType = originalCameraMode
+					else
+						cam.CameraType = Enum.CameraType.Custom
+					end
+				end)
+				-- 恢复相机位置
+				pcall(function()
+					if originalCameraCFrame then
+						cam.CFrame = originalCameraCFrame
+					end
+				end)
+			end
+			-- 通知远程脚本可能监听的全局变量
+			pcall(function() getgenv().AimbotEnabled = false end)
+			pcall(function() getgenv().SilentAim = false end)
+			pcall(function() getgenv()._G.AimbotEnabled = false end)
+			scriptLoaded = false
+			print("[静默自瞄] 已关闭，相机已恢复")
+		end
 	end)
 end
--- ====== FOV 圈 ======
-local fovGui = Instance.new("ScreenGui")
-fovGui.Name = "FOV_Circle"
-fovGui.ResetOnSpawn = false
-fovGui.IgnoreGuiInset = true
-fovGui.Parent = PlayerGui
-local fovFrame = Instance.new("Frame", fovGui)
-fovFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-fovFrame.Position = UDim2.fromScale(0.5, 0.5)
-fovFrame.BackgroundTransparency = 1
-fovFrame.Size = UDim2.new(0, 0, 0, 0)
-local fovStroke = Instance.new("UIStroke", fovFrame)
-fovStroke.Color = Color3.fromRGB(255,255,255)
-fovStroke.Thickness = 1.6
-fovStroke.Transparency = 0.12
-corner(fovFrame, 999)
-RunService.RenderStepped:Connect(function()
-	safeCall(function()
-		local cam = workspace.CurrentCamera
-		if not cam then return end
-		local center = Vector2.new(cam.ViewportSize.X*0.5, cam.ViewportSize.Y*0.5)
-		fovFrame.Position = UDim2.fromOffset(center.X, center.Y)
-		local fov = FuncState.AimFOV or 45
-		local r = math.tan(math.rad(fov/2)) * (cam.ViewportSize.Y/2) * 2
-		fovFrame.Size = UDim2.fromOffset(r, r)
-		local vis = FuncState.AimEnabled and FuncState.ShowFovCircle
-		fovFrame.Visible = vis
-		fovStroke.Transparency = vis and 0.15 or 1
-	end, "FOV")
-end)
 -- ====== 速度增强 ======
 do
 	local p = pgSpeed
@@ -890,7 +901,6 @@ end
 do
 	local p = pgFun
 	local y = 10
-
 	local hdr = Instance.new("TextLabel", p)
 	hdr.Text = "娱乐"
 	hdr.Font = Enum.Font.GothamSemibold
@@ -900,18 +910,15 @@ do
 	hdr.Position = UDim2.new(0, 12, 0, y)
 	hdr.Size = UDim2.new(1, -24, 0, 20)
 	hdr.TextXAlignment = Enum.TextXAlignment.Left
-
 	-- ====== 旋转 ======
 	y = y + 36
 	createToggle(p, y, "旋转", function() return FuncState.SpinEnabled end, function(v)
 		FuncState.SpinEnabled = v
 	end)
-
 	y = y + 50
 	createSlider(p, y, "旋转倍数 (10-999)", 10, 999, 50, function(v)
 		FuncState.SpinSpeed = v
 	end)
-
 	-- ====== 旋转循环 ======
 	RunService.RenderStepped:Connect(function(dt)
 		safeCall(function()
@@ -1136,4 +1143,4 @@ pcall(function()
 	springTween(root, {Size = UDim2.new(0,C.Width,0,C.Height), BackgroundTransparency = 0.18}, 0.5)
 end)
 makeTween(blur, {Size = C.Blur}, 0.5)
-print("[shible] UI 加载完成 ✅（甩飞全部/防甩飞已移除）")
+print("[shible] UI 加载完成 ✅（准心强锁模式已集成）")
