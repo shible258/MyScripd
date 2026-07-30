@@ -1,6 +1,7 @@
 -- ============================================================
 --  shible · 完整源码（UI 保底可见 + ESP不闪 + 血条纤细 + 甩飞不碰自己）
---  【已移除碰飞】【全部甩飞→视角跟随·修复】【玩家列表·可点选·修复】【防甩飞互斥】
+--  【已移除碰飞/甩飞一次/循环甩飞/甩飞目标】
+--  【甩飞全部→原地无敌·第三人称跟随·自身高速自转·每人一次·结束/关闭还原】
 -- ============================================================
 
 local TweenService = game:GetService("TweenService")
@@ -318,7 +319,6 @@ local FuncState = {
 	HealthBarEnabled = false,
 	SpinEnabled = false,
 	SpinSpeed = 50,
-	FlingLoopEnabled = false,
 	FlingAllEnabled = false,
 	AntiFlingEnabled = false,
 }
@@ -337,53 +337,66 @@ local function getRootPart()
 	return c and c:FindFirstChild("HumanoidRootPart")
 end
 
--- ====== ✅ SkidFling 甩飞核心（只推别人，不碰自己）=====
+-- ====== ✅ SkidFling 甩飞核心（修复版：ApplyImpulse + Assembly 双写，异步不阻塞）=====
 local function SkidFling(targetPlr)
 	if Flinging then return end
 	Flinging = true
-	pcall(function()
-		local char = targetPlr.Character
-		if not char then return end
-		local hrp = char:FindFirstChild("HumanoidRootPart")
-		local hum = char:FindFirstChildOfClass("Humanoid")
-		if not (hrp and hum and hum.Health > 0) then return end
+	task.spawn(function()
+		pcall(function()
+			local char = targetPlr and targetPlr.Character
+			if not char then return end
+			local hrp = char:FindFirstChild("HumanoidRootPart")
+			local hum = char:FindFirstChildOfClass("Humanoid")
+			if not (hrp and hum and hum.Health > 0) then return end
 
-		-- 清掉旧的力
-		for _,v in ipairs(hrp:GetChildren()) do
-			if v:IsA("BodyVelocity") or v:IsA("BodyAngularVelocity") or v:IsA("BodyForce") then
-				v:Destroy()
+			-- 尝试拿网络所有权，拿到才用 Assembly/Impulse（对别人客户端可见）
+			pcall(function()
+				if hrp:CanSetNetworkOwnership() then
+					hrp:SetNetworkOwnershipAuto()
+				end
+			end)
+
+			-- 清掉旧的力
+			for _,v in ipairs(hrp:GetChildren()) do
+				if v:IsA("BodyVelocity") or v:IsA("BodyAngularVelocity") or v:IsA("BodyForce") then
+					v:Destroy()
+				end
 			end
-		end
 
-		-- 用 AssemblyLinearVelocity（Roblox 新版物理，不会被覆盖）
-		hrp.AssemblyLinearVelocity = Vector3.new(
-			math.random(-40, 40),
-			420,
-			math.random(-40, 40)
-		)
-		hrp.AssemblyAngularVelocity = Vector3.new(
-			math.random(-90, 90),
-			math.random(-90, 90),
-			math.random(-90, 90)
-		)
+			local linVel = Vector3.new(math.random(-50, 50), 450, math.random(-50, 50))
+			local angVel = Vector3.new(math.random(-120,120), math.random(-120,120), math.random(-120,120))
 
-		-- 额外加 BodyVelocity 作为双保险
-		local bv = Instance.new("BodyVelocity")
-		bv.Name = "ShibleFling"
-		bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-		bv.Velocity = Vector3.new(math.random(-60, 60), 380, math.random(-60, 60))
-		bv.Parent = hrp
-		task.delay(0.3, function() if bv and bv.Parent then bv:Destroy() end end)
+			-- ① ApplyImpulse：直接按质量冲量，新物理系统最稳
+			pcall(function()
+				hrp:ApplyImpulse(linVel * hrp.AssemblyMass)
+			end)
 
-		local bav = Instance.new("BodyAngularVelocity")
-		bav.Name = "ShibleSpin"
-		bav.MaxTorque = Vector3.new(1e7, 1e7, 1e7)
-		bav.AngularVelocity = Vector3.new(math.random(-100, 100), math.random(-100, 100), math.random(-100, 100))
-		bav.Parent = hrp
-		task.delay(0.4, function() if bav and bav.Parent then bav:Destroy() end end)
+			-- ② AssemblyLinearVelocity 双写（即时速度，视觉立刻飞）
+			pcall(function()
+				hrp.AssemblyLinearVelocity = linVel
+			end)
+			pcall(function()
+				hrp.AssemblyAngularVelocity = angVel
+			end)
+
+			-- ③ 短暂 BodyVelocity 兜底（兼容老物理开启的服）
+			local bv = Instance.new("BodyVelocity")
+			bv.Name = "ShibleFling"
+			bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+			bv.Velocity = linVel
+			bv.Parent = hrp
+			task.delay(0.35, function() if bv and bv.Parent then bv:Destroy() end end)
+
+			local bav = Instance.new("BodyAngularVelocity")
+			bav.Name = "ShibleSpin"
+			bav.MaxTorque = Vector3.new(1e7, 1e7, 1e7)
+			bav.AngularVelocity = angVel
+			bav.Parent = hrp
+			task.delay(0.45, function() if bav and bav.Parent then bav:Destroy() end end)
+		end)
+		task.wait(0.15)
+		Flinging = false
 	end)
-	task.wait(0.1)
-	Flinging = false
 end
 
 -- ====== 开关组件 ======
@@ -1087,264 +1100,431 @@ do
 		FuncState.SpinSpeed = v
 	end)
 
-	-- ====== ✅ 玩家选择列表（可滚动、可点选、高亮当前选中）=====
-	y = y + 80
-	local selectedPlayer = "ALL"
+	-- ====== ✅ 玩家选择列表已移除（甩飞目标/循环甩飞已删除）=====
 
-	local playerListLabel = Instance.new("TextLabel", p)
-	playerListLabel.Text = "甩飞目标:"
-	playerListLabel.Font = Enum.Font.GothamSemibold
-	playerListLabel.TextSize = 12
-	playerListLabel.TextColor3 = Theme.TextSecondary
-	playerListLabel.BackgroundTransparency = 1
-	playerListLabel.Position = UDim2.new(0, 12, 0, y - 18)
-	playerListLabel.Size = UDim2.new(1, -24, 0, 16)
-	playerListLabel.TextXAlignment = Enum.TextXAlignment.Left
+	-- ====== 甩飞一次已删除 ======
 
-	local playerList = Instance.new("ScrollingFrame", p)
-	playerList.Size = UDim2.new(1, -24, 0, 90)  -- ✅ 足够高，能看见多个玩家
-	playerList.Position = UDim2.new(0, 12, 0, y)
-	playerList.BackgroundColor3 = Color3.fromRGB(45,45,50)
-	playerList.BackgroundTransparency = 0.3
-	playerList.BorderSizePixel = 0
-	playerList.ScrollBarThickness = 4
-	playerList.CanvasSize = UDim2.new(0, 0, 0, 0)
-	playerList.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	playerList.Parent = p
-	corner(playerList, 6)
+	-- ====== 循环甩飞已删除 ======
 
-	local plistLayout = Instance.new("UIListLayout", playerList)
-	plistLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	plistLayout.Padding = UDim.new(0, 2)
+			-- ====== ✅ 甩飞全部（我飞过去，别人碰到我就自转着被甩飞）=====
+	y = y + 56
 
-	local plistPad = Instance.new("UIPadding", playerList)
-	plistPad.PaddingTop = UDim.new(0, 4)
-	plistPad.PaddingBottom = UDim.new(0, 4)
-	plistPad.PaddingLeft = UDim.new(0, 4)
-	plistPad.PaddingRight = UDim.new(0, 4)
+	-- 状态
+	local flingActive = false
+	local moveBv = nil			-- 我飞向目标的 BodyVelocity
+	local spinConn = nil			-- 当前被甩飞者的自转连接
+	local flyConn = nil			-- 我飞向目标时的方向更新连接
+	local touchedConn = nil		-- 我的 HRP.Touched 连接
+	local hitSet = {}				-- 已碰过的玩家（防重复触发）
+	local currentTarget = nil		-- 当前正在飞向的目标
+	local savedSubject = nil
+	local savedCFrame = nil
+	local savedWs, savedJp = 16, 70
+	local savedHp = 100
+	local savedMaxHp = 100
+	local savedAnchored = false
+	local savedCanCollide = true
+	local savedColId = 0
+	local savedMyCFrame = nil
+	local deadFlag = false
+	local diedConn = nil
+	local healthLockConn = nil
+	local savedHumParent = nil
 
-	-- 当前选中的按钮引用（用于高亮还原）
-	local selectedBtn = nil
+	-- 转速（被甩飞者自转，rad/s）
+	local TARGET_SPIN = 55		-- ≈ 每秒 8.7 圈
 
-	local function createPlayerButton(name, displayName, isAll)
-		local btn = Instance.new("TextButton")
-		btn.Size = UDim2.new(1, -8, 0, 24)
-		btn.Text = displayName
-		btn.Font = Enum.Font.Gotham
-		btn.TextSize = 12
-		btn.TextColor3 = Color3.fromRGB(255,255,255)
-		btn.BackgroundColor3 = Color3.fromRGB(60,60,67)
-		btn.BackgroundTransparency = 0.2
-		btn.BorderSizePixel = 0
-		btn.AutoButtonColor = false
-		btn.Parent = playerList
-		corner(btn, 4)
+	-- 抢网权
+	local function tryStealNetwork(hrp)
+		pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)
+	end
 
-		btn.MouseEnter:Connect(function()
-			if selectedBtn ~= btn then
-				makeTween(btn, {BackgroundColor3 = Color3.fromRGB(80,80,90)}, 0.1)
-			end
+	-- 让目标高速自转（绕自身 Y 轴）
+	local function startTargetSpin(hrp, hum)
+		hum.AutoRotate = false
+		if spinConn then pcall(function() spinConn:Disconnect() end) end
+		spinConn = RunService.RenderStepped:Connect(function()
+			if not flingActive then return end
+			if not (hrp and hrp.Parent) then return end
+			local pos = hrp.Position
+			local spinY = tick() * TARGET_SPIN
+			hrp.CFrame = CFrame.new(pos) * CFrame.Angles(0, spinY, 0)
 		end)
-		btn.MouseLeave:Connect(function()
-			if selectedBtn ~= btn then
-				makeTween(btn, {BackgroundColor3 = Color3.fromRGB(60,60,67)}, 0.1)
-			end
+	end
+
+	-- 停止自转并还原
+	local function stopTargetSpin(hrp, hum)
+		if spinConn then
+			pcall(function() spinConn:Disconnect() end)
+			spinConn = nil
+		end
+		if hum then pcall(function() hum.AutoRotate = true end) end
+		if hrp and hrp.Parent then
+			pcall(function() hrp.CFrame = CFrame.new(hrp.Position) end)
+		end
+	end
+
+	-- 对目标执行甩飞（碰触后调用）
+	local function flingOnTouch(plr, hitPos)
+		if hitSet[plr] then return end
+		hitSet[plr] = true
+
+		local char = plr.Character
+		if not char then return end
+		local hrp = char:FindFirstChild("HumanoidRootPart")
+		local hum = char:FindFirstChildOfClass("Humanoid")
+		if not (hrp and hum and hum.Health > 0) then return end
+
+		tryStealNetwork(hrp)
+
+		-- 方向：从碰触点 → 向外偏上甩
+		local myChar = LocalPlayer.Character
+		local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+		local baseDir
+		if myHrp then
+			baseDir = (hrp.Position - myHrp.Position).Unit
+		else
+			baseDir = Vector3.new(0, 1, 0)
+		end
+		baseDir = (baseDir * 0.6 + Vector3.new(0, 0.8, 0)).Unit
+
+		local impulse = baseDir * 1800 + Vector3.new(0, 1000, 0)
+
+		-- ① ApplyImpulse
+		pcall(function() hrp:ApplyImpulse(impulse * hrp.AssemblyMass) end)
+		-- ② Assembly + Velocity
+		pcall(function() hrp.AssemblyLinearVelocity = impulse end)
+		pcall(function() hrp.Velocity = impulse end)
+		-- ③ 角速度
+		pcall(function()
+			hrp.AssemblyAngularVelocity = Vector3.new(
+				math.random(-500,500),
+				math.random(-500,500),
+				math.random(-500,500)
+			)
 		end)
+		-- ④ BodyVelocity 持续 1.8s
+		local bv = hrp:FindFirstChild("ShibleFling")
+		if not bv then
+			bv = Instance.new("BodyVelocity")
+			bv.Name = "ShibleFling"
+			bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+			bv.P = 12500
+			bv.Parent = hrp
+		end
+		bv.Velocity = impulse
+		-- ⑤ BodyAngularVelocity
+		local bav = hrp:FindFirstChild("ShibleFlingSpin")
+		if not bav then
+			bav = Instance.new("BodyAngularVelocity")
+			bav.Name = "ShibleFlingSpin"
+			bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+			bav.P = 12500
+			bav.Parent = hrp
+		end
+		bav.AngularVelocity = Vector3.new(
+			math.random(-500,500),
+			math.random(-500,500),
+			math.random(-500,500)
+		)
+		-- ⑥ CFrame 瞬移兜底
+		pcall(function() hrp.CFrame = hrp.CFrame + baseDir * 8 end)
 
-		btn.MouseButton1Click:Connect(function()
-			-- 还原上一个
-			if selectedBtn and selectedBtn ~= btn then
-				makeTween(selectedBtn, {BackgroundColor3 = Color3.fromRGB(60,60,67)}, 0.15)
+		-- 让他同时开始高速自转
+		startTargetSpin(hrp, hum)
+
+		-- 1.8 秒后清持续力 + 停自转
+		task.delay(1.8, function()
+			pcall(function() if bv and bv.Parent then bv:Destroy() end end)
+			pcall(function() if bav and bav.Parent then bav:Destroy() end end)
+			stopTargetSpin(hrp, hum)
+		end)
+	end
+
+	-- 设置我飞向目标
+	local function flyToTarget(plr)
+		currentTarget = plr
+		local myChar = LocalPlayer.Character
+		local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+		if not myHrp then return end
+
+		-- 确保 HRP 不锚定（BV 才能推动），同时保持穿墙
+		pcall(function() myHrp.Anchored = false end)
+		pcall(function() myHrp.CanCollide = false end)
+		pcall(function() myHrp.CollisionGroupId = 1 end)
+		-- 清阻力，防卡
+		pcall(function() myHrp.Velocity = Vector3.zero end)
+		pcall(function() myHrp.AssemblyLinearVelocity = Vector3.zero end)
+		pcall(function() myHrp.AssemblyAngularVelocity = Vector3.zero end)
+
+		if moveBv then pcall(function() moveBv:Destroy() end) end
+		moveBv = Instance.new("BodyVelocity")
+		moveBv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+		moveBv.P = 8000
+		moveBv.Velocity = Vector3.zero
+		moveBv.Parent = myHrp
+
+		-- 每帧更新方向（追着目标跑）
+		if flyConn then pcall(function() flyConn:Disconnect() end) end
+		flyConn = RunService.RenderStepped:Connect(function()
+			if not flingActive then return end
+			local tHrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+			local tHum = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
+			if not (tHrp and tHum and tHum.Health > 0) then
+				-- 目标消失，停
+				if moveBv then pcall(function() moveBv:Destroy() end) moveBv = nil end
+				return
 			end
-			-- 高亮当前
-			selectedBtn = btn
-			makeTween(btn, {BackgroundColor3 = Theme.Accent}, 0.15)
+			-- 镜头跟随目标
+			local cam = workspace.CurrentCamera
+			cam.CameraSubject = tHum
+			cam.CFrame = CFrame.new(tHrp.Position + Vector3.new(0, 3, 6), tHrp.Position)
+			-- 更新我的飞行方向
+			local dir = (tHrp.Position - myHrp.Position).Unit
+			moveBv.Velocity = dir * 160
+		end)
+	end
 
-			if isAll then
-				selectedPlayer = "ALL"
-			else
-				-- 找到对应的 Player 对象
-				for _, plr in ipairs(Players:GetPlayers()) do
-					if plr.Name == name then
-						selectedPlayer = plr
-						break
-					end
+	-- 还原一切
+	local function fullRestore()
+		flingActive = false
+		-- 断所有连接
+		if spinConn then pcall(function() spinConn:Disconnect() end) spinConn = nil end
+		if flyConn then pcall(function() flyConn:Disconnect() end) flyConn = nil end
+		if touchedConn then pcall(function() touchedConn:Disconnect() end) touchedConn = nil end
+		-- 清我的移动力
+		if moveBv then pcall(function() moveBv:Destroy() end) moveBv = nil end
+		-- 清 hitSet
+		hitSet = {}
+		currentTarget = nil
+		-- 还原相机
+		local cam = workspace.CurrentCamera
+		local myChar = LocalPlayer.Character
+		local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+		if myHum then
+			cam.CameraSubject = myHum
+		elseif savedSubject then
+			cam.CameraSubject = savedSubject
+		end
+		if savedCFrame then cam.CFrame = savedCFrame end
+		-- 还原自身
+		if myChar then
+			local mHrp = myChar:FindFirstChild("HumanoidRootPart")
+			if mHrp then
+				mHrp.Anchored = savedAnchored
+				-- 还原碰撞 + 碰撞组
+				pcall(function() mHrp.CanCollide = savedCanCollide end)
+				pcall(function() mHrp.CollisionGroupId = savedColId end)
+				if savedMyCFrame then
+					pcall(function() mHrp.CFrame = savedMyCFrame end)
 				end
 			end
-		end)
-
-		return btn
-	end
-
-	local function refreshPlayerList()
-		-- 清空旧按钮
-		for _, child in ipairs(playerList:GetChildren()) do
-			if child:IsA("TextButton") then child:Destroy() end
-		end
-		selectedBtn = nil
-		selectedPlayer = "ALL"
-
-		-- ALL 按钮
-		createPlayerButton("ALL", "👥 ALL（全部玩家）", true)
-
-		-- 每个玩家一个按钮
-		for _, plr in ipairs(Players:GetPlayers()) do
-			if plr ~= LocalPlayer then
-				createPlayerButton(plr.Name, plr.Name, false)
+			if myHum then
+				myHum.WalkSpeed = savedWs
+				myHum.JumpPower = savedJp
+				-- 还原所有 Humanoid 状态
+				pcall(function() myHum:SetStateEnabled(Enum.HumanoidStateType.Dead, true) end)
+				pcall(function() myHum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true) end)
+				pcall(function() myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true) end)
+				pcall(function() myHum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, true) end)
+				pcall(function() myHum:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, true) end)
+				pcall(function() myHum:SetStateEnabled(Enum.HumanoidStateType.Seated, true) end)
+				pcall(function() myHum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, true) end)
+				if deadFlag then
+					-- 演出期间死了：解除无敌，让正常死亡流程接管
+					myHum.MaxHealth = savedMaxHp
+					myHum.Health = 0
+				else
+					myHum.MaxHealth = savedMaxHp
+					myHum.Health = savedHp
+				end
+			end
+			-- 还原物理属性 + Massless
+			local mHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+			if mHrp then
+				pcall(function() mHrp.Massless = false end)
+				pcall(function() mHrp.CustomPhysicalProperties = nil end)
+			end
+			-- 断开 Heartbeat 锁血
+			if healthLockConn then pcall(function() healthLockConn:Disconnect() end) healthLockConn = nil end
+			-- 如果 Humanoid 是 fake 的，移除它（让服务器重建真 Humanoid）
+			if myHum and myHum.Name == "FakeHum" then
+				pcall(function() myHum:Destroy() end)
+				myHum = nil
 			end
 		end
+		-- 断开死亡监听
+		if diedConn then pcall(function() diedConn:Disconnect() end) diedConn = nil end
+		deadFlag = false
+		-- 还原所有被碰过玩家的 AutoRotate
+		for p, _ in pairs(hitSet) do
+			if p.Character then
+				local h = p.Character:FindFirstChildOfClass("Humanoid")
+				if h then pcall(function() h.AutoRotate = true end) end
+			end
+		end
+		hitSet = {}
+		savedSubject = nil
+		savedCFrame = nil
+		savedMyCFrame = nil
 	end
 
-	-- 初始刷新
-	refreshPlayerList()
-	Players.PlayerAdded:Connect(function() refreshPlayerList() end)
-	Players.PlayerRemoving:Connect(function() refreshPlayerList() end)
+	-- 演出主协程
+	local function startFlingShow()
+		if flingActive then return end
+		flingActive = true
+		hitSet = {}
 
-	local function resolveTarget()
-		return selectedPlayer
-	end
+		-- 保存并锁定自身
+		local myChar = LocalPlayer.Character
+		local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+		local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+		if myHrp then
+			savedAnchored = myHrp.Anchored
+			savedCanCollide = myHrp.CanCollide
+			savedColId = myHrp.CollisionGroupId
+			savedMyCFrame = myHrp.CFrame
+			myHrp.Anchored = false	-- 不锚定，我要飞
+			-- 穿墙：关碰撞
+			myHrp.CanCollide = false
+			-- 无视地形：丢进独立碰撞组（不和任何东西碰）
+			pcall(function() myHrp.CollisionGroupId = 1 end)
+			-- 物理层无敌：质量为0 → 任何冲击力=0
+			pcall(function() myHrp.Massless = true end)
+			pcall(function() myHrp.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 1, 1) end)
+			-- 清阻力，防卡
+			pcall(function() myHrp.Velocity = Vector3.zero end)
+			pcall(function() myHrp.AssemblyLinearVelocity = Vector3.zero end)
+			pcall(function() myHrp.AssemblyAngularVelocity = Vector3.zero end)
+		end
+		if myHum then
+			savedWs = myHum.WalkSpeed
+			savedJp = myHum.JumpPower
+			savedHp = myHum.Health
+			savedMaxHp = myHum.MaxHealth
+			savedHumParent = myHum.Parent
+			myHum.WalkSpeed = 0	-- 不让玩家自己走，只靠 BV 飞
+			myHum.JumpPower = 0
+			-- 无敌：血量拉满
+			myHum.MaxHealth = math.huge
+			myHum.Health = math.huge
+			-- 锁死所有会让人"死/倒/卡"的状态
+			pcall(function() myHum:SetStateEnabled(Enum.HumanoidStateType.Dead, false) end)
+			pcall(function() myHum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false) end)
+			pcall(function() myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false) end)
+			pcall(function() myHum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false) end)
+			pcall(function() myHum:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, false) end)
+			pcall(function() myHum:SetStateEnabled(Enum.HumanoidStateType.Seated, false) end)
+			pcall(function() myHum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false) end)
+		end
+		-- ★ 换掉 Humanoid：服务器难操作刚创建的
+		local myChar = LocalPlayer.Character
+		local realHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+		if realHum then
+			pcall(function()
+				local fakeHum = Instance.new("Humanoid")
+				fakeHum.Name = "FakeHum"
+				fakeHum.MaxHealth = math.huge
+				fakeHum.Health = math.huge
+				fakeHum.WalkSpeed = 0
+				fakeHum.JumpPower = 0
+				-- 禁用所有状态
+				for _, st in pairs(Enum.HumanoidStateType:GetEnumItems()) do
+					pcall(function() fakeHum:SetStateEnabled(st, false) end)
+				end
+				fakeHum.Parent = myChar
+				-- 延迟一帧再删真 Humanoid，避免引用错误
+				task.defer(function()
+					pcall(function() realHum:Destroy() end)
+				end)
+				-- 让后续代码拿到的是 fakeHum
+				myHum = fakeHum
+			end)
+		end
+		-- ★ Heartbeat 每帧锁血（防服务器 SetHealth）
+		if healthLockConn then pcall(function() healthLockConn:Disconnect() end) end
+		healthLockConn = RunService.Heartbeat:Connect(function()
+			local h = myChar and myChar:FindFirstChildOfClass("Humanoid")
+			if h and h.Health < math.huge then
+				pcall(function() h.Health = math.huge end)
+				pcall(function() h.MaxHealth = math.huge end)
+			end
+		end)
+		-- 死亡监听：即使死了也继续飞行模式
+		if myHum then
+			diedConn = myHum.Died:Connect(function()
+				deadFlag = true
+				-- 不中断演出、不切视角、不清理 BV
+				-- 让 HRP 继续被 BodyVelocity 推动
+			end)
+		end
+		-- 保存相机
+		local cam = workspace.CurrentCamera
+		savedSubject = cam.CameraSubject
+		savedCFrame = cam.CFrame
 
-	-- ====== 甩飞一次 ======
-	y = y + 100  -- ✅ 留出列表空间
-	local flingBtn = Instance.new("TextButton", p)
-	flingBtn.Size = UDim2.new(1, -24, 0, 34)
-	flingBtn.Position = UDim2.new(0, 12, 0, y)
-	flingBtn.Text = "甩飞一次"
-	flingBtn.BackgroundColor3 = Theme.Accent
-	flingBtn.TextColor3 = Color3.fromRGB(255,255,255)
-	flingBtn.Font = Enum.Font.GothamSemibold
-	flingBtn.TextSize = 13
-	flingBtn.AutoButtonColor = false
-	corner(flingBtn, 8)
-	pressEffect(flingBtn)
+		-- 快照目标
+		local targets = {}
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LocalPlayer and plr.Character then
+				local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+				local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+				if hrp and hum and hum.Health > 0 then
+				table.insert(targets, plr)
+				end
+			end
+		end
 
-	flingBtn.MouseButton1Click:Connect(function()
-		local t = resolveTarget()
-		if t == "ALL" then
-			for _,plr in ipairs(Players:GetPlayers()) do
-				if plr ~= LocalPlayer then
-					SkidFling(plr)
-					repeat task.wait() until not Flinging
+		-- 安装 Touched 监听（核心：别人碰到我 → 甩飞）
+		if myHrp then
+			touchedConn = myHrp.Touched:Connect(function(hitPart)
+				if not flingActive then return end
+				local hitChar = hitPart.Parent
+				if not hitChar then return end
+				local hitPlr = Players:GetPlayerFromCharacter(hitChar)
+				if not hitPlr or hitPlr == LocalPlayer then return end
+				if hitSet[hitPlr] then return end  -- 已处理过
+				flingOnTouch(hitPlr, hitPart.Position)
+			end)
+		end
+
+		-- 逐个飞过去
+		task.spawn(function()
+			for _, t in ipairs(targets) do
+				if not flingActive then break end
+				-- 飞向这个目标
+				flyToTarget(t)
+				-- 等待：要么他碰到我（被甩飞），要么超时（5秒保护）
+				local waited = 0
+				while flingActive and not hitSet[t] and waited < 50 do
+					task.wait(0.1)
+					waited = waited + 1
+					-- 目标消失也跳出
+					local tHrp = t.Character and t.Character:FindFirstChild("HumanoidRootPart")
+					local tHum = t.Character and t.Character:FindFirstChildOfClass("Humanoid")
+					if not (tHrp and tHum and tHum.Health > 0) then break end
+				end
+				-- 撞到了 or 超时 → 短暂停 0.3s 看他飞走
+				for i = 1, 3 do
+					if not flingActive then break end
 					task.wait(0.1)
 				end
 			end
-		elseif t and typeof(t) == "Instance" then
-			SkidFling(t)
-		end
-	end)
+			-- 全部结束
+			fullRestore()
+			FuncState.FlingAllEnabled = false
+		end)
+	end
 
-	-- ====== 循环甩飞 ======
-	y = y + 48
-	createToggle(p, y, "循环甩飞", function() return FuncState.FlingLoopEnabled end, function(v)
-		if v then
-			FuncState.AntiFlingEnabled = false
-			FuncState.FlingLoopEnabled = true
-		else
-			FuncState.FlingLoopEnabled = false
-		end
-	end)
-
-	task.spawn(function()
-		while true do
-			safeCall(function()
-				if FuncState.FlingLoopEnabled and not Flinging then
-					local t = resolveTarget()
-					if t == "ALL" then
-						for _,plr in ipairs(Players:GetPlayers()) do
-							if plr ~= LocalPlayer then
-								SkidFling(plr)
-								break
-							end
-						end
-					elseif t and typeof(t) == "Instance" then
-						SkidFling(t)
-					end
-				end
-			end, "FlingLoop")
-			task.wait(0.5)
-		end
-	end)
-
-	-- ====== ✅ 全部甩飞 · 视角跟随（修复版）=====
-	y = y + 56
-	createToggle(p, y, "全部甩飞（视角跟随）", function() return FuncState.FlingAllEnabled end, function(v)
+	-- Toggle
+	createToggle(p, y, "甩飞全部", function() return FuncState.FlingAllEnabled end, function(v)
 		if v then
 			FuncState.AntiFlingEnabled = false
 			FuncState.FlingAllEnabled = true
+			startFlingShow()
 		else
+			fullRestore()
 			FuncState.FlingAllEnabled = false
-		end
-	end)
-
-	task.spawn(function()
-		while true do
-			safeCall(function()
-				if not FuncState.FlingAllEnabled then return end
-				local cam = workspace.CurrentCamera
-				if not cam then return end
-
-				local lookVec = cam.CFrame.LookVector
-				-- ✅ 确保方向向量有效
-				if lookVec.Magnitude < 0.001 then
-					lookVec = Vector3.new(0, 0, -1)
-				end
-				lookVec = lookVec.Unit
-
-				for _, plr in ipairs(Players:GetPlayers()) do
-					if plr ~= LocalPlayer and plr.Character then
-						local char = plr.Character
-						local hrp = char:FindFirstChild("HumanoidRootPart")
-						local hum = char:FindFirstChildOfClass("Humanoid")
-						if hrp and hum and hum.Health > 0 then
-							-- 清理旧的力
-							for _, v in ipairs(hrp:GetChildren()) do
-								if v:IsA("BodyVelocity") and v.Name == "ShibleFling" then v:Destroy() end
-								if v:IsA("BodyAngularVelocity") and v.Name == "ShibleFlingSpin" then v:Destroy() end
-								if v:IsA("BodyForce") and v.Name == "ShibleFlingForce" then v:Destroy() end
-							end
-
-							-- ✅ 加一点随机散射，避免所有人完全同一轨迹
-							local scatter = Vector3.new(
-								math.random(-15, 15) / 100,
-								math.random(5, 25) / 100,
-								math.random(-15, 15) / 100
-							)
-							local dir = (lookVec + scatter).Unit
-
-							-- ✅ 用 AssemblyLinearVelocity（新版物理系统，不会被覆盖）
-							hrp.AssemblyLinearVelocity = dir * 450 + Vector3.new(0, 280, 0)
-
-							-- ✅ BodyVelocity 双保险
-							local bv = Instance.new("BodyVelocity")
-							bv.Name = "ShibleFling"
-							bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-							bv.Velocity = dir * 450 + Vector3.new(0, 280, 0)
-							bv.Parent = hrp
-							task.delay(0.3, function() if bv and bv.Parent then bv:Destroy() end end)
-
-							-- ✅ 额外加 BodyForce 持续推（防止被重力立刻拉回来）
-							local bf = Instance.new("BodyForce")
-							bf.Name = "ShibleFlingForce"
-							bf.Force = dir * 50000 + Vector3.new(0, 30000, 0)
-							bf.Parent = hrp
-							task.delay(0.25, function() if bf and bf.Parent then bf:Destroy() end end)
-
-							-- 旋转
-							local bav = Instance.new("BodyAngularVelocity")
-							bav.Name = "ShibleFlingSpin"
-							bav.MaxTorque = Vector3.new(1e7, 1e7, 1e7)
-							bav.AngularVelocity = Vector3.new(
-								math.random(-120,120),
-								math.random(-120,120),
-								math.random(-120,120)
-							)
-							bav.Parent = hrp
-							task.delay(0.4, function() if bav and bav.Parent then bav:Destroy() end end)
-						end
-					end
-				end
-			end, "FlingAll_CameraFollow")
-			task.wait(0.35)
 		end
 	end)
 
@@ -1352,7 +1532,6 @@ do
 	y = y + 56
 	createToggle(p, y, "防甩飞", function() return FuncState.AntiFlingEnabled end, function(v)
 		if v then
-			FuncState.FlingLoopEnabled = false
 			FuncState.FlingAllEnabled = false
 			FuncState.AntiFlingEnabled = true
 		else
