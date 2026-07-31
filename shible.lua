@@ -520,10 +520,8 @@ do
 			end
 		else
 			-- ❌ 关闭 → 恢复正常
-			-- 远程脚本无法从外部停止，但我们可以尝试恢复相机
 			local cam = workspace.CurrentCamera
 			if cam then
-				-- 恢复相机模式
 				pcall(function()
 					if originalCameraMode then
 						cam.CameraType = originalCameraMode
@@ -531,14 +529,12 @@ do
 						cam.CameraType = Enum.CameraType.Custom
 					end
 				end)
-				-- 恢复相机位置
 				pcall(function()
 					if originalCameraCFrame then
 						cam.CFrame = originalCameraCFrame
 					end
 				end)
 			end
-			-- 通知远程脚本可能监听的全局变量
 			pcall(function() getgenv().AimbotEnabled = false end)
 			pcall(function() getgenv().SilentAim = false end)
 			pcall(function() getgenv()._G.AimbotEnabled = false end)
@@ -919,6 +915,30 @@ do
 	createSlider(p, y, "旋转倍数 (10-999)", 10, 999, 50, function(v)
 		FuncState.SpinSpeed = v
 	end)
+
+	-- ====== 全部甩飞（远程加载版）======
+	y = y + 50
+	local flingLoaded = false
+
+	createToggle(p, y, "全部甩飞", function() return flingLoaded end, function(v)
+		if v then
+			flingLoaded = SafeLoad(
+				"https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/甩飞",
+				"甩飞所有"
+			)
+			if not flingLoaded then
+				warn("[甩飞所有] 加载失败，请检查注入器是否支持 HttpGet")
+			end
+		else
+			pcall(function() getgenv().FlingAllEnabled = false end)
+			pcall(function() _G.FlingAllEnabled = false end)
+			flingLoaded = false
+			print("[甩飞所有] 已关闭")
+		end
+	end)
+
+	y = y + 46
+
 	-- ====== 旋转循环 ======
 	RunService.RenderStepped:Connect(function(dt)
 		safeCall(function()
