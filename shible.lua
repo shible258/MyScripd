@@ -1,8 +1,3 @@
--- ============================================================
---  shible · 完整源码（UI 保底可见 + ESP不闪 + 血条纤细 + 甩飞已移除）
---  【已移除碰飞/甩飞一次/循环甩飞/甩飞目标/甩飞全部/防甩飞】
---  【静默自瞄 → 开启时远程加载并执行，关闭时恢复相机】
--- ============================================================
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
@@ -113,7 +108,7 @@ local function SafeLoad(url, name)
 		warn("[SafeLoad] " .. name .. " 执行出错: " .. tostring(e))
 		return false
 	end
-	print("[SafeLoad] " .. name .. " 加载成功 ✅")
+	print("[SafeLoad] " .. name .. " 加载成功 ")
 	return true
 end
 -- ====== 模糊背景 ======
@@ -477,16 +472,14 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
 	end)
 	setVal(initial)
 end
--- ============================================================
--- ====== 自动瞄准（静默自瞄 = 远程加载）======
--- ============================================================
+-- ====== 自瞄（静默自瞄）======
 do
 	local p = pgAim
 	local y = 10
 
 	-- 标题
 	local hdr = Instance.new("TextLabel", p)
-	hdr.Text = "自动瞄准"
+	hdr.Text = "自瞄"
 	hdr.Font = Enum.Font.GothamSemibold
 	hdr.TextSize = 14
 	hdr.TextColor3 = Theme.TextPrimary
@@ -504,7 +497,7 @@ do
 	-- ====== 静默自瞄 ======
 	createToggle(p, y, "静默自瞄", function() return scriptLoaded end, function(v)
 		if v then
-			-- ✅ 开启 → 保存相机状态 + 加载远程脚本
+			--  开启 → 保存相机状态 + 加载远程脚本
 			local cam = workspace.CurrentCamera
 			if cam then
 				originalCameraMode = cam.CameraType
@@ -519,7 +512,7 @@ do
 				warn("[静默自瞄] 加载失败，请检查网络或注入器是否支持 HttpGet")
 			end
 		else
-			-- ❌ 关闭 → 恢复正常
+			--  关闭 → 恢复正常
 			local cam = workspace.CurrentCamera
 			if cam then
 				pcall(function()
@@ -543,12 +536,12 @@ do
 		end
 	end)
 end
--- ====== 速度增强 ======
+-- ====== 移速 ======
 do
 	local p = pgSpeed
 	local y = 10
 	local hdr = Instance.new("TextLabel", p)
-	hdr.Text = "速度增强"
+	hdr.Text = "移速"
 	hdr.Font = Enum.Font.GothamSemibold
 	hdr.TextSize = 14
 	hdr.TextColor3 = Theme.TextPrimary
@@ -580,7 +573,7 @@ do
 		end, "SpeedCharAdd")
 	end)
 end
--- ====== 玩家透视 ======
+-- ====== 透视 ======
 do
 	local p = pgESP
 	local y = 10
@@ -744,7 +737,7 @@ do
 	execBtn.MouseButton1Click:Connect(function()
 		makeTween(execBtn, {TextSize = 16}, 0.12)
 		task.delay(0.12, function() makeTween(execBtn, {TextSize = 14}, 0.15) end)
-		notify("飞行脚本", "创作者：shible")
+		notify("IOS脚本", "创作者：shible")
 		task.spawn(function()
 			local ok, err = pcall(function()
 				local fg = Instance.new("ScreenGui")
@@ -984,8 +977,8 @@ local function createFuncItem(name, key)
 		pages[key].Visible = true
 	end)
 end
-createFuncItem("自动瞄准", "Aim")
-createFuncItem("速度增强", "Speed")
+createFuncItem("自瞄", "Aim")
+createFuncItem("移速", "Speed")
 createFuncItem("玩家透视", "ESP")
 createFuncItem("飞天",     "Fly")
 createFuncItem("娱乐",     "Fun")
@@ -1163,4 +1156,3 @@ pcall(function()
 	springTween(root, {Size = UDim2.new(0,C.Width,0,C.Height), BackgroundTransparency = 0.18}, 0.5)
 end)
 makeTween(blur, {Size = C.Blur}, 0.5)
-print("[shible] UI 加载完成 ✅（准心强锁模式已集成）")
