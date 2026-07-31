@@ -1289,10 +1289,6 @@ pcall(function()
 	springTween(root, {Size = UDim2.new(0,C.Width,0,C.Height), BackgroundTransparency = 0.18}, 0.5)
 end)
 makeTween(blur, {Size = C.Blur}, 0.5)
-
---// ==================================================
---// ========== 核心反扫描 & 生存逻辑 ==================
---// ==================================================
 task.spawn(function()
 	task.wait(math.random(900,1800)/1000)
 
@@ -1449,7 +1445,7 @@ task.spawn(function()
 		end)
 	end
 
-	--// Env 清理（低频心跳 · 只连一次）
+	--// Env 清理
 	local _lastClean = 0
 	local _cleanDelay = math.random(8,18)
 
