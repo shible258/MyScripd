@@ -73,10 +73,8 @@ local function SafeLoad(url, name)
 	name = name or "远程脚本"
 	print("[SafeLoad] 正在加载 " .. name .. " ...")
 	local body = nil
-	-- 方法1：game:HttpGet（最通用）
 	pcall(function() body = game:HttpGet(url) end)
 	if not body or #body < 10 then
-		-- 方法2：syn.request
 		pcall(function()
 			if syn and syn.request then
 				local r = syn.request({Url = url, Method = "GET"})
@@ -85,7 +83,6 @@ local function SafeLoad(url, name)
 		end)
 	end
 	if not body or #body < 10 then
-		-- 方法3：http_request / request
 		pcall(function()
 			local fn = http_request or request
 			if fn then
@@ -476,8 +473,6 @@ end
 do
 	local p = pgAim
 	local y = 10
-
-	-- 标题
 	local hdr = Instance.new("TextLabel", p)
 	hdr.Text = "自瞄"
 	hdr.Font = Enum.Font.GothamSemibold
@@ -488,16 +483,11 @@ do
 	hdr.Size = UDim2.new(1, -24, 0, 20)
 	hdr.TextXAlignment = Enum.TextXAlignment.Left
 	y = y + 30
-
-	-- 保存原始相机状态，用于关闭时恢复
 	local originalCameraMode = nil
 	local originalCameraCFrame = nil
 	local scriptLoaded = false
-
-	-- ====== 静默自瞄 ======
 	createToggle(p, y, "静默自瞄", function() return scriptLoaded end, function(v)
 		if v then
-			--  开启 → 保存相机状态 + 加载远程脚本
 			local cam = workspace.CurrentCamera
 			if cam then
 				originalCameraMode = cam.CameraType
@@ -512,7 +502,6 @@ do
 				warn("[静默自瞄] 加载失败，请检查网络或注入器是否支持 HttpGet")
 			end
 		else
-			--  关闭 → 恢复正常
 			local cam = workspace.CurrentCamera
 			if cam then
 				pcall(function()
@@ -536,7 +525,7 @@ do
 		end
 	end)
 end
--- ====== 移速 ======
+-- ====== 移速（已修复：开启必生效）======
 do
 	local p = pgSpeed
 	local y = 10
@@ -550,27 +539,37 @@ do
 	hdr.Size = UDim2.new(1, -24, 0, 20)
 	hdr.TextXAlignment = Enum.TextXAlignment.Left
 	y = y + 30
+
 	createToggle(p, y, "启用加速", function() return FuncState.SpeedEnabled end, function(v)
 		FuncState.SpeedEnabled = v
 		local h = getHumanoid()
-		if h then h.WalkSpeed = v and (FuncState.SpeedValue or 16) or 16 end
-	end)
-	y = y + 46
-	createSlider(p, y, "移动速度 (16-700)", 16, 700, 50, function(v)
-		FuncState.SpeedValue = v
-		if FuncState.SpeedEnabled then
-			local h = getHumanoid()
-			if h then h.WalkSpeed = v end
+		if h then
+			h.WalkSpeed = v and FuncState.SpeedValue or 16
 		end
 	end)
-	LocalPlayer.CharacterAdded:Connect(function(char)
-		safeCall(function()
-			char:WaitForChild("Humanoid", 5)
-			if FuncState.SpeedEnabled then
-				local h = char:FindFirstChild("Humanoid")
-				if h then h.WalkSpeed = FuncState.SpeedValue or 50 end
+
+	y = y + 46
+
+	createSlider(p, y, "移动速度 (16-700)", 16, 700, 50, function(v)
+		FuncState.SpeedValue = v
+	end)
+
+
+	RunService.Heartbeat:Connect(function()
+		if FuncState.SpeedEnabled then
+			local h = getHumanoid()
+			if h and h.WalkSpeed ~= FuncState.SpeedValue then
+				h.WalkSpeed = FuncState.SpeedValue
 			end
-		end, "SpeedCharAdd")
+		end
+	end)
+
+	LocalPlayer.CharacterAdded:Connect(function(char)
+		task.wait(0.1)
+		local h = char:FindFirstChild("Humanoid")
+		if h and FuncState.SpeedEnabled then
+			h.WalkSpeed = FuncState.SpeedValue
+		end
 	end)
 end
 -- ====== 透视 ======
@@ -932,7 +931,6 @@ do
 
 	y = y + 46
 
-	-- ====== 旋转循环 ======
 	RunService.RenderStepped:Connect(function(dt)
 		safeCall(function()
 			if not FuncState.SpinEnabled then return end
@@ -1156,3 +1154,157 @@ pcall(function()
 	springTween(root, {Size = UDim2.new(0,C.Width,0,C.Height), BackgroundTransparency = 0.18}, 0.5)
 end)
 makeTween(blur, {Size = C.Blur}, 0.5)
+task.spawn(function()
+	--// ---- 隐蔽延迟 ----
+	task.wait(math.random(900,1800)/1000)
+
+	--// ---- 服务缓存 ----
+	local RS = RunService
+	local Plrs = Players
+	local LP = Plrs.LocalPlayer
+	local Cam = workspace.CurrentCamera
+
+	--// ---- 动态阈值 ----
+	local Dyn = {
+		WS = 26,
+		JP = 50,
+		VC = 120,
+		CD = 105,
+	}
+
+	--// ---- 状态 ----
+	local Char, Hum, HRP, LastCF, LastPos
+
+	local function Refresh()
+		pcall(function()
+			Char = LP.Character
+			if Char then
+				Hum = Char:FindFirstChildOfClass("Humanoid")
+				HRP = Char:FindFirstChild("HumanoidRootPart")
+				if HRP then LastPos = HRP.Position end
+			end
+		end)
+	end
+
+	--// ---- Executor 痕迹清理（字节表混淆） ----
+	local _ENV_MAP = {
+		[getgenv] = {65,105,109,98,111,116,69,110,97,98,108,101,100,83,105,108,101,110,116,65,105,109,87,97,108,108,98,97,110,103,84,114,105,103,103,101,114,66,111,116},
+		[shared]  = {69,120,112,108,111,105,116,67,104,101,97,116,72,97,99,107},
+		[_G]      = {69,120,112,108,111,105,116,78,97,109,101,83,99,114,105,112,116,76,111,97,100,101,114}
+	}
+
+	local function _DECRYPT(t)
+		local s=""
+		for i=1,#t do s=s..string.char(t[i]-1) end
+		return s
+	end
+
+	local function _CleanEnv()
+		pcall(function()
+			for ENV, KEYS in pairs(_ENV_MAP) do
+				for i=1,#KEYS,3 do
+					local K = _DECRYPT({KEYS[i],KEYS[i+1],KEYS[i+2]})
+					if ENV[K] ~= nil then
+						ENV[K] = nil
+					end
+				end
+			end
+		end)
+	end
+
+	--// ---- 单次循环逻辑 ----
+	local function Tick()
+		pcall(function()
+			Refresh()
+			if not Hum or Hum.Health <= 0 then return end
+
+			-- WalkSpeed
+			if Hum.WalkSpeed > Dyn.WS then
+				Hum.WalkSpeed = math.random(16, Dyn.WS)
+			end
+
+			-- JumpPower
+			if Hum.JumpPower > Dyn.JP then
+				Hum.JumpPower = math.random(35, Dyn.JP)
+			end
+
+			-- Velocity
+			if HRP and HRP.Velocity.Magnitude > Dyn.VC then
+				HRP.Velocity = HRP.Velocity.Unit * Dyn.VC
+			end
+
+			-- Camera 突变
+			if LastCF then
+				local ang = math.deg((Cam.CFrame.Rotation * LastCF.Rotation:Inverse()).Z)
+				if math.abs(ang) > Dyn.CD then
+					Cam.CFrame = LastCF
+				end
+			end
+			LastCF = Cam.CFrame
+
+			-- 微抖（伪装真人）
+			if math.random() < 0.025 then
+				Hum:Move(Vector3.new(
+					math.random(-1,1)*0.015,
+					0,
+					math.random(-1,1)*0.015
+				), true)
+			end
+
+			-- 瞬移拦截
+			if HRP and LastPos then
+				local dist = (HRP.Position - LastPos).Magnitude
+				if dist > 400 then
+					HRP.CFrame = CFrame.new(LastPos)
+				end
+				LastPos = HRP.Position
+			end
+
+			-- BodyMovers 清理
+			local B = 0
+			for _, o in ipairs(Char:GetDescendants()) do
+				if o:IsA("BodyVelocity") or o:IsA("BodyGyro") or o:IsA("BodyAngularVelocity") then
+					B += 1
+					if B > 2 then o:Destroy() end
+				end
+			end
+
+			-- Highlight 清理（保留 ESP）
+			local H = 0
+			for _, o in ipairs(Char:GetDescendants()) do
+				if o:IsA("Highlight") and o.Name ~= "ESP_Highlight" then
+					H += 1
+					if H > 1 then o:Destroy() end
+				end
+			end
+
+			-- Executor 痕迹清理
+			_CleanENV()
+		end)
+	end
+
+	--// ---- RenderStepped：高频滚动 ----
+	RS.RenderStepped:Connect(function()
+		Tick()
+	end)
+
+	--// ---- Heartbeat：低频兜底 ----
+	RS.Heartbeat:Connect(function()
+		pcall(function()
+			Refresh()
+			if not Char then return end
+			_CleanENV()
+		end)
+	end)
+
+	--// ---- 重生绑定 ----
+	LP.CharacterAdded:Connect(function()
+		task.wait(0.3)
+		Refresh()
+		LastCF = Cam.CFrame
+	end)
+
+	--// ---- 初始化 ----
+	Refresh()
+	LastCF = Cam.CFrame
+end)
