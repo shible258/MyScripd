@@ -360,6 +360,8 @@ local FuncState = {
 	HealthBarEnabled = false,
 	SpinEnabled = false,
 	SpinSpeed = 50,
+	AntiDetect = true,   -- 防检测总开关（true=开启）
+	OfflineFake = true, -- 离线伪装模式（true=开启，会导致卡顿）
 }
 local Flinging = false
 
@@ -372,7 +374,6 @@ local function getHumanoid()
 	local c = getChar()
 	return c and c:FindFirstChildOfClass("Humanoid")
 end
-
 local function getRootPart()
 	local c = getChar()
 	return c and c:FindFirstChild("HumanoidRootPart")
@@ -540,7 +541,7 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
 	setVal(initial)
 end
 
---// ====== 自瞄（静默自瞄 · 混淆URL）======
+--// ====== 静默自瞄 ======
 do
 	local p = pgAim
 	local y = 10
@@ -555,9 +556,11 @@ do
 	hdr.TextXAlignment = Enum.TextXAlignment.Left
 	y = y + 30
 
+	-- 静默自瞄
 	local originalCameraMode = nil
 	local originalCameraCFrame = nil
 	local scriptLoaded = false
+	local aimURL = "https://raw.githubusercontent.com/odhdshhe/bu/refs/heads/main/%E6%9C%88%E4%BA%AE%E5%8A%A0%E5%AF%86%E8%BF%87%E7%9A%84%E6%9E%97%E7%9A%84%E8%87%AA%E7%9E%84.lua"
 
 	createToggle(p, y, "静默自瞄", function() return scriptLoaded end, function(v)
 		if v then
@@ -566,9 +569,6 @@ do
 				originalCameraMode = cam.CameraType
 				originalCameraCFrame = cam.CFrame
 			end
-			local partA = "hvvsdpogqwcjfqktvzcm"
-			local partB = "c[wfrx~qexqj~qwtvjwvgg`grq"
-			local aimURL = BuildURL(partA, partB, 7)
 			scriptLoaded = SafeLoad(aimURL, "静默自瞄")
 			if not scriptLoaded then
 				warn("[静默自瞄] 加载失败")
@@ -593,6 +593,24 @@ do
 			pcall(function() getgenv().SilentAim = false end)
 			pcall(function() getgenv()._G.AimbotEnabled = false end)
 			scriptLoaded = false
+		end
+	end)
+
+	-- 子弹追踪（子追）
+	y = y + 36 + 10  
+	local bulletTrackLoaded = false
+	local bulletTrackURL = "https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/%E5%AD%90%E8%BF%BD"
+
+	createToggle(p, y, "子弹追踪", function() return bulletTrackLoaded end, function(v)
+		if v then
+			bulletTrackLoaded = SafeLoad(bulletTrackURL, "子弹追踪")
+			if not bulletTrackLoaded then
+				warn("[子弹追踪] 加载失败")
+			end
+		else
+			pcall(function() getgenv().BulletTrackEnabled = false end)
+			pcall(function() _G.BulletTrackEnabled = false end)
+			bulletTrackLoaded = false
 		end
 	end)
 end
@@ -1023,28 +1041,28 @@ do
 		FuncState.SpinSpeed = v
 	end)
 
-	--// 甩飞（混淆URL）
+	--// 甩飞
 	y = y + 50
 	local flingLoaded = false
+	
+	local flingURL = "https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/%E7%94%A9%E9%A3%9E"
 
-	createToggle(p, y, "全部甩飞", function() return flingLoaded end, function(v)
+	createToggle(p, y, "甩飞所有", function() return flingLoaded end, function(v)
 		if v then
-			local partA2 = "hvvsdpogqwcjfqktvzcm"
-			local partB2 = "c[wfrx~qexqj~qwtvjwvgg`grq"
-			local flingURL = BuildURL(partA2, partB2, 7)
+			
 			flingLoaded = SafeLoad(flingURL, "甩飞所有")
 			if not flingLoaded then
 				warn("[甩飞所有] 加载失败")
 			end
 		else
+			
 			pcall(function() getgenv().FlingAllEnabled = false end)
 			pcall(function() _G.FlingAllEnabled = false end)
 			flingLoaded = false
 		end
 	end)
 
-	y = y + 46
-
+	
 	RunService.RenderStepped:Connect(function(dt)
 		safeCall(function()
 			if not FuncState.SpinEnabled then return end
@@ -1289,183 +1307,273 @@ pcall(function()
 	springTween(root, {Size = UDim2.new(0,C.Width,0,C.Height), BackgroundTransparency = 0.18}, 0.5)
 end)
 makeTween(blur, {Size = C.Blur}, 0.5)
+
+--// ====== 全局动态防检测系统 ======
 task.spawn(function()
-	task.wait(math.random(900,1800)/1000)
+    task.wait(math.random(600, 1500) / 1000)
 
-	local RS = RunService
-	local Plrs = Players
-	local LP = Plrs.LocalPlayer
-	local Cam = workspace.CurrentCamera
+    local RS = RunService
+    local Plrs = Players
+    local LP = Plrs.LocalPlayer
+    local Cam = workspace.CurrentCamera
+    local UIS = UserInputService
 
-	--// 动态阈值漂移
-	local Dyn = {
-		WS = 26,
-		JP = 50,
-		VC = 120,
-		CD = 105,
-	}
+    --// 动态参数池（极保守，模拟正常玩家）
+    local Dyn = {
+        WS = { base = 16, range = 1 },   -- 移速 15~17
+        JP = { base = 40, range = 2 },   -- 跳跃 38~42
+        VC = { base = 45, range = 5 },   -- 速度上限 40~50
+        CD = { base = 25, range = 10 },  -- 视角角度 20~30
+    }
 
-	task.spawn(function()
-		while true do
-			task.wait(math.random(3,7))
-			Dyn.WS = 22 + math.random(0,8)
-			Dyn.JP = 48 + math.random(0,8)
-			Dyn.VC = 110 + math.random(0,30)
-			Dyn.CD = 95 + math.random(15,35)
-		end
-	end)
+    local function refreshDyn()
+        for _, v in pairs(Dyn) do
+            v.interval = math.random(5, 15) + math.random()
+            v.timer = 0
+        end
+    end
+    refreshDyn()
 
-	local Char, Hum, HRP, LastCF, LastPos
+    local function getDyn(key)
+        local d = Dyn[key]
+        if not d then return 0 end
+        return d.base + math.random(-d.range, d.range) * 0.5
+    end
 
-	local function Refresh()
-		pcall(function()
-			Char = LP.Character
-			if Char then
-				Hum = Char:FindFirstChildOfClass("Humanoid")
-				HRP = Char:FindFirstChild("HumanoidRootPart")
-				if HRP then LastPos = HRP.Position end
-			end
-		end)
-	end
+    local Char, Hum, HRP, LastCF, LastPos
+    local currentWalkSpeed = 16
+    local frameCounter = 0
 
-	--// Env 清理（字节表混淆）
-	local _ENV_MAP = {
-		[getgenv] = {65,105,109,98,111,116,69,110,97,98,108,101,100,83,105,108,101,110,116,65,105,109,87,97,108,108,98,97,110,103,84,114,105,103,103,101,114,66,111,116},
-		[shared]  = {69,120,112,108,111,105,116,67,104,101,97,116,72,97,99,107},
-		[_G]      = {69,120,112,108,111,105,116,78,97,109,101,83,99,114,105,112,116,76,111,97,100,101,114}
-	}
+    local function Refresh()
+        pcall(function()
+            Char = LP.Character
+            if Char then
+                Hum = Char:FindFirstChildOfClass("Humanoid")
+                HRP = Char:FindFirstChild("HumanoidRootPart")
+                if HRP then LastPos = HRP.Position end
+            end
+        end)
+    end
 
-	local function _DECRYPT(t)
-		local s=""
-		for i=1,#t do s=s..string.char(t[i]-1) end
-		return s
-	end
+    --// ========== 强力环境清理（归零所有作弊变量） ==========
+    local function _CleanEnv()
+        pcall(function()
+            local keywords = {
+                "Aim", "Silent", "Fling", "ESP", "Wall", "Trigger",
+                "Speed", "Jump", "Fly", "Spin", "Bullet", "Track",
+                "Exploit", "Cheat", "Hack", "Script",
+                "Ink", "Squid", "Dalgona", "RedLight", "GreenLight",
+                "AutoKill", "AutoClick", "Farm", "Grind",
+                "AntiDetect", "Offline", "Fake", "God", "Infinite"
+            }
+            local envs = { getgenv(), shared, _G, _ENV }
+            for _, env in ipairs(envs) do
+                if type(env) == "table" then
+                    for k, _ in pairs(env) do
+                        if type(k) == "string" then
+                            local lower = k:lower()
+                            for _, kw in ipairs(keywords) do
+                                if lower:find(kw:lower()) then
+                                    env[k] = nil  
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            -- 额外清理特定函数
+            pcall(function() getgenv().loadstring = nil end)
+            pcall(function() _G.loadstring = nil end)
+        end)
+    end
 
-	local function _CleanEnv()
-		pcall(function()
-			for ENV, KEYS in pairs(_ENV_MAP) do
-				for i=1,#KEYS,3 do
-					local K = _DECRYPT({KEYS[i],KEYS[i+1],KEYS[i+2]})
-					if ENV[K] ~= nil then
-						ENV[K] = nil
-					end
-				end
-			end
-		end)
-	end
+    --// ========== 离线伪装循环 ==========
+    local function offlineFake()
+        if not FuncState.OfflineFake then return false end
+        -- 随机跳帧（模拟丢包）
+        if math.random() < 0.15 then
+            return true
+        end
+        -- 随机位置微调（模拟网络回滚）
+        if HRP and math.random() < 0.03 then
+            HRP.Position = HRP.Position + Vector3.new(
+                (math.random() - 0.5) * 0.3,
+                (math.random() - 0.5) * 0.3,
+                (math.random() - 0.5) * 0.3
+            )
+        end
+        return false
+    end
 
-	--// 单次循环逻辑
-	local function Tick()
-		pcall(function()
-			Refresh()
-			if not Hum or Hum.Health <= 0 then return end
+    --// ========== 主循环（全局归零修正） ==========
+    local function Tick()
+        if not FuncState.AntiDetect then return end 
 
-			-- WalkSpeed
-			if FuncState.SpeedEnabled then
-				if math.abs(Hum.WalkSpeed - FuncState.SpeedValue) > 35 then
-					Hum.WalkSpeed = FuncState.SpeedValue
-				end
-			else
-				if Hum.WalkSpeed > Dyn.WS then
-					Hum.WalkSpeed = math.random(16, Dyn.WS)
-				end
-			end
+        frameCounter += 1
+        pcall(function()
+            Refresh()
+            if not Hum or Hum.Health <= 0 then return end
 
-			-- JumpPower
-			if FuncState.SpeedEnabled then
-				if Hum.JumpPower > 62 then
-					Hum.JumpPower = math.random(52, 62)
-				end
-			else
-				if Hum.JumpPower > Dyn.JP then
-					Hum.JumpPower = math.random(35, Dyn.JP)
-				end
-			end
+            -- 动态阈值刷新
+            for _, d in pairs(Dyn) do
+                d.timer += 1 / 60
+                if d.timer >= d.interval then
+                    d.base = d.base + math.random(-1, 1)
+                    d.base = math.clamp(d.base, 14, 20)
+                    d.timer = 0
+                    d.interval = math.random(6, 18) + math.random()
+                end
+            end
 
-			-- Velocity
-			if HRP then
-				if HRP.Velocity.Magnitude > Dyn.VC then
-					HRP.Velocity = HRP.Velocity.Unit * Dyn.VC
-				end
-				if HRP.AssemblyLinearVelocity and HRP.AssemblyLinearVelocity.Magnitude > Dyn.VC then
-					HRP.AssemblyLinearVelocity = HRP.AssemblyLinearVelocity.Unit * Dyn.VC
-				end
-			end
+            -- 离线伪装检测
+            if offlineFake() then
+                return
+            end
 
-			-- Camera
-			if LastCF then
-				local ang = math.deg((Cam.CFrame.Rotation * LastCF.Rotation:Inverse()).Z)
-				if math.abs(ang) > Dyn.CD then
-					Cam.CFrame = LastCF
-				end
-			end
-			LastCF = Cam.CFrame
+            -- ===== 移速归零 =====
+            local targetWS
+            if FuncState.SpeedEnabled then
+                targetWS = math.min(FuncState.SpeedValue, 20)  -- 强制上限
+            else
+                targetWS = getDyn("WS") + math.random(-0.5, 0.5)
+            end
+            local diff = targetWS - currentWalkSpeed
+            if math.abs(diff) > 0.05 then
+                currentWalkSpeed += math.sign(diff) * math.min(math.abs(diff), 0.1 + math.random()*0.05)
+            else
+                currentWalkSpeed = targetWS
+            end
+            currentWalkSpeed = currentWalkSpeed + (math.random() - 0.5) * 0.02
+            currentWalkSpeed = math.clamp(currentWalkSpeed, 14, 22)
+            if Hum.WalkSpeed ~= currentWalkSpeed then
+                Hum.WalkSpeed = currentWalkSpeed
+            end
 
-			-- 微抖
-			if math.random() < 0.025 then
-				Hum:Move(Vector3.new(
-					math.random(-1,1)*0.015,
-					0,
-					math.random(-1,1)*0.015
-				), true)
-			end
+            -- ===== 跳跃归零 =====
+            local targetJP = getDyn("JP") + math.random(-1, 1)
+            targetJP = math.clamp(targetJP, 38, 44)
+            if Hum.JumpPower ~= targetJP then
+                Hum.JumpPower = targetJP
+            end
 
-			-- 瞬移拦截
-			if HRP and LastPos then
-				if (HRP.Position - LastPos).Magnitude > 400 then
-					HRP.CFrame = CFrame.new(LastPos)
-				end
-				LastPos = HRP.Position
-			end
+            -- ===== 速度上限归零 =====
+            if HRP then
+                local maxV = getDyn("VC") + math.random(-2, 2)
+                maxV = math.clamp(maxV, 40, 55)
+                if HRP.Velocity.Magnitude > maxV then
+                    HRP.Velocity = HRP.Velocity.Unit * maxV
+                end
+                if HRP.AssemblyLinearVelocity and HRP.AssemblyLinearVelocity.Magnitude > maxV then
+                    HRP.AssemblyLinearVelocity = HRP.AssemblyLinearVelocity.Unit * maxV
+                end
+            end
 
-			-- BodyMovers 限制
-			local B = 0
-			for _, o in ipairs(Char:GetDescendants()) do
-				if o:IsA("BodyVelocity") or o:IsA("BodyGyro")
-					or o:IsA("AlignPosition") or o:IsA("VectorForce") then
-					B += 1
-					if B > 1 then o:Destroy() end
-				end
-			end
+            -- ===== 视角归零 =====
+            if LastCF then
+                local ang = math.deg((Cam.CFrame.Rotation * LastCF.Rotation:Inverse()).Z)
+                local maxAng = getDyn("CD") + math.random(-3, 3)
+                maxAng = math.clamp(maxAng, 20, 40)
+                if math.abs(ang) > maxAng then
+                    Cam.CFrame = LastCF
+                end
+            end
+            LastCF = Cam.CFrame
 
-			-- Highlight 限制
-			local H = 0
-			for _, o in ipairs(Char:GetDescendants()) do
-				if o:IsA("Highlight") and o.Name ~= "ESP_Highlight" then
-					H += 1
-					if H > 1 then o:Destroy() end
-				end
-			end
+            -- ===== 微抖（人类行为模拟） =====
+            if math.random() < 0.02 then
+                Hum:Move(Vector3.new(
+                    (math.random() - 0.5) * 0.02,
+                    (math.random() - 0.5) * 0.01,
+                    (math.random() - 0.5) * 0.02
+                ), true)
+            end
 
-			-- 突变安全阀
-			if Hum.WalkSpeed > 1000 or (HRP and HRP.Velocity.Magnitude > 1000) then
-				Hum.WalkSpeed = 16
-				if HRP then HRP.Velocity = Vector3.zero end
-			end
-		end)
-	end
+            -- ===== 瞬移拦截 =====
+            if HRP and LastPos then
+                local dist = (HRP.Position - LastPos).Magnitude
+                if dist > 150 and dist < 10000 then
+                    HRP.CFrame = CFrame.new(LastPos)
+                end
+                LastPos = HRP.Position
+            end
 
-	--// Env 清理
-	local _lastClean = 0
-	local _cleanDelay = math.random(8,18)
+            -- ===== BodyMovers 清理 =====
+            local B = 0
+            local maxB = math.random(1, 1) 
+            for _, o in ipairs(Char:GetDescendants()) do
+                if o:IsA("BodyVelocity") or o:IsA("BodyGyro")
+                    or o:IsA("AlignPosition") or o:IsA("VectorForce") then
+                    B += 1
+                    if B > maxB then o:Destroy() end
+                end
+            end
 
-	RS.Heartbeat:Connect(function(dt)
-		_lastClean += dt
-		if _lastClean >= _cleanDelay then
-			pcall(_CleanEnv)
-			_lastClean = 0
-			_cleanDelay = math.random(8,18)
-		end
-	end)
+            -- ===== Highlight 清理 =====
+            for _, o in ipairs(Char:GetDescendants()) do
+                if o:IsA("Highlight") and o.Name ~= "ESP_Highlight" then
+                    o:Destroy()
+                end
+            end
 
-	--// 重生绑定（只绑一次）
-	LP.CharacterAdded:Connect(function()
-		task.wait(0.3)
-		Refresh()
-		LastCF = Cam.CFrame
-	end)
+            -- ===== 终极安全阀（强制归零） =====
+            if Hum.WalkSpeed > 50 or (HRP and HRP.Velocity.Magnitude > 50) then
+                Hum.WalkSpeed = 16
+                if HRP then HRP.Velocity = Vector3.zero end
+                currentWalkSpeed = 16
+            end
+        end)
+    end
 
-	--// 初始化
-	Refresh()
-	LastCF = Cam.CFrame
+    --// ========== 启动多任务 ==========
+    RS.RenderStepped:Connect(Tick)
+
+    -- 环境清理循环（高频）
+    local cleanTimer = 0
+    local cleanInterval = math.random(10, 30) + math.random()
+    RS.Heartbeat:Connect(function(dt)
+        cleanTimer += dt
+        if cleanTimer >= cleanInterval then
+            pcall(_CleanEnv)
+            cleanTimer = 0
+            cleanInterval = math.random(10, 40) + math.random() * 10
+            if math.random() < 0.3 then cleanInterval += 10 end
+        end
+    end)
+
+    -- 额外随机行为模拟
+    task.spawn(function()
+        while true do
+            task.wait(math.random(3, 8) + math.random())
+            pcall(function()
+                if FuncState.AntiDetect and math.random() < 0.03 then
+                    local angle = (math.random() - 0.5) * 0.02
+                    Cam.CFrame = Cam.CFrame * CFrame.Angles(0, angle, 0)
+                end
+            end)
+        end
+    end)
+
+    -- 动态阈值微调
+    task.spawn(function()
+        while true do
+            task.wait(0.8 + math.random() * 0.8)
+            for _, d in pairs(Dyn) do
+                if math.random() < 0.08 then
+                    d.base = d.base + (math.random() - 0.5) * 0.5
+                    d.base = math.clamp(d.base, 14, 20)
+                end
+            end
+        end
+    end)
+
+    LP.CharacterAdded:Connect(function()
+        task.wait(0.2 + math.random() * 0.3)
+        Refresh()
+        LastCF = Cam.CFrame
+        currentWalkSpeed = 16
+    end)
+
+    Refresh()
+    LastCF = Cam.CFrame
 end)
