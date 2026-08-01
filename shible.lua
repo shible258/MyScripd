@@ -351,7 +351,7 @@ local pgSpeed = createPage("Speed")
 local pgESP = createPage("ESP")
 local pgFly = createPage("Fly")
 local pgFun = createPage("Fun")
-
+local pgAnti = createPage("Anti")
 --// ====== 功能状态 ======
 local FuncState = {
 	SpeedEnabled = false,
@@ -1073,7 +1073,43 @@ do
 		end, "Spin")
 	end)
 end
+--// ====== 防检测页 ======
+do
+	local p = pgAnti
+	local y = 10
+	local hdr = Instance.new("TextLabel", p)
+	hdr.Text = "防检测设置"
+	hdr.Font = Enum.Font.GothamSemibold
+	hdr.TextSize = 14
+	hdr.TextColor3 = Theme.TextPrimary
+	hdr.BackgroundTransparency = 1
+	hdr.Position = UDim2.new(0, 12, 0, y)
+	hdr.Size = UDim2.new(1, -24, 0, 20)
+	hdr.TextXAlignment = Enum.TextXAlignment.Left
 
+	y = y + 36
+	createToggle(p, y, "防检测（全局归零）", function() return FuncState.AntiDetect end, function(v)
+		FuncState.AntiDetect = v
+	end)
+
+	y = y + 46
+	createToggle(p, y, "离线伪装（模拟丢包）", function() return FuncState.OfflineFake end, function(v)
+		FuncState.OfflineFake = v
+	end)
+
+	-- 说明文字
+	local info = Instance.new("TextLabel", p)
+	info.Text = "默认开启的，尽量别关"
+	info.Font = Enum.Font.Gotham
+	info.TextSize = 12
+	info.TextColor3 = Theme.TextSecondary
+	info.BackgroundTransparency = 1
+	info.Position = UDim2.new(0, 16, 0, y + 50)
+	info.Size = UDim2.new(1, -32, 0, 80)
+	info.TextXAlignment = Enum.TextXAlignment.Left
+	info.TextYAlignment = Enum.TextYAlignment.Top
+	info.TextWrapped = true
+end
 --// ====== 左侧功能列表 ======
 local selectedItem = nil
 local function createFuncItem(name, key)
@@ -1118,6 +1154,7 @@ createFuncItem("移速", "Speed")
 createFuncItem("玩家透视", "ESP")
 createFuncItem("飞天", "Fly")
 createFuncItem("娱乐", "Fun")
+createFuncItem("防检测", "Anti")
 
 task.defer(function()
 	safeCall(function()
