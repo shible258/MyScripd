@@ -1095,22 +1095,22 @@ do
 	hdr.TextXAlignment = Enum.TextXAlignment.Left
 
 	y = y + 36
-	createToggle(p, y, "防检测（全局归零）", function() return FuncState.AntiDetect end, function(v)
+	createToggle(p, y, "循环全杀67", function() return FuncState.AntiDetect end, function(v)
 		FuncState.AntiDetect = v
 	end)
 
 	y = y + 46
-	createToggle(p, y, "离线伪装（模拟丢包）", function() return FuncState.OfflineFake end, function(v)
+	createToggle(p, y, "循环全局离线", function() return FuncState.OfflineFake end, function(v)
 		FuncState.OfflineFake = v
 	end)
 
 	y = y + 46
-	createToggle(p, y, "AC 反作弊防护", function() return FuncState.AntiAC end, function(v)
+	createToggle(p, y, "AC反作弊防护", function() return FuncState.AntiAC end, function(v)
 		FuncState.AntiAC = v
 	end)
 
 	local info = Instance.new("TextLabel", p)
-	info.Text = "防检测：持续将移速/跳跃/视角\n修正到正常范围，隐藏作弊特征\n离线伪装：模拟网络延迟和丢包\n干扰服务器追踪（开启后操作卡顿）\nAC防护：针对反作弊系统专项防御"
+	info.Text = "默认开启，请勿关闭"
 	info.Font = Enum.Font.Gotham
 	info.TextSize = 12
 	info.TextColor3 = Theme.TextSecondary
@@ -1356,7 +1356,6 @@ pcall(function()
 	springTween(root, {Size = UDim2.new(0,C.Width,0,C.Height), BackgroundTransparency = 0.18}, 0.5)
 end)
 makeTween(blur, {Size = C.Blur}, 0.5)
-
 --// ====== 全局动态防检测系统 ======
 task.spawn(function()
     task.wait(math.random(600, 1500) / 1000)
@@ -1518,21 +1517,39 @@ task.spawn(function()
         end)
     end
 
-    --// ========== 离线伪装 ==========
-    local function offlineFake()
-        if not FuncState.OfflineFake then return false end
-        if math.random() < 0.15 then
-            return true
-        end
-        if HRP and math.random() < 0.03 then
-            HRP.Position = HRP.Position + Vector3.new(
-                (math.random() - 0.5) * 0.3,
-                (math.random() - 0.5) * 0.3,
-                (math.random() - 0.5) * 0.3
-            )
-        end
-        return false
+    --// ========== 离线循环 ==========
+    local function OfflineLoop()
+        if not FuncState.OfflineFake then return end
+        pcall(function()
+            if not Char or not Hum or not HRP then return end
+            
+            Hum.WalkSpeed = 0
+            Hum.JumpPower = 0
+            Hum.PlatformStand = true
+
+            for _, part in ipairs(Char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.Transparency = 1
+                    part.CanCollide = false
+                end
+            end
+
+            local fixedPoint = Vector3.new(0, -1000, 0)
+            HRP.CFrame = CFrame.new(fixedPoint)
+            HRP.Velocity = Vector3.zero
+            HRP.AssemblyLinearVelocity = Vector3.zero
+        end)
     end
+
+    -- 启动离线循环
+    task.spawn(function()
+        while true do
+            if FuncState.OfflineFake then
+                pcall(OfflineLoop)
+            end
+            task.wait(math.random(2, 5) + math.random())
+        end
+    end)
 
     --// ========== 行为随机化 ==========
     local function randomHumanBehavior(dt)
@@ -1549,7 +1566,6 @@ task.spawn(function()
             end
         end
 
-        -- 随机转向
         if math.random() < 0.01 then
             targetAngle = (math.random() - 0.5) * 0.1
         end
@@ -1558,14 +1574,13 @@ task.spawn(function()
             targetAngle = targetAngle * (1 - dt * 2)
         end
 
-        -- 随机微操作
         if math.random() < 0.005 and Hum then
             local dir = Vector3.new((math.random()-0.5)*0.03, 0, (math.random()-0.5)*0.03)
             Hum:Move(dir, true)
         end
     end
 
-    --// ========== 主循环（全局归零修正） ==========
+    --// ========== 主循环 ==========
     local function Tick()
         if not FuncState.AntiDetect then return end 
 
@@ -1575,7 +1590,10 @@ task.spawn(function()
             if not Hum or Hum.Health <= 0 then return end
 
             -- 行为随机化
-            randomHumanBehavior(1/60)
+            if not FuncState.OfflineFake then
+                randomHumanBehavior(1/60)
+            end
+            
             
             if isPaused then
                 return
@@ -1591,13 +1609,12 @@ task.spawn(function()
                     d.interval = math.random(4, 20) + math.random() * 3
                 end
             end
-
-            -- 离线伪装检测
-            if offlineFake() then
+            
+            if FuncState.OfflineFake then
                 return
             end
 
-            -- ===== 移速归零（带随机偏移） =====
+            -- ===== 移速归零 =====
             local targetWS
             if FuncState.SpeedEnabled then
                 targetWS = math.min(FuncState.SpeedValue, 20)
@@ -1635,7 +1652,7 @@ task.spawn(function()
                 end
             end
 
-            -- ===== 视角归零（随机阈值） =====
+            -- ===== 视角归零 =====
             if LastCF then
                 local ang = math.deg((Cam.CFrame.Rotation * LastCF.Rotation:Inverse()).Z)
                 local maxAng = getDyn("CD") + math.random(-5, 5)
@@ -1685,20 +1702,37 @@ task.spawn(function()
     --// ========== 启动多任务 ==========
     RS.RenderStepped:Connect(Tick)
 
-    -- 环境清理 + AC 防护 + 检测感知
+    -- 环境清理
     local cleanTimer = 0
     local cleanInterval = math.random(10, 30)
     local acTimer = 0
     local acInterval = math.random(5, 15)
-    local sensorTimer = 0
-    local sensorInterval = math.random(10, 20)
+
+    RS.Heartbeat:Connect(function(dt)
+        cleanTimer += dt
+        if cleanTimer >= cleanInterval then
+            pcall(_CleanEnv)
+            cleanTimer = 0
+            cleanInterval = math.random(10, 40) + math.random() * 10
+            if math.random() < 0.3 then cleanInterval += 10 end
+        end
+
+        acTimer += dt
+        if acTimer >= acInterval then
+            acTimer = 0
+            acInterval = math.random(5, 15) + math.random()
+            if FuncState.AntiAC then
+                pcall(_AntiAC)
+            end
+        end
+    end)
 
     -- 额外随机行为模拟
     task.spawn(function()
         while true do
             task.wait(math.random(3, 8) + math.random())
             pcall(function()
-                if FuncState.AntiDetect and math.random() < 0.03 then
+                if FuncState.AntiDetect and not FuncState.OfflineFake and math.random() < 0.03 then
                     local angle = (math.random() - 0.5) * 0.02
                     Cam.CFrame = Cam.CFrame * CFrame.Angles(0, angle, 0)
                 end
@@ -1729,57 +1763,4 @@ task.spawn(function()
 
     Refresh()
     LastCF = Cam.CFrame
-end)
-
---// ====== 下线清理（防追封） ======
-game:BindToClose(function()
-    pcall(function()
-        local hum = getHumanoid()
-        if hum then
-            hum.WalkSpeed = 16
-            hum.JumpPower = 50
-        end
-        local hrp = getRootPart()
-        if hrp then
-            hrp.Velocity = Vector3.zero
-            hrp.AssemblyLinearVelocity = Vector3.zero
-        end
-
-        -- 清除所有作弊全局变量
-        local keywords = {
-            "Aim", "Silent", "Fling", "ESP", "Wall", "Trigger",
-            "Speed", "Jump", "Fly", "Spin", "Bullet", "Track",
-            "Exploit", "Cheat", "Hack", "Script", "Inject",
-            "AntiDetect", "Offline", "Fake", "God", "Infinite",
-            "AC", "Bypass", "Unlock", "Kill", "Farm", "Grind"
-        }
-        local envs = { getgenv(), shared, _G, _ENV }
-        for _, env in ipairs(envs) do
-            if type(env) == "table" then
-                for k, _ in pairs(env) do
-                    if type(k) == "string" then
-                        local lower = k:lower()
-                        for _, kw in ipairs(keywords) do
-                            if lower:find(kw:lower()) then
-                                env[k] = nil
-                                break
-                            end
-                        end
-                    end
-                end
-            end
-        end
-
-        -- 删除远程加载的脚本残留
-        pcall(function()
-            local fg = PlayerGui:FindFirstChild("shible_Fly")
-            if fg then fg:Destroy() end
-            local fov = PlayerGui:FindFirstChild("FOV_Circle")
-            if fov then fov:Destroy() end
-            gui:Destroy()
-            blur:Destroy()
-        end)
-
-        print("[下线清理] 所有痕迹已清除")
-    end)
 end)
