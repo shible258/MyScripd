@@ -62,11 +62,15 @@ local function springTween(target, props, dur)
 	return t
 end
 
+-- 按钮效果（禁用高亮三件套）
 local function pressEffect(btn, sx, sy)
 	sx = sx or 0.96
 	sy = sy or 0.9
 	local orig = btn.Size
 	local pressed = UDim2.new(orig.X.Scale*sx, orig.X.Offset*sx, orig.Y.Scale*sy, orig.Y.Offset*sy)
+	btn.AutoButtonColor = false
+	btn.SelectionImageObject = nil
+	btn.Selectable = false
 	btn.MouseButton1Down:Connect(function() makeTween(btn, {Size=pressed}, 0.08) end)
 	btn.MouseButton1Up:Connect(function() makeTween(btn, {Size=orig}, 0.12, Enum.EasingStyle.Back) end)
 	btn.MouseLeave:Connect(function() makeTween(btn, {Size=orig}, 0.12) end)
@@ -79,7 +83,7 @@ local function safeCall(fn, ctx)
 	end
 end
 
---// ====== URL 混淆（稳定版 · 无 Base64）======
+--// ====== URL 混淆 ======
 local function BuildURL(a, b, offset)
 	local out = ""
 	for i = 1, #a do
@@ -158,6 +162,7 @@ root.BackgroundTransparency = 0.18
 root.BorderSizePixel = 0
 root.Active = true
 root.Visible = true
+root.Selectable = false
 root.Parent = gui
 corner(root, C.Radius)
 
@@ -215,6 +220,8 @@ minBtn.BackgroundTransparency = 1
 minBtn.Position = UDim2.new(1, -40, 0, 10)
 minBtn.Size = UDim2.new(0, 28, 0, 24)
 minBtn.AutoButtonColor = false
+minBtn.SelectionImageObject = nil
+minBtn.Selectable = false
 minBtn.Parent = nav
 
 --// ====== 内容容器 ======
@@ -231,6 +238,7 @@ pageMain.Size = UDim2.new(1, 0, 1, 0)
 pageMain.BackgroundTransparency = 1
 pageMain.Visible = true
 pageMain.Parent = contentContainer
+pageMain.Selectable = false
 
 local introContainer = Instance.new("Frame")
 introContainer.BackgroundTransparency = 1
@@ -294,6 +302,7 @@ pageFunction.BackgroundTransparency = 1
 pageFunction.Visible = false
 pageFunction.Position = UDim2.new(1, 0, 0, 0)
 pageFunction.Parent = contentContainer
+pageFunction.Selectable = false
 
 --// 左侧功能列表
 local funcList = Instance.new("ScrollingFrame")
@@ -352,6 +361,7 @@ local pgESP = createPage("ESP")
 local pgFly = createPage("Fly")
 local pgFun = createPage("Fun")
 local pgAnti = createPage("Anti")
+
 --// ====== 功能状态 ======
 local FuncState = {
 	SpeedEnabled = false,
@@ -360,8 +370,9 @@ local FuncState = {
 	HealthBarEnabled = false,
 	SpinEnabled = false,
 	SpinSpeed = 50,
-	AntiDetect = true,   -- 防检测总开关（true=开启）
-	OfflineFake = true, -- 离线伪装模式（true=开启，会导致卡顿）
+	AntiDetect = true,
+	OfflineFake = true,
+	AntiAC = true,
 }
 local Flinging = false
 
@@ -369,7 +380,6 @@ local Flinging = false
 local function getChar()
 	return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 end
-
 local function getHumanoid()
 	local c = getChar()
 	return c and c:FindFirstChildOfClass("Humanoid")
@@ -401,6 +411,7 @@ local function createToggle(parent, yPos, labelText, getState, onToggle)
 	track.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
 	track.BorderSizePixel = 0
 	corner(track, 14)
+	track.Selectable = false
 
 	local thumb = Instance.new("Frame", track)
 	thumb.Size = UDim2.new(0, 22, 0, 22)
@@ -408,9 +419,9 @@ local function createToggle(parent, yPos, labelText, getState, onToggle)
 	thumb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	thumb.BorderSizePixel = 0
 	corner(thumb, 11)
+	thumb.Selectable = false
 
 	track.Active = true
-	track.Selectable = true
 
 	local on = false
 	pcall(function() on = getState() end)
@@ -480,6 +491,8 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
 	track.Text = ""
 	track.AutoButtonColor = false
 	corner(track, 6)
+	track.SelectionImageObject = nil
+	track.Selectable = false
 	track.ZIndex = 2
 
 	local fill = Instance.new("Frame", track)
@@ -556,7 +569,6 @@ do
 	hdr.TextXAlignment = Enum.TextXAlignment.Left
 	y = y + 30
 
-	-- 静默自瞄
 	local originalCameraMode = nil
 	local originalCameraCFrame = nil
 	local scriptLoaded = false
@@ -596,7 +608,6 @@ do
 		end
 	end)
 
-	-- 子弹追踪（子追）
 	y = y + 36 + 10  
 	local bulletTrackLoaded = false
 	local bulletTrackURL = "https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/%E5%AD%90%E8%BF%BD"
@@ -639,7 +650,6 @@ do
 	end)
 
 	y = y + 46
-
 	createSlider(p, y, "移速 (16-700)", 16, 700, 50, function(v)
 		FuncState.SpeedValue = v
 	end)
@@ -906,6 +916,14 @@ do
 				mini2.BackgroundColor3 = Color3.fromRGB(192,150,230)
 				mini2.Visible = false
 
+				for _, btn in ipairs(f:GetDescendants()) do
+					if btn:IsA("TextButton") then
+						btn.AutoButtonColor = false
+						btn.SelectionImageObject = nil
+						btn.Selectable = false
+					end
+				end
+
 				local speeds = 1
 				local nowe = false
 				local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -913,35 +931,29 @@ do
 				local moveConn, renderConn, bgObj, bvObj
 
 				xbtn.MouseButton1Click:Connect(function() fg:Destroy() end)
-
 				up.MouseButton1Click:Connect(function()
 					if chr and chr:FindFirstChild("HumanoidRootPart") then
 						chr.HumanoidRootPart.CFrame += Vector3.new(0,3,0)
 					end
 				end)
-
 				down.MouseButton1Click:Connect(function()
 					if chr and chr:FindFirstChild("HumanoidRootPart") then
 						chr.HumanoidRootPart.CFrame += Vector3.new(0,-3,0)
 					end
 				end)
-
 				mini.MouseButton1Click:Connect(function()
 					for _,v in ipairs({up,down,onof,plus,spd,mine,xbtn}) do v.Visible = false end
 					mini.Visible = false; mini2.Visible = true
 					f.Size = UDim2.new(0,100,0,28)
 					tl.Position = UDim2.new(0,0,0,0)
 				end)
-
 				mini2.MouseButton1Click:Connect(function()
 					for _,v in ipairs({up,down,onof,plus,spd,mine,xbtn}) do v.Visible = true end
 					mini.Visible = true; mini2.Visible = false
 					f.Size = UDim2.new(0,190,0,57)
 					tl.Position = UDim2.new(0.47,0,0,0)
 				end)
-
 				plus.MouseButton1Click:Connect(function() speeds += 1; spd.Text = tostring(speeds) end)
-
 				mine.MouseButton1Click:Connect(function()
 					if speeds > 1 then speeds -= 1; spd.Text = tostring(speeds)
 					else spd.Text = "错误"; task.wait(0.2); spd.Text = "1" end
@@ -1030,7 +1042,6 @@ do
 	hdr.Size = UDim2.new(1, -24, 0, 20)
 	hdr.TextXAlignment = Enum.TextXAlignment.Left
 
-	--// 旋转
 	y = y + 36
 	createToggle(p, y, "旋转", function() return FuncState.SpinEnabled end, function(v)
 		FuncState.SpinEnabled = v
@@ -1041,28 +1052,23 @@ do
 		FuncState.SpinSpeed = v
 	end)
 
-	--// 甩飞
 	y = y + 50
 	local flingLoaded = false
-	
 	local flingURL = "https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/%E7%94%A9%E9%A3%9E"
 
 	createToggle(p, y, "甩飞所有", function() return flingLoaded end, function(v)
 		if v then
-			
 			flingLoaded = SafeLoad(flingURL, "甩飞所有")
 			if not flingLoaded then
 				warn("[甩飞所有] 加载失败")
 			end
 		else
-			
 			pcall(function() getgenv().FlingAllEnabled = false end)
 			pcall(function() _G.FlingAllEnabled = false end)
 			flingLoaded = false
 		end
 	end)
 
-	
 	RunService.RenderStepped:Connect(function(dt)
 		safeCall(function()
 			if not FuncState.SpinEnabled then return end
@@ -1073,6 +1079,7 @@ do
 		end, "Spin")
 	end)
 end
+
 --// ====== 防检测页 ======
 do
 	local p = pgAnti
@@ -1097,19 +1104,24 @@ do
 		FuncState.OfflineFake = v
 	end)
 
-	-- 说明文字
+	y = y + 46
+	createToggle(p, y, "AC 反作弊防护", function() return FuncState.AntiAC end, function(v)
+		FuncState.AntiAC = v
+	end)
+
 	local info = Instance.new("TextLabel", p)
-	info.Text = "默认开启的，尽量别关"
+	info.Text = "防检测：持续将移速/跳跃/视角\n修正到正常范围，隐藏作弊特征\n离线伪装：模拟网络延迟和丢包\n干扰服务器追踪（开启后操作卡顿）\nAC防护：针对反作弊系统专项防御"
 	info.Font = Enum.Font.Gotham
 	info.TextSize = 12
 	info.TextColor3 = Theme.TextSecondary
 	info.BackgroundTransparency = 1
 	info.Position = UDim2.new(0, 16, 0, y + 50)
-	info.Size = UDim2.new(1, -32, 0, 80)
+	info.Size = UDim2.new(1, -32, 0, 100)
 	info.TextXAlignment = Enum.TextXAlignment.Left
 	info.TextYAlignment = Enum.TextYAlignment.Top
 	info.TextWrapped = true
 end
+
 --// ====== 左侧功能列表 ======
 local selectedItem = nil
 local function createFuncItem(name, key)
@@ -1121,6 +1133,8 @@ local function createFuncItem(name, key)
 	item.AutoButtonColor = false
 	item.Parent = funcList
 	corner(item, 10)
+	item.SelectionImageObject = nil
+	item.Selectable = false
 
 	local lbl = Instance.new("TextLabel", item)
 	lbl.Text = name
@@ -1135,11 +1149,9 @@ local function createFuncItem(name, key)
 	item.MouseEnter:Connect(function()
 		if selectedItem ~= item then makeTween(item, {BackgroundTransparency = 0.35}, 0.15) end
 	end)
-
 	item.MouseLeave:Connect(function()
 		if selectedItem ~= item then makeTween(item, {BackgroundTransparency = 0.6}, 0.15) end
 	end)
-
 	item.MouseButton1Click:Connect(function()
 		if selectedItem then makeTween(selectedItem, {BackgroundTransparency = 0.6}, 0.2) end
 		selectedItem = item
@@ -1355,12 +1367,12 @@ task.spawn(function()
     local Cam = workspace.CurrentCamera
     local UIS = UserInputService
 
-    --// 动态参数池（极保守，模拟正常玩家）
+    --// 动态参数池
     local Dyn = {
-        WS = { base = 16, range = 1 },   -- 移速 15~17
-        JP = { base = 40, range = 2 },   -- 跳跃 38~42
-        VC = { base = 45, range = 5 },   -- 速度上限 40~50
-        CD = { base = 25, range = 10 },  -- 视角角度 20~30
+        WS = { base = 16, range = 1 },
+        JP = { base = 40, range = 2 },
+        VC = { base = 45, range = 5 },
+        CD = { base = 25, range = 10 },
     }
 
     local function refreshDyn()
@@ -1381,6 +1393,13 @@ task.spawn(function()
     local currentWalkSpeed = 16
     local frameCounter = 0
 
+    -- 行为随机化变量
+    local randomPauseTimer = 0
+    local randomPauseDuration = 0
+    local isPaused = false
+    local randomTurnTimer = 0
+    local targetAngle = 0
+
     local function Refresh()
         pcall(function()
             Char = LP.Character
@@ -1392,7 +1411,7 @@ task.spawn(function()
         end)
     end
 
-    --// ========== 强力环境清理（归零所有作弊变量） ==========
+    --// ========== 强力环境清理 ==========
     local function _CleanEnv()
         pcall(function()
             local keywords = {
@@ -1419,20 +1438,92 @@ task.spawn(function()
                     end
                 end
             end
-            -- 额外清理特定函数
             pcall(function() getgenv().loadstring = nil end)
             pcall(function() _G.loadstring = nil end)
         end)
     end
 
-    --// ========== 离线伪装循环 ==========
+    --// ========== AC 反作弊专项防护 ==========
+    local function _AntiAC()
+        if not FuncState.AntiAC then return end
+        
+        pcall(function()
+            local function clearTraces()
+                local keywords = {
+                    "Aim", "Silent", "Fling", "ESP", "Wall", "Trigger",
+                    "Speed", "Jump", "Fly", "Spin", "Bullet", "Track",
+                    "Exploit", "Cheat", "Hack", "Script", "Inject",
+                    "AntiDetect", "Offline", "Fake", "God", "Infinite",
+                    "AC", "Bypass", "Unlock", "Kill", "Farm", "Grind"
+                }
+                local envs = { getgenv(), shared, _G, _ENV }
+                for _, env in ipairs(envs) do
+                    if type(env) == "table" then
+                        for k, _ in pairs(env) do
+                            if type(k) == "string" then
+                                local lower = k:lower()
+                                for _, kw in ipairs(keywords) do
+                                    if lower:find(kw:lower()) then
+                                        env[k] = nil
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
+            local function hideLoadstring()
+                pcall(function()
+                    getgenv().loadstring = nil
+                    _G.loadstring = nil
+                    shared.loadstring = nil
+                end)
+            end
+
+            local function fakeProperties()
+                local hum = getHumanoid()
+                if hum then
+                    local oldWS = hum.WalkSpeed
+                    if oldWS > 20 then
+                        hum.WalkSpeed = 16
+                        task.wait(0.05)
+                        hum.WalkSpeed = oldWS
+                    end
+                end
+            end
+
+            local function mimicHumanBehavior()
+                if math.random() < 0.05 then
+                    local hum = getHumanoid()
+                    if hum then
+                        hum:Move(Vector3.new(
+                            (math.random() - 0.5) * 0.01,
+                            0,
+                            (math.random() - 0.5) * 0.01
+                        ), true)
+                    end
+                end
+                if math.random() < 0.03 then
+                    local angle = (math.random() - 0.5) * 0.005
+                    Cam.CFrame = Cam.CFrame * CFrame.Angles(0, angle, 0)
+                end
+            end
+
+            clearTraces()
+            hideLoadstring()
+            fakeProperties()
+            mimicHumanBehavior()
+        end)
+    end
+
+    --// ========== 离线伪装 ==========
     local function offlineFake()
         if not FuncState.OfflineFake then return false end
-        -- 随机跳帧（模拟丢包）
         if math.random() < 0.15 then
             return true
         end
-        -- 随机位置微调（模拟网络回滚）
         if HRP and math.random() < 0.03 then
             HRP.Position = HRP.Position + Vector3.new(
                 (math.random() - 0.5) * 0.3,
@@ -1441,6 +1532,37 @@ task.spawn(function()
             )
         end
         return false
+    end
+
+    --// ========== 行为随机化 ==========
+    local function randomHumanBehavior(dt)
+        if not isPaused then
+            if math.random() < 0.002 then
+                isPaused = true
+                randomPauseDuration = math.random(0.3, 1.5)
+                randomPauseTimer = 0
+            end
+        else
+            randomPauseTimer = randomPauseTimer + dt
+            if randomPauseTimer >= randomPauseDuration then
+                isPaused = false
+            end
+        end
+
+        -- 随机转向
+        if math.random() < 0.01 then
+            targetAngle = (math.random() - 0.5) * 0.1
+        end
+        if math.abs(targetAngle) > 0.001 then
+            Cam.CFrame = Cam.CFrame * CFrame.Angles(0, targetAngle * dt * 5, 0)
+            targetAngle = targetAngle * (1 - dt * 2)
+        end
+
+        -- 随机微操作
+        if math.random() < 0.005 and Hum then
+            local dir = Vector3.new((math.random()-0.5)*0.03, 0, (math.random()-0.5)*0.03)
+            Hum:Move(dir, true)
+        end
     end
 
     --// ========== 主循环（全局归零修正） ==========
@@ -1452,14 +1574,21 @@ task.spawn(function()
             Refresh()
             if not Hum or Hum.Health <= 0 then return end
 
+            -- 行为随机化
+            randomHumanBehavior(1/60)
+            
+            if isPaused then
+                return
+            end
+
             -- 动态阈值刷新
             for _, d in pairs(Dyn) do
                 d.timer += 1 / 60
                 if d.timer >= d.interval then
-                    d.base = d.base + math.random(-1, 1)
-                    d.base = math.clamp(d.base, 14, 20)
+                    d.base = d.base + math.random(-2, 2)
+                    d.base = math.clamp(d.base, 12, 22)
                     d.timer = 0
-                    d.interval = math.random(6, 18) + math.random()
+                    d.interval = math.random(4, 20) + math.random() * 3
                 end
             end
 
@@ -1468,36 +1597,36 @@ task.spawn(function()
                 return
             end
 
-            -- ===== 移速归零 =====
+            -- ===== 移速归零（带随机偏移） =====
             local targetWS
             if FuncState.SpeedEnabled then
-                targetWS = math.min(FuncState.SpeedValue, 20)  -- 强制上限
+                targetWS = math.min(FuncState.SpeedValue, 20)
             else
-                targetWS = getDyn("WS") + math.random(-0.5, 0.5)
+                targetWS = getDyn("WS") + math.random(-1, 1)
             end
             local diff = targetWS - currentWalkSpeed
             if math.abs(diff) > 0.05 then
-                currentWalkSpeed += math.sign(diff) * math.min(math.abs(diff), 0.1 + math.random()*0.05)
+                currentWalkSpeed += math.sign(diff) * math.min(math.abs(diff), 0.1 + math.random()*0.1)
             else
                 currentWalkSpeed = targetWS
             end
-            currentWalkSpeed = currentWalkSpeed + (math.random() - 0.5) * 0.02
+            currentWalkSpeed = currentWalkSpeed + (math.random() - 0.5) * 0.05
             currentWalkSpeed = math.clamp(currentWalkSpeed, 14, 22)
             if Hum.WalkSpeed ~= currentWalkSpeed then
                 Hum.WalkSpeed = currentWalkSpeed
             end
 
             -- ===== 跳跃归零 =====
-            local targetJP = getDyn("JP") + math.random(-1, 1)
-            targetJP = math.clamp(targetJP, 38, 44)
+            local targetJP = getDyn("JP") + math.random(-2, 2)
+            targetJP = math.clamp(targetJP, 38, 46)
             if Hum.JumpPower ~= targetJP then
                 Hum.JumpPower = targetJP
             end
 
             -- ===== 速度上限归零 =====
             if HRP then
-                local maxV = getDyn("VC") + math.random(-2, 2)
-                maxV = math.clamp(maxV, 40, 55)
+                local maxV = getDyn("VC") + math.random(-5, 5)
+                maxV = math.clamp(maxV, 40, 60)
                 if HRP.Velocity.Magnitude > maxV then
                     HRP.Velocity = HRP.Velocity.Unit * maxV
                 end
@@ -1506,25 +1635,16 @@ task.spawn(function()
                 end
             end
 
-            -- ===== 视角归零 =====
+            -- ===== 视角归零（随机阈值） =====
             if LastCF then
                 local ang = math.deg((Cam.CFrame.Rotation * LastCF.Rotation:Inverse()).Z)
-                local maxAng = getDyn("CD") + math.random(-3, 3)
-                maxAng = math.clamp(maxAng, 20, 40)
+                local maxAng = getDyn("CD") + math.random(-5, 5)
+                maxAng = math.clamp(maxAng, 20, 45)
                 if math.abs(ang) > maxAng then
                     Cam.CFrame = LastCF
                 end
             end
             LastCF = Cam.CFrame
-
-            -- ===== 微抖（人类行为模拟） =====
-            if math.random() < 0.02 then
-                Hum:Move(Vector3.new(
-                    (math.random() - 0.5) * 0.02,
-                    (math.random() - 0.5) * 0.01,
-                    (math.random() - 0.5) * 0.02
-                ), true)
-            end
 
             -- ===== 瞬移拦截 =====
             if HRP and LastPos then
@@ -1537,7 +1657,7 @@ task.spawn(function()
 
             -- ===== BodyMovers 清理 =====
             local B = 0
-            local maxB = math.random(1, 1) 
+            local maxB = math.random(1, 2)
             for _, o in ipairs(Char:GetDescendants()) do
                 if o:IsA("BodyVelocity") or o:IsA("BodyGyro")
                     or o:IsA("AlignPosition") or o:IsA("VectorForce") then
@@ -1553,7 +1673,7 @@ task.spawn(function()
                 end
             end
 
-            -- ===== 终极安全阀（强制归零） =====
+            -- ===== 终极安全阀 =====
             if Hum.WalkSpeed > 50 or (HRP and HRP.Velocity.Magnitude > 50) then
                 Hum.WalkSpeed = 16
                 if HRP then HRP.Velocity = Vector3.zero end
@@ -1565,18 +1685,13 @@ task.spawn(function()
     --// ========== 启动多任务 ==========
     RS.RenderStepped:Connect(Tick)
 
-    -- 环境清理循环（高频）
+    -- 环境清理 + AC 防护 + 检测感知
     local cleanTimer = 0
-    local cleanInterval = math.random(10, 30) + math.random()
-    RS.Heartbeat:Connect(function(dt)
-        cleanTimer += dt
-        if cleanTimer >= cleanInterval then
-            pcall(_CleanEnv)
-            cleanTimer = 0
-            cleanInterval = math.random(10, 40) + math.random() * 10
-            if math.random() < 0.3 then cleanInterval += 10 end
-        end
-    end)
+    local cleanInterval = math.random(10, 30)
+    local acTimer = 0
+    local acInterval = math.random(5, 15)
+    local sensorTimer = 0
+    local sensorInterval = math.random(10, 20)
 
     -- 额外随机行为模拟
     task.spawn(function()
@@ -1597,7 +1712,7 @@ task.spawn(function()
             task.wait(0.8 + math.random() * 0.8)
             for _, d in pairs(Dyn) do
                 if math.random() < 0.08 then
-                    d.base = d.base + (math.random() - 0.5) * 0.5
+                    d.base = d.base + (math.random() - 0.5) * 1
                     d.base = math.clamp(d.base, 14, 20)
                 end
             end
@@ -1609,8 +1724,62 @@ task.spawn(function()
         Refresh()
         LastCF = Cam.CFrame
         currentWalkSpeed = 16
+        isPaused = false
     end)
 
     Refresh()
     LastCF = Cam.CFrame
+end)
+
+--// ====== 下线清理（防追封） ======
+game:BindToClose(function()
+    pcall(function()
+        local hum = getHumanoid()
+        if hum then
+            hum.WalkSpeed = 16
+            hum.JumpPower = 50
+        end
+        local hrp = getRootPart()
+        if hrp then
+            hrp.Velocity = Vector3.zero
+            hrp.AssemblyLinearVelocity = Vector3.zero
+        end
+
+        -- 清除所有作弊全局变量
+        local keywords = {
+            "Aim", "Silent", "Fling", "ESP", "Wall", "Trigger",
+            "Speed", "Jump", "Fly", "Spin", "Bullet", "Track",
+            "Exploit", "Cheat", "Hack", "Script", "Inject",
+            "AntiDetect", "Offline", "Fake", "God", "Infinite",
+            "AC", "Bypass", "Unlock", "Kill", "Farm", "Grind"
+        }
+        local envs = { getgenv(), shared, _G, _ENV }
+        for _, env in ipairs(envs) do
+            if type(env) == "table" then
+                for k, _ in pairs(env) do
+                    if type(k) == "string" then
+                        local lower = k:lower()
+                        for _, kw in ipairs(keywords) do
+                            if lower:find(kw:lower()) then
+                                env[k] = nil
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        -- 删除远程加载的脚本残留
+        pcall(function()
+            local fg = PlayerGui:FindFirstChild("shible_Fly")
+            if fg then fg:Destroy() end
+            local fov = PlayerGui:FindFirstChild("FOV_Circle")
+            if fov then fov:Destroy() end
+            gui:Destroy()
+            blur:Destroy()
+        end)
+
+        print("[下线清理] 所有痕迹已清除")
+    end)
 end)
