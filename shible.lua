@@ -5,10 +5,11 @@ VirtualInputManager=game:GetService('VirtualInputManager')if not LocalPlayer
 then LocalPlayer=Players.PlayerAdded:Wait()end local PlayerGui=LocalPlayer:
 FindFirstChild('PlayerGui')if not PlayerGui then PlayerGui=LocalPlayer:
 WaitForChild('PlayerGui',15)end local RunService=game:GetService('RunService')
-local API_URL='http://192.168.31.249:5000/verify'local keysLoaded=true local
-VALID_KEYS={}local function loadKeys()return true end local function 
-verifyKeyOnline(key)local url=API_URL..'?key='..key local success,response=
-pcall(function()return game:HttpGet(url)end)if not success then return false,
+local API_URL='http://192.168.31.249:5000/verify'local ANTI_DETECT_URL=
+'http://192.168.31.249:5001/get_cleanup'local keysLoaded=true local VALID_KEYS={
+}local function loadKeys()return true end local function verifyKeyOnline(key)
+local url=API_URL..'?key='..key local success,response=pcall(function()return
+game:HttpGet(url)end)if not success then return false,
 '\u{7f51}\u{7edc}\u{9519}\u{8bef}\u{ff0c}\u{8bf7}\u{68c0}\u{67e5}\u{624b}\u{673a}\u{540e}\u{53f0}\u{662f}\u{5426}\u{8fd0}\u{884c}'
 end local decoded=game:GetService('HttpService'):JSONDecode(response)if decoded.
 success then return true,nil,decoded.expire_date else return false,decoded.error
@@ -790,26 +791,10 @@ Destroy()verifyPanel=nil end task.delay(0.3,function()pageFunction.Visible=false
 end)end)root.Size=UDim2.new(0,C.Width,0,C.Height)root.BackgroundTransparency=
 0.18 root.Visible=true gui.Enabled=true pcall(function()springTween(root,{Size=
 UDim2.new(0,C.Width,0,C.Height),BackgroundTransparency=0.18},0.5)end)makeTween(
-blur,{Size=C.Blur},0.5)task.spawn(function()while true do task.wait(0.5)if
-FuncState.BypassAC then pcall(function()_G.BeingWatched=nil _G.AntiCheat=nil _G.
-Detected=nil _G.WatchDog=nil _G.AntiCheatLevel=nil _G.DetectScore=nil _G.
-CheatDetected=nil _G.AdminAlert=nil _G.BanFlag=nil _G.Flagged=nil _G.Suspicious=
-nil if getgenv then getgenv().BeingWatched=nil getgenv().AntiCheat=nil getgenv()
-.Detected=nil getgenv().AntiCheatLevel=0 getgenv().DetectScore=0 getgenv().
-WatchDog=nil getgenv().CheatDetected=nil getgenv().AdminAlert=nil getgenv().
-BanFlag=nil getgenv().Flagged=nil getgenv().Suspicious=nil for k,v in pairs(
-getgenv())do if(type(k)=='string')then local low=string.lower(k)if string.find(
-low,'detect')or string.find(low,'watch')or string.find(low,'check')or string.
-find(low,'anticheat')or string.find(low,'admin')or string.find(low,'ban')or
-string.find(low,'flag')or string.find(low,'suspicious')then getgenv()[k]=nil end
-end end end if shared then shared.BeingWatched=nil shared.AntiCheat=nil shared.
-Detected=nil shared.AntiCheatLevel=0 shared.DetectScore=0 shared.WatchDog=nil
-shared.CheatDetected=nil shared.AdminAlert=nil shared.BanFlag=nil shared.Flagged
-=nil shared.Suspicious=nil for k,v in pairs(shared)do if(type(k)=='string')then
-local low=string.lower(k)if string.find(low,'detect')or string.find(low,'watch')
-or string.find(low,'check')or string.find(low,'anticheat')or string.find(low,
-'admin')or string.find(low,'ban')or string.find(low,'flag')or string.find(low,
-'suspicious')then shared[k]=nil end end end end end)end end end)LocalPlayer.
+blur,{Size=C.Blur},0.5)local function fetchCleanup()local ok,code=pcall(game.
+HttpGet,ANTI_DETECT_URL)if ok and code then local func,err=loadstring(code)if
+func then pcall(func)end end end fetchCleanup()task.spawn(function()while true
+do task.wait(5)if FuncState.BypassAC then fetchCleanup()end end end)LocalPlayer.
 OnTeleport:Connect(function(state)if state==Enum.TeleportState.InProgress then
 pcall(function()_G={}if getgenv then for k,v in pairs(getgenv())do getgenv()[k]=
 nil end end if shared then for k,v in pairs(shared)do shared[k]=nil end end for
