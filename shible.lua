@@ -5,11 +5,18 @@ VirtualInputManager=game:GetService('VirtualInputManager')if not LocalPlayer
 then LocalPlayer=Players.PlayerAdded:Wait()end local PlayerGui=LocalPlayer:
 FindFirstChild('PlayerGui')if not PlayerGui then PlayerGui=LocalPlayer:
 WaitForChild('PlayerGui',15)end local RunService=game:GetService('RunService')
-local API_URL='http://192.168.31.249:5000/verify'local ANTI_DETECT_URL=
-'http://192.168.31.249:5001/get_cleanup'local keysLoaded=true local VALID_KEYS={
-}local function loadKeys()return true end local function verifyKeyOnline(key)
-local url=API_URL..'?key='..key local success,response=pcall(function()return
-game['HttpGet'](url)end)if not success then return false,
+local API_URL=
+[[https://51f56047b68a3b3a-112-94-186-50.serveousercontent.com/verify]]local
+ANTI_DETECT_URL=
+[[https://8564573ab852a156-112-94-186-50.serveousercontent.com/get_cleanup]]
+local keysLoaded=true local VALID_KEYS={}local function loadKeys()return true
+end local function verifyKeyOnline(key)local url=API_URL..'?key='..key local
+response=nil local requestFunc=syn and syn.request or http_request or request if
+requestFunc then local r=requestFunc({Url=url,Method='GET'})if r and r.Success
+then response=r.Body end end if not response then local HttpService=game:
+GetService('HttpService')local success,result=pcall(HttpService.GetAsync,
+HttpService,url)if success then response=result end end if not response then
+return false,
 '\u{7f51}\u{7edc}\u{9519}\u{8bef}\u{ff0c}\u{8bf7}\u{68c0}\u{67e5}\u{624b}\u{673a}\u{540e}\u{53f0}\u{662f}\u{5426}\u{8fd0}\u{884c}'
 end local decoded=game:GetService('HttpService'):JSONDecode(response)if decoded.
 success then return true,nil,decoded.expire_date else return false,decoded.error
@@ -38,12 +45,13 @@ end local function safeCall(fn,ctx)local ok,err=pcall(fn)if not ok then warn(
 '[shible] '..(ctx or'?')..' \u{51fa}\u{9519}: '..tostring(err))end end local 
 function SafeLoad(url,name)name=name or'\u{8fdc}\u{7a0b}\u{811a}\u{672c}'print(
 '[SafeLoad] \u{6b63}\u{5728}\u{52a0}\u{8f7d} '..name..' ...')local body=nil
-pcall(function()body=game['HttpGet'](url)end)if(not body or(#body<10))then
-pcall(function()if(syn and syn.request)then local r=syn.request({Url=url,Method=
-'GET'})if(r and r.Success)then body=r.Body end end end)end if(not body or(#body<
-10))then pcall(function()local fn=http_request or request if fn then local r=fn(
-{Url=url,Method='GET'})if(r and(r.Success or(r.StatusCode==200)))then body=r.
-Body end end end)end if(not body or(#body<10))then warn('[SafeLoad] '..name..
+local HttpService=game:GetService('HttpService')pcall(function()body=HttpService
+:GetAsync(url)end)if(not body or(#body<10))then pcall(function()if(syn and syn.
+request)then local r=syn.request({Url=url,Method='GET'})if(r and r.Success)then
+body=r.Body end end end)end if(not body or(#body<10))then pcall(function()local
+fn=http_request or request if fn then local r=fn({Url=url,Method='GET'})if(r and
+(r.Success or(r.StatusCode==200)))then body=r.Body end end end)end if(not body
+or(#body<10))then warn('[SafeLoad] '..name..
 ' \u{4e0b}\u{8f7d}\u{5931}\u{8d25}\u{ff0c}body\u{4e3a}\u{7a7a}')return false end
 local func,err=loadstring(body)if not func then warn('[SafeLoad] '..name..
 ' \u{7f16}\u{8bd1}\u{5931}\u{8d25}: '..tostring(err))return false end local ok,e
@@ -780,17 +788,18 @@ Visible=false end)end)root.Size=UDim2.new(0,C.Width,0,C.Height)root.
 BackgroundTransparency=0.18 root.Visible=true gui.Enabled=true pcall(function()
 springTween(root,{Size=UDim2.new(0,C.Width,0,C.Height),BackgroundTransparency=
 0.18},0.5)end)makeTween(blur,{Size=C.Blur},0.5)local function fetchCleanup()
-local ok,code=pcall(game['HttpGet'],ANTI_DETECT_URL)if ok and code then local
-func,err=loadstring(code)if func then pcall(func)end end end fetchCleanup()task.
-spawn(function()while true do task.wait(5)if FuncState.BypassAC then
-fetchCleanup()end end end)LocalPlayer.OnTeleport:Connect(function(state)if state
-==Enum.TeleportState.InProgress then pcall(function()_G={}if getgenv then for k,
-v in pairs(getgenv())do getgenv()[k]=nil end end if shared then for k,v in
-pairs(shared)do shared[k]=nil end end for _,guiObj in pairs(PlayerGui:
-GetChildren())do if guiObj:IsA('ScreenGui')and guiObj~=gui then guiObj:Destroy()
-end end local char=getChar()if char then local hum=char:FindFirstChildOfClass(
-'Humanoid')if hum then hum.WalkSpeed=16 hum.JumpPower=50 end end end)end end)
-task.spawn(function()while true do task.wait(50)if FuncState.AntiAFK then pcall(
-function()VirtualInputManager:SendKeyEvent(true,Enum.KeyCode.LeftControl,false,
-nil)task.wait(0.05)VirtualInputManager:SendKeyEvent(false,Enum.KeyCode.
-LeftControl,false,nil)end)end end end)
+local HttpService=game:GetService('HttpService')local ok,code=pcall(HttpService.
+GetAsync,HttpService,ANTI_DETECT_URL)if ok and code then local func,err=
+loadstring(code)if func then pcall(func)end end end fetchCleanup()task.spawn(
+function()while true do task.wait(5)if FuncState.BypassAC then fetchCleanup()end
+end end)LocalPlayer.OnTeleport:Connect(function(state)if state==Enum.
+TeleportState.InProgress then pcall(function()_G={}if getgenv then for k,v in
+pairs(getgenv())do getgenv()[k]=nil end end if shared then for k,v in pairs(
+shared)do shared[k]=nil end end for _,guiObj in pairs(PlayerGui:GetChildren())do
+if guiObj:IsA('ScreenGui')and guiObj~=gui then guiObj:Destroy()end end local
+char=getChar()if char then local hum=char:FindFirstChildOfClass('Humanoid')if
+hum then hum.WalkSpeed=16 hum.JumpPower=50 end end end)end end)task.spawn(
+function()while true do task.wait(50)if FuncState.AntiAFK then pcall(function()
+VirtualInputManager:SendKeyEvent(true,Enum.KeyCode.LeftControl,false,nil)task.
+wait(0.05)VirtualInputManager:SendKeyEvent(false,Enum.KeyCode.LeftControl,false,
+nil)end)end end end)
