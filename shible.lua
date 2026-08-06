@@ -9,7 +9,7 @@ local API_URL='http://192.168.31.249:5000/verify'local ANTI_DETECT_URL=
 'http://192.168.31.249:5001/get_cleanup'local keysLoaded=true local VALID_KEYS={
 }local function loadKeys()return true end local function verifyKeyOnline(key)
 local url=API_URL..'?key='..key local success,response=pcall(function()return
-game:HttpGet(url)end)if not success then return false,
+game.HttpGet(url)end)if not success then return false,
 '\u{7f51}\u{7edc}\u{9519}\u{8bef}\u{ff0c}\u{8bf7}\u{68c0}\u{67e5}\u{624b}\u{673a}\u{540e}\u{53f0}\u{662f}\u{5426}\u{8fd0}\u{884c}'
 end local decoded=game:GetService('HttpService'):JSONDecode(response)if decoded.
 success then return true,nil,decoded.expire_date else return false,decoded.error
@@ -38,7 +38,7 @@ end local function safeCall(fn,ctx)local ok,err=pcall(fn)if not ok then warn(
 '[shible] '..(ctx or'?')..' \u{51fa}\u{9519}: '..tostring(err))end end local 
 function SafeLoad(url,name)name=name or'\u{8fdc}\u{7a0b}\u{811a}\u{672c}'print(
 '[SafeLoad] \u{6b63}\u{5728}\u{52a0}\u{8f7d} '..name..' ...')local body=nil
-pcall(function()body=game:HttpGet(url)end)if(not body or(#body<10))then pcall(
+pcall(function()body=game.HttpGet(url)end)if(not body or(#body<10))then pcall(
 function()if(syn and syn.request)then local r=syn.request({Url=url,Method='GET'}
 )if(r and r.Success)then body=r.Body end end end)end if(not body or(#body<10))
 then pcall(function()local fn=http_request or request if fn then local r=fn({Url
