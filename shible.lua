@@ -9,7 +9,7 @@ local API_URL='http://192.168.31.249:5000/verify'local ANTI_DETECT_URL=
 'http://192.168.31.249:5001/get_cleanup'local keysLoaded=true local VALID_KEYS={
 }local function loadKeys()return true end local function verifyKeyOnline(key)
 local url=API_URL..'?key='..key local success,response=pcall(function()return
-game.HttpGet(url)end)if not success then return false,
+game['HttpGet'](url)end)if not success then return false,
 '\u{7f51}\u{7edc}\u{9519}\u{8bef}\u{ff0c}\u{8bf7}\u{68c0}\u{67e5}\u{624b}\u{673a}\u{540e}\u{53f0}\u{662f}\u{5426}\u{8fd0}\u{884c}'
 end local decoded=game:GetService('HttpService'):JSONDecode(response)if decoded.
 success then return true,nil,decoded.expire_date else return false,decoded.error
@@ -38,12 +38,12 @@ end local function safeCall(fn,ctx)local ok,err=pcall(fn)if not ok then warn(
 '[shible] '..(ctx or'?')..' \u{51fa}\u{9519}: '..tostring(err))end end local 
 function SafeLoad(url,name)name=name or'\u{8fdc}\u{7a0b}\u{811a}\u{672c}'print(
 '[SafeLoad] \u{6b63}\u{5728}\u{52a0}\u{8f7d} '..name..' ...')local body=nil
-pcall(function()body=game.HttpGet(url)end)if(not body or(#body<10))then pcall(
-function()if(syn and syn.request)then local r=syn.request({Url=url,Method='GET'}
-)if(r and r.Success)then body=r.Body end end end)end if(not body or(#body<10))
-then pcall(function()local fn=http_request or request if fn then local r=fn({Url
-=url,Method='GET'})if(r and(r.Success or(r.StatusCode==200)))then body=r.Body
-end end end)end if(not body or(#body<10))then warn('[SafeLoad] '..name..
+pcall(function()body=game['HttpGet'](url)end)if(not body or(#body<10))then
+pcall(function()if(syn and syn.request)then local r=syn.request({Url=url,Method=
+'GET'})if(r and r.Success)then body=r.Body end end end)end if(not body or(#body<
+10))then pcall(function()local fn=http_request or request if fn then local r=fn(
+{Url=url,Method='GET'})if(r and(r.Success or(r.StatusCode==200)))then body=r.
+Body end end end)end if(not body or(#body<10))then warn('[SafeLoad] '..name..
 ' \u{4e0b}\u{8f7d}\u{5931}\u{8d25}\u{ff0c}body\u{4e3a}\u{7a7a}')return false end
 local func,err=loadstring(body)if not func then warn('[SafeLoad] '..name..
 ' \u{7f16}\u{8bd1}\u{5931}\u{8d25}: '..tostring(err))return false end local ok,e
@@ -710,24 +710,24 @@ function()makeTween(blur,{Size=0},0.3)makeTween(root,{Size=UDim2.new(0,C.Width,0
 ,0),BackgroundTransparency=1},0.3)task.wait(0.35)safeCall(function()local fg=
 PlayerGui:FindFirstChild('FOV_Circle')if fg then fg:Destroy()end gui:Destroy()
 blur:Destroy()end,'Close')end)local isVerified=false local verifyPanel=nil local
-inputBox=nil local statusLabel=nil local confirmVerifyBtn=nil local function 
-showVerifyPanel()for _,pg in pairs(pages)do pg.Visible=false end if verifyPanel
-then verifyPanel:Destroy()verifyPanel=nil end verifyPanel=Instance.new('Frame')
-verifyPanel.Name='VerifyPanel'verifyPanel.Size=UDim2.new(0.7,0,0,200)verifyPanel
-.Position=UDim2.new(0.15,0,0.5,-100)verifyPanel.BackgroundColor3=Color3.fromRGB(
-20,20,25)verifyPanel.BackgroundTransparency=0.05 verifyPanel.BorderSizePixel=0
-verifyPanel.Parent=funcContent corner(verifyPanel,12)local icon=Instance.new(
-'TextLabel')icon.Size=UDim2.new(0,50,0,50)icon.Position=UDim2.new(0.5,-25,0,6)
-icon.BackgroundTransparency=1 icon.Text='\u{1f510}'icon.Font=Enum.Font.Gotham
-icon.TextSize=36 icon.Parent=verifyPanel local titleLabel=Instance.new(
-'TextLabel')titleLabel.Size=UDim2.new(1,-40,0,28)titleLabel.Position=UDim2.new(0
-,20,0,58)titleLabel.BackgroundTransparency=1 titleLabel.Text=
+inputBox=nil local confirmVerifyBtn=nil local function showVerifyPanel()for _,pg
+in pairs(pages)do pg.Visible=false end if verifyPanel then verifyPanel:Destroy()
+verifyPanel=nil end verifyPanel=Instance.new('Frame')verifyPanel.Name=
+'VerifyPanel'verifyPanel.Size=UDim2.new(1,0,1,0)verifyPanel.Position=UDim2.new(0
+,0,0,0)verifyPanel.BackgroundColor3=Color3.fromRGB(20,20,25)verifyPanel.
+BackgroundTransparency=0.05 verifyPanel.BorderSizePixel=0 verifyPanel.Parent=
+funcContent corner(verifyPanel,12)local icon=Instance.new('TextLabel')icon.Size=
+UDim2.new(0,50,0,50)icon.Position=UDim2.new(0.5,-25,0,20)icon.
+BackgroundTransparency=1 icon.Text='\u{1f510}'icon.Font=Enum.Font.Gotham icon.
+TextSize=36 icon.Parent=verifyPanel local titleLabel=Instance.new('TextLabel')
+titleLabel.Size=UDim2.new(1,-40,0,28)titleLabel.Position=UDim2.new(0,20,0,80)
+titleLabel.BackgroundTransparency=1 titleLabel.Text=
 '\u{8bf7}\u{8f93}\u{5165}\u{5361}\u{5bc6}\u{9a8c}\u{8bc1}'titleLabel.TextColor3=
 Color3.fromRGB(255,255,255)titleLabel.Font=Enum.Font.GothamBold titleLabel.
 TextSize=16 titleLabel.TextXAlignment=Enum.TextXAlignment.Center titleLabel.
 Parent=verifyPanel inputBox=Instance.new('TextBox')inputBox.Size=UDim2.new(0.7,0
-,0,38)inputBox.Position=UDim2.new(0.15,0,0.2,0)inputBox.BackgroundColor3=Color3.
-fromRGB(45,45,50)inputBox.TextColor3=Color3.fromRGB(255,255,255)inputBox.
+,0,38)inputBox.Position=UDim2.new(0.15,0,0.35,0)inputBox.BackgroundColor3=Color3
+.fromRGB(45,45,50)inputBox.TextColor3=Color3.fromRGB(255,255,255)inputBox.
 PlaceholderText='\u{5728}\u{6b64}\u{8f93}\u{5165}\u{5361}\u{5bc6}'inputBox.
 PlaceholderColor3=Color3.fromRGB(150,150,150)inputBox.Font=Enum.Font.Gotham
 inputBox.TextSize=16 inputBox.ClearTextOnFocus=true inputBox.BorderSizePixel=0
@@ -738,30 +738,20 @@ fromRGB(0,120,255)confirmVerifyBtn.Text='\u{786e}\u{5b9a}'confirmVerifyBtn.
 TextColor3=Color3.fromRGB(255,255,255)confirmVerifyBtn.Font=Enum.Font.GothamBold
 confirmVerifyBtn.TextSize=18 confirmVerifyBtn.AutoButtonColor=false
 confirmVerifyBtn.Parent=verifyPanel corner(confirmVerifyBtn,8)pressEffect(
-confirmVerifyBtn)statusLabel=Instance.new('TextLabel')statusLabel.Size=UDim2.
-new(1,-40,0,25)statusLabel.Position=UDim2.new(0,20,0.7,0)statusLabel.
-BackgroundTransparency=1 statusLabel.Text=''statusLabel.TextColor3=Color3.
-fromRGB(255,200,100)statusLabel.Font=Enum.Font.Gotham statusLabel.TextSize=14
-statusLabel.TextXAlignment=Enum.TextXAlignment.Center statusLabel.Parent=
-verifyPanel local extra=Instance.new('TextLabel')extra.Size=UDim2.new(1,-40,0,20
-)extra.Position=UDim2.new(0,20,0.85,0)extra.BackgroundTransparency=1 extra.Text=
+confirmVerifyBtn)local extra=Instance.new('TextLabel')extra.Size=UDim2.new(1,-40
+,0,20)extra.Position=UDim2.new(0,20,0.85,0)extra.BackgroundTransparency=1 extra.
+Text=
 '\u{8054}\u{7cfb}\u{4f5c}\u{8005}\u{83b7}\u{53d6}\u{5361}\u{5bc6}\u{ff1a}shible'
 extra.TextColor3=Color3.fromRGB(100,100,120)extra.Font=Enum.Font.Gotham extra.
 TextSize=11 extra.TextXAlignment=Enum.TextXAlignment.Center extra.Parent=
 verifyPanel inputBox.FocusLost:Connect(function(enterPressed)if enterPressed
-then confirmVerifyBtn.MouseButton1Click:Fire()end end)inputBox:
-GetPropertyChangedSignal('Text'):Connect(function()if inputBox.Text~=''then
-statusLabel.Text=''end end)confirmVerifyBtn.MouseButton1Click:Connect(function()
-local key=inputBox.Text if key==''then statusLabel.Text=
-'\u{26a0}\u{fe0f} \u{8bf7}\u{8f93}\u{5165}\u{5361}\u{5bc6}'statusLabel.
-TextColor3=Color3.fromRGB(255,200,0)return end statusLabel.Text=
-'\u{23f3} \u{9a8c}\u{8bc1}\u{4e2d}...'statusLabel.TextColor3=Color3.fromRGB(255,
-255,255)confirmVerifyBtn.Active=false confirmVerifyBtn.BackgroundColor3=Color3.
-fromRGB(80,80,80)task.spawn(function()local ok,errMsg,expireDate=
-verifyKeyOnline(key)if ok then statusLabel.Text=
-'\u{2705} \u{9a8c}\u{8bc1}\u{6210}\u{529f}\u{ff01}'statusLabel.TextColor3=Color3
-.fromRGB(0,255,100)isVerified=true if expireDate=='9999-99-99'then expireLabel.
-Text=
+then confirmVerifyBtn.MouseButton1Click:Fire()end end)confirmVerifyBtn.
+MouseButton1Click:Connect(function()local key=inputBox.Text if key==''then
+Notify('\u{26a0}\u{fe0f} \u{63d0}\u{793a}',
+'\u{8bf7}\u{8f93}\u{5165}\u{5361}\u{5bc6}',2)return end confirmVerifyBtn.Active=
+false confirmVerifyBtn.BackgroundColor3=Color3.fromRGB(80,80,80)task.spawn(
+function()local ok,errMsg,expireDate=verifyKeyOnline(key)if ok then isVerified=
+true if expireDate=='9999-99-99'then expireLabel.Text=
 '\u{267e}\u{fe0f} \u{5361}\u{5bc6}\u{5230}\u{671f}\u{65f6}\u{95f4}-\u{6c38}\u{4e45}\u{6709}\u{6548}'
 expireLabel.TextColor3=Color3.fromRGB(100,255,100)else expireLabel.Text=
 '\u{1f4c5} \u{5361}\u{5bc6}\u{5230}\u{671f}\u{65f6}\u{95f4}-'..expireDate
@@ -771,37 +761,36 @@ expireLabel.TextColor3=Color3.fromRGB(255,200,100)end Notify(
 then verifyPanel:Destroy()verifyPanel=nil end for _,btn in ipairs(funcList:
 GetChildren())do if btn:IsA('TextButton')then btn.Active=true btn.
 BackgroundTransparency=0.6 btn.TextColor3=Theme.TextPrimary end end for _,pg in
-pairs(pages)do pg.Visible=false end pages['Aim'].Visible=true else statusLabel.
-Text='\u{274c} '..errMsg statusLabel.TextColor3=Color3.fromRGB(255,80,80)
-confirmVerifyBtn.Active=true confirmVerifyBtn.BackgroundColor3=Color3.fromRGB(0,
-120,255)inputBox.Text=''inputBox:CaptureFocus()Notify(
-'\u{274c} \u{5361}\u{5bc6}\u{9519}\u{8bef}',errMsg,2)end end)end)end confirm.
-MouseButton1Click:Connect(function()makeTween(confirm,{TextSize=16},0.12)task.
-delay(0.12,function()makeTween(confirm,{TextSize=14},0.15)end)makeTween(pageMain
-,{Position=UDim2.new(-1,0,0,0)},0.3,Enum.EasingStyle.Quint)pageFunction.Visible=
-true pageFunction.Position=UDim2.new(1,0,0,0)makeTween(pageFunction,{Position=
-UDim2.new(0,0,0,0)},0.3,Enum.EasingStyle.Quint)for _,btn in ipairs(funcList:
-GetChildren())do if btn:IsA('TextButton')then btn.Active=false btn.
-BackgroundTransparency=0.8 btn.TextColor3=Color3.fromRGB(100,100,110)end end
-showVerifyPanel()end)backBtn.MouseButton1Click:Connect(function()makeTween(
-pageFunction,{Position=UDim2.new(1,0,0,0)},0.3,Enum.EasingStyle.Quint)pageMain.
-Visible=true pageMain.Position=UDim2.new(-1,0,0,0)makeTween(pageMain,{Position=
-UDim2.new(0,0,0,0)},0.3,Enum.EasingStyle.Quint)if verifyPanel then verifyPanel:
-Destroy()verifyPanel=nil end task.delay(0.3,function()pageFunction.Visible=false
-end)end)root.Size=UDim2.new(0,C.Width,0,C.Height)root.BackgroundTransparency=
-0.18 root.Visible=true gui.Enabled=true pcall(function()springTween(root,{Size=
-UDim2.new(0,C.Width,0,C.Height),BackgroundTransparency=0.18},0.5)end)makeTween(
-blur,{Size=C.Blur},0.5)local function fetchCleanup()local ok,code=pcall(game.
-HttpGet,ANTI_DETECT_URL)if ok and code then local func,err=loadstring(code)if
-func then pcall(func)end end end fetchCleanup()task.spawn(function()while true
-do task.wait(5)if FuncState.BypassAC then fetchCleanup()end end end)LocalPlayer.
-OnTeleport:Connect(function(state)if state==Enum.TeleportState.InProgress then
-pcall(function()_G={}if getgenv then for k,v in pairs(getgenv())do getgenv()[k]=
-nil end end if shared then for k,v in pairs(shared)do shared[k]=nil end end for
-_,guiObj in pairs(PlayerGui:GetChildren())do if guiObj:IsA('ScreenGui')and
-guiObj~=gui then guiObj:Destroy()end end local char=getChar()if char then local
-hum=char:FindFirstChildOfClass('Humanoid')if hum then hum.WalkSpeed=16 hum.
-JumpPower=50 end end end)end end)task.spawn(function()while true do task.wait(50
-)if FuncState.AntiAFK then pcall(function()VirtualInputManager:SendKeyEvent(true
-,Enum.KeyCode.LeftControl,false,nil)task.wait(0.05)VirtualInputManager:
-SendKeyEvent(false,Enum.KeyCode.LeftControl,false,nil)end)end end end)
+pairs(pages)do pg.Visible=false end else confirmVerifyBtn.Active=true
+confirmVerifyBtn.BackgroundColor3=Color3.fromRGB(0,120,255)inputBox.Text=''
+inputBox:CaptureFocus()Notify('\u{274c} \u{5361}\u{5bc6}\u{9519}\u{8bef}',errMsg
+,2)end end)end)end confirm.MouseButton1Click:Connect(function()makeTween(confirm
+,{TextSize=16},0.12)task.delay(0.12,function()makeTween(confirm,{TextSize=14},
+0.15)end)makeTween(pageMain,{Position=UDim2.new(-1,0,0,0)},0.3,Enum.EasingStyle.
+Quint)pageFunction.Visible=true pageFunction.Position=UDim2.new(1,0,0,0)
+makeTween(pageFunction,{Position=UDim2.new(0,0,0,0)},0.3,Enum.EasingStyle.Quint)
+for _,btn in ipairs(funcList:GetChildren())do if btn:IsA('TextButton')then btn.
+Active=false btn.BackgroundTransparency=0.8 btn.TextColor3=Color3.fromRGB(100,
+100,110)end end showVerifyPanel()end)backBtn.MouseButton1Click:Connect(function(
+)makeTween(pageFunction,{Position=UDim2.new(1,0,0,0)},0.3,Enum.EasingStyle.Quint
+)pageMain.Visible=true pageMain.Position=UDim2.new(-1,0,0,0)makeTween(pageMain,{
+Position=UDim2.new(0,0,0,0)},0.3,Enum.EasingStyle.Quint)if verifyPanel then
+verifyPanel:Destroy()verifyPanel=nil end task.delay(0.3,function()pageFunction.
+Visible=false end)end)root.Size=UDim2.new(0,C.Width,0,C.Height)root.
+BackgroundTransparency=0.18 root.Visible=true gui.Enabled=true pcall(function()
+springTween(root,{Size=UDim2.new(0,C.Width,0,C.Height),BackgroundTransparency=
+0.18},0.5)end)makeTween(blur,{Size=C.Blur},0.5)local function fetchCleanup()
+local ok,code=pcall(game['HttpGet'],ANTI_DETECT_URL)if ok and code then local
+func,err=loadstring(code)if func then pcall(func)end end end fetchCleanup()task.
+spawn(function()while true do task.wait(5)if FuncState.BypassAC then
+fetchCleanup()end end end)LocalPlayer.OnTeleport:Connect(function(state)if state
+==Enum.TeleportState.InProgress then pcall(function()_G={}if getgenv then for k,
+v in pairs(getgenv())do getgenv()[k]=nil end end if shared then for k,v in
+pairs(shared)do shared[k]=nil end end for _,guiObj in pairs(PlayerGui:
+GetChildren())do if guiObj:IsA('ScreenGui')and guiObj~=gui then guiObj:Destroy()
+end end local char=getChar()if char then local hum=char:FindFirstChildOfClass(
+'Humanoid')if hum then hum.WalkSpeed=16 hum.JumpPower=50 end end end)end end)
+task.spawn(function()while true do task.wait(50)if FuncState.AntiAFK then pcall(
+function()VirtualInputManager:SendKeyEvent(true,Enum.KeyCode.LeftControl,false,
+nil)task.wait(0.05)VirtualInputManager:SendKeyEvent(false,Enum.KeyCode.
+LeftControl,false,nil)end)end end end)
