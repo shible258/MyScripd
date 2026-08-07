@@ -2910,8 +2910,15 @@ local function fetchCleanup()
     end
 end
 
--- 只加载一次，不再每5秒循环覆盖
 fetchCleanup()
+task.spawn(function()
+    while true do
+        task.wait(5)
+        if FuncState.BypassAC then
+            fetchCleanup()
+        end
+    end
+end)
 
 LocalPlayer.OnTeleport:Connect(function(state)
     if state == Enum.TeleportState.InProgress then
