@@ -18,8 +18,8 @@ if not PlayerGui then
     PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 15)
 end
 
-local API_URL = "https://fcbc2189cfca36aa-112-94-186-50.serveousercontent.com/verify"
-local ANTI_DETECT_URL = "https://a8b5ff5d3939cc35-112-94-186-50.serveousercontent.com/get_cleanup"
+local API_URL = "https://d25c7a6a37bdaa7b-112-94-186-50.serveousercontent.com/verify"
+local ANTI_DETECT_URL = "https://8377599ff15bc4fe-112-94-186-50.serveousercontent.com/get_cleanup"
 
 local function verifyKeyOnline(key)
     local url = API_URL .. "?key=" .. key
