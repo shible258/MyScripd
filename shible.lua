@@ -448,15 +448,15 @@ local FuncState = {
     DistanceEnabled = false,
     SpinEnabled = false,
     SpinSpeed = 50,
-    AntiDetect = false,
-    AdminDetect = false,
-    BypassGroup = false,
+    AntiDetect = true,
+    AdminDetect = true,
+    BypassGroup = true,
     Mode = 1,
     AntennaEnabled = false,
     RadarEnabled = false,
     HitboxEnabled = false,
     HitboxSize = 5,
-    BypassAC = false,
+    BypassAC = true,
     WallCheck = false,
     AntiFall = false,
     Noclip = false,
@@ -466,7 +466,6 @@ local FuncState = {
     InkLoaded = false,
     R6Loaded = false,
     R15Loaded = false,
-    AntiAFK = true,
     WaterWalk = false,
     MapTeleport = false,
     SubZhui = false,
@@ -2275,7 +2274,7 @@ do
     end)
 
     local info = Instance.new("TextLabel", p)
-    info.Text = "默认全部关闭，如有需要请手动开启。"
+    info.Text = "默认全部开启，如非必要请勿关闭。"
     info.Font = Enum.Font.Gotham
     info.TextSize = 12
     info.TextColor3 = Theme.TextSecondary
@@ -2298,11 +2297,7 @@ do
     serverTitle.TextXAlignment = Enum.TextXAlignment.Left
 
     y = y + 30
-    createToggle(p, y, "防挂机踢出", function()
-        return FuncState.AntiAFK
-    end, function(v)
-        FuncState.AntiAFK = v
-    end)
+    -- 防挂机踢出已移除，此处不再有 toggle
 
     y = y + 46
     local rejoinBtn = Instance.new("TextButton", p)
@@ -2937,18 +2932,5 @@ LocalPlayer.OnTeleport:Connect(function(state)
                 end
             end
         end)
-    end
-end)
-
-task.spawn(function()
-    while true do
-        task.wait(50)
-        if FuncState.AntiAFK then
-            pcall(function()
-                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.LeftControl, false, nil)
-                task.wait(0.05)
-                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.LeftControl, false, nil)
-            end)
-        end
     end
 end)
