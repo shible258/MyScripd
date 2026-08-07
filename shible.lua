@@ -104,7 +104,7 @@ local function SafeLoad(url, name)
     print("[SafeLoad] 正在加载 " .. name .. " ...  URL: " .. url)
     local body = nil
     local success = false
-    
+    local lastError = ""
     for attempt = 1, 4 do
         pcall(function()
             if game:HttpGet then
@@ -112,68 +112,62 @@ local function SafeLoad(url, name)
             end
         end)
         if body and #body > 10 then success = true break end
-        
         pcall(function()
             if syn and syn.request then
-                local r = syn.request({Url = url, Method = "GET"})
+                local r = syn.request({Url = url, Method = "GET", Headers = {["User-Agent"] = "Mozilla/5.0"}})
                 if r and r.Success then
                     body = r.Body
                 end
             end
         end)
         if body and #body > 10 then success = true break end
-        
         pcall(function()
             if http_request then
-                local r = http_request({Url = url, Method = "GET"})
+                local r = http_request({Url = url, Method = "GET", Headers = {["User-Agent"] = "Mozilla/5.0"}})
                 if r and (r.Success or r.StatusCode == 200) then
                     body = r.Body
                 end
             end
         end)
         if body and #body > 10 then success = true break end
-        
         pcall(function()
             if request then
-                local r = request({Url = url, Method = "GET"})
+                local r = request({Url = url, Method = "GET", Headers = {["User-Agent"] = "Mozilla/5.0"}})
                 if r and (r.Success or r.StatusCode == 200) then
                     body = r.Body
                 end
             end
         end)
         if body and #body > 10 then success = true break end
-        
         pcall(function()
             body = HttpService:GetAsync(url)
         end)
         if body and #body > 10 then success = true break end
-        
         if attempt == 1 then
             Notify("shible", "正在重试加载 " .. name .. " ...", 1)
         end
         task.wait(0.5)
     end
-
     if not success then
         warn("[SafeLoad] " .. name .. " 下载失败")
-        Notify("shible", name .. " 加载失败，请检查网络", 3)
+        Notify("shible", name .. " 加载失败，请检查网络或外链是否可访问", 3)
         return false
     end
-
+    if string.byte(body,1) == 239 and string.byte(body,2) == 187 and string.byte(body,3) == 191 then
+        body = string.sub(body, 4)
+    end
     local func, err = loadstring(body)
     if not func then
         warn("[SafeLoad] " .. name .. " 编译失败: " .. tostring(err))
-        Notify("shible", name .. " 编译错误", 3)
+        Notify("shible", name .. " 编译错误: " .. tostring(err), 3)
         return false
     end
-
     local ok, e = pcall(func)
     if not ok then
         warn("[SafeLoad] " .. name .. " 执行出错: " .. tostring(e))
-        Notify("shible", name .. " 执行错误", 3)
+        Notify("shible", name .. " 执行错误: " .. tostring(e), 3)
         return false
     end
-
     print("[SafeLoad] " .. name .. " 加载成功 ")
     Notify("shible", name .. " 加载成功", 2)
     return true
@@ -2036,7 +2030,7 @@ do
     local p = pgHitbox
     local y = 10
     local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "受击范围 (可视化框)"
+    hdr.Text = "受击范围 (半透明白框)"
     hdr.Font = Enum.Font.GothamSemibold
     hdr.TextSize = 14
     hdr.TextColor3 = Theme.TextPrimary
@@ -2044,8 +2038,12 @@ do
     hdr.Position = UDim2.new(0, 12, 0, y)
     hdr.Size = UDim2.new(1, -24, 0, 20)
     hdr.TextXAlignment = Enum.TextXAlignment.Left
-
     y = y + 36
+
+    local hitboxHighlights = {}
+    local hitboxSizes = {}
+    local hitboxUpdateConn = nil
+
     createToggle(p, y, "启用受击范围", function()
         return FuncState.HitboxEnabled
     end, function(v)
@@ -2064,9 +2062,9 @@ do
                             hl = Instance.new("Highlight")
                             hl.Name = "HitboxHighlight"
                             hl.Adornee = char
-                            hl.FillColor = Color3.fromRGB(200, 200, 200)
-                            hl.FillTransparency = 0.3
-                            hl.OutlineColor = Color3.fromRGB(200, 200, 200)
+                            hl.FillColor = Color3.fromRGB(255, 255, 255)
+                            hl.FillTransparency = 0.5
+                            hl.OutlineColor = Color3.fromRGB(255, 255, 255)
                             hl.OutlineTransparency = 0.2
                             hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                             hl.Enabled = true
@@ -2114,7 +2112,7 @@ do
     end)
 
     y = y + 50
-    createSlider(p, y, "范围大小 (10-100)", 10, 100, 10, function(v)
+    createSlider(p, y, "范围大小", 10, 100, 10, function(v)
         FuncState.HitboxSize = v
         if FuncState.HitboxEnabled then
             local scale = v / 10
@@ -2125,7 +2123,6 @@ do
     end)
 
     local info = Instance.new("TextLabel", p)
-    info.Text = "修改敌人全身碰撞箱并显示半透明白色覆盖，掩体后可见"
     info.Font = Enum.Font.Gotham
     info.TextSize = 12
     info.TextColor3 = Theme.TextSecondary
