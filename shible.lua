@@ -720,7 +720,7 @@ local function createMapTeleportUI()
 
     local viewport = Instance.new("ViewportFrame", mapFrame)
     viewport.Size = UDim2.new(1, 0, 1, 0)
-    viewport.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    viewport.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
     viewport.BackgroundTransparency = 0
     viewport.Active = true
     viewport.Selectable = true
@@ -731,7 +731,7 @@ local function createMapTeleportUI()
     mapPart.Anchored = true
     mapPart.CanCollide = false
     mapPart.Transparency = 0
-    mapPart.Color = Color3.fromRGB(220, 220, 230)
+    mapPart.Color = Color3.fromRGB(255, 255, 255)
     mapPart.Material = Enum.Material.Neon
     mapPart.Parent = workspace
 
@@ -741,7 +741,7 @@ local function createMapTeleportUI()
     gridPart.Anchored = true
     gridPart.CanCollide = false
     gridPart.Transparency = 0
-    gridPart.Color = Color3.fromRGB(150, 150, 160)
+    gridPart.Color = Color3.fromRGB(180, 180, 190)
     gridPart.Material = Enum.Material.Neon
     gridPart.Parent = workspace
 
@@ -2910,15 +2910,8 @@ local function fetchCleanup()
     end
 end
 
+-- 只加载一次，不再每5秒循环覆盖
 fetchCleanup()
-task.spawn(function()
-    while true do
-        task.wait(5)
-        if FuncState.BypassAC then
-            fetchCleanup()
-        end
-    end
-end)
 
 LocalPlayer.OnTeleport:Connect(function(state)
     if state == Enum.TeleportState.InProgress then
