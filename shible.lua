@@ -708,40 +708,40 @@ local function createMapTeleportUI()
     local bg = Instance.new("Frame", mapTeleportGui)
     bg.Size = UDim2.new(1, 0, 1, 0)
     bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    bg.BackgroundTransparency = 0.2
+    bg.BackgroundTransparency = 0.3
     bg.Active = true
 
     local mapFrame = Instance.new("Frame", mapTeleportGui)
-    mapFrame.Size = UDim2.new(0.9, 0, 0.75, 0)
-    mapFrame.Position = UDim2.new(0.05, 0, 0.05, 0)
+    mapFrame.Size = UDim2.new(0.85, 0, 0.7, 0)
+    mapFrame.Position = UDim2.new(0.075, 0, 0.05, 0)
     mapFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
     mapFrame.BackgroundTransparency = 0.1
     corner(mapFrame, 12)
 
     local viewport = Instance.new("ViewportFrame", mapFrame)
     viewport.Size = UDim2.new(1, 0, 1, 0)
-    viewport.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    viewport.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
     viewport.BackgroundTransparency = 0
     viewport.Active = true
     viewport.Selectable = true
 
     local mapPart = Instance.new("Part")
-    mapPart.Size = Vector3.new(500, 1, 500)
+    mapPart.Size = Vector3.new(600, 1, 600)
     mapPart.Position = Vector3.new(0, -0.5, 0)
     mapPart.Anchored = true
     mapPart.CanCollide = false
     mapPart.Transparency = 0
-    mapPart.Color = Color3.fromRGB(180, 180, 190)
+    mapPart.Color = Color3.fromRGB(220, 220, 230)
     mapPart.Material = Enum.Material.Neon
     mapPart.Parent = workspace
 
     local gridPart = Instance.new("Part")
-    gridPart.Size = Vector3.new(500, 0.1, 500)
+    gridPart.Size = Vector3.new(600, 0.1, 600)
     gridPart.Position = Vector3.new(0, 0, 0)
     gridPart.Anchored = true
     gridPart.CanCollide = false
     gridPart.Transparency = 0
-    gridPart.Color = Color3.fromRGB(120, 120, 130)
+    gridPart.Color = Color3.fromRGB(150, 150, 160)
     gridPart.Material = Enum.Material.Neon
     gridPart.Parent = workspace
 
@@ -753,7 +753,6 @@ local function createMapTeleportUI()
 
     mapCamera = cam
     mapZoom = 150
-    local camTarget = Vector3.new(0, 0, 0)
     cam.CFrame = CFrame.new(Vector3.new(0, mapZoom, 0), Vector3.new(0, 0, 0))
 
     local crosshair = Instance.new("Frame", mapFrame)
@@ -772,7 +771,7 @@ local function createMapTeleportUI()
 
     local posLabel = Instance.new("TextLabel", mapTeleportGui)
     posLabel.Size = UDim2.new(0, 300, 0, 25)
-    posLabel.Position = UDim2.new(0.5, -150, 0.05, 0)
+    posLabel.Position = UDim2.new(0.5, -150, 0.02, 0)
     posLabel.BackgroundTransparency = 1
     posLabel.Text = "滚轮缩放 · 拖拽移动 · 点击选择位置"
     posLabel.TextColor3 = Color3.fromRGB(255, 255, 200)
@@ -781,16 +780,21 @@ local function createMapTeleportUI()
 
     local selectedLabel = Instance.new("TextLabel", mapTeleportGui)
     selectedLabel.Size = UDim2.new(0, 300, 0, 25)
-    selectedLabel.Position = UDim2.new(0.5, -150, 0.82, 0)
+    selectedLabel.Position = UDim2.new(0.5, -150, 0.78, 0)
     selectedLabel.BackgroundTransparency = 1
     selectedLabel.Text = "未选择位置"
     selectedLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
     selectedLabel.Font = Enum.Font.Gotham
     selectedLabel.TextSize = 14
 
-    local confirmBtn = Instance.new("TextButton", mapTeleportGui)
-    confirmBtn.Size = UDim2.new(0, 100, 0, 35)
-    confirmBtn.Position = UDim2.new(1, -120, 1, -45)
+    local bottomBar = Instance.new("Frame", mapTeleportGui)
+    bottomBar.Size = UDim2.new(0.85, 0, 0, 50)
+    bottomBar.Position = UDim2.new(0.075, 0, 0.8, 0)
+    bottomBar.BackgroundTransparency = 1
+
+    local confirmBtn = Instance.new("TextButton", bottomBar)
+    confirmBtn.Size = UDim2.new(0.4, 0, 0, 35)
+    confirmBtn.Position = UDim2.new(0.1, 0, 0.5, -17.5)
     confirmBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
     confirmBtn.Text = "确认传送"
     confirmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -799,10 +803,9 @@ local function createMapTeleportUI()
     corner(confirmBtn, 8)
     pressEffect(confirmBtn)
 
-    local cancelBtn = Instance.new("TextButton", mapTeleportGui)
-    cancelBtn.Size = UDim2.new(0, 80, 0, 35)
-    cancelBtn.Position = UDim2.new(1, -20, 1, -45)
-    cancelBtn.AnchorPoint = Vector2.new(1, 0)
+    local cancelBtn = Instance.new("TextButton", bottomBar)
+    cancelBtn.Size = UDim2.new(0.4, 0, 0, 35)
+    cancelBtn.Position = UDim2.new(0.5, 0, 0.5, -17.5)
     cancelBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
     cancelBtn.Text = "取消"
     cancelBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -819,14 +822,13 @@ local function createMapTeleportUI()
             return nil
         end
         local ray = cam:ViewportPointToRay(relX * viewportSize.X, relY * viewportSize.Y)
-        local params = RaycastParams.new()
-        params.FilterDescendantsInstances = {mapPart, gridPart}
-        params.FilterType = Enum.RaycastFilterType.Blacklist
-        local result = workspace:Raycast(ray.Origin, ray.Direction * 1000, params)
-        if result and result.Instance ~= mapPart and result.Instance ~= gridPart then
-            return result.Position
-        end
-        return nil
+        local origin = ray.Origin
+        local direction = ray.Direction
+        if direction.Y == 0 then return nil end
+        local t = -origin.Y / direction.Y
+        if t < 0 then return nil end
+        local pos = origin + direction * t
+        return pos
     end
 
     local function onMapClick(input)
@@ -879,8 +881,8 @@ local function createMapTeleportUI()
     viewport.InputChanged:Connect(function(input)
         if mapDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
             local delta = input.Position - dragStart
-            local moveX = -delta.X * (mapZoom / 5000)
-            local moveZ = delta.Y * (mapZoom / 5000)
+            local moveX = -delta.X * (mapZoom / 6000)
+            local moveZ = delta.Y * (mapZoom / 6000)
             local newPos = dragCamStart.Position + Vector3.new(moveX, 0, moveZ)
             cam.CFrame = CFrame.new(newPos, Vector3.new(newPos.X, 0, newPos.Z))
             dragCamStart = cam.CFrame
