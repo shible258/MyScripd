@@ -720,7 +720,7 @@ local function createMapTeleportUI()
 
     local viewport = Instance.new("ViewportFrame", mapFrame)
     viewport.Size = UDim2.new(1, 0, 1, 0)
-    viewport.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    viewport.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     viewport.BackgroundTransparency = 0
     viewport.Active = true
     viewport.Selectable = true
@@ -730,9 +730,9 @@ local function createMapTeleportUI()
     mapPart.Position = Vector3.new(0, -0.5, 0)
     mapPart.Anchored = true
     mapPart.CanCollide = false
-    mapPart.Transparency = 0.3
-    mapPart.Color = Color3.fromRGB(100, 100, 110)
-    mapPart.Material = Enum.Material.Plastic
+    mapPart.Transparency = 0
+    mapPart.Color = Color3.fromRGB(180, 180, 190)
+    mapPart.Material = Enum.Material.Neon
     mapPart.Parent = workspace
 
     local gridPart = Instance.new("Part")
@@ -740,9 +740,9 @@ local function createMapTeleportUI()
     gridPart.Position = Vector3.new(0, 0, 0)
     gridPart.Anchored = true
     gridPart.CanCollide = false
-    gridPart.Transparency = 0.2
-    gridPart.Color = Color3.fromRGB(150, 150, 160)
-    gridPart.Material = Enum.Material.Plastic
+    gridPart.Transparency = 0
+    gridPart.Color = Color3.fromRGB(120, 120, 130)
+    gridPart.Material = Enum.Material.Neon
     gridPart.Parent = workspace
 
     local cam = Instance.new("Camera")
