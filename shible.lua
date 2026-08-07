@@ -4,6 +4,10 @@ local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local MarketplaceService = game:GetService("MarketplaceService")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 
 if not LocalPlayer then
     LocalPlayer = Players.PlayerAdded:Wait()
@@ -14,21 +18,11 @@ if not PlayerGui then
     PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 15)
 end
 
-local RunService = game:GetService("RunService")
-
 local API_URL = "https://fcbc2189cfca36aa-112-94-186-50.serveousercontent.com/verify"
-local ANTI_DETECT_URL = "https://a8b5ff5d3939cc35-112-94-186-50.serveousercontent.com/get_cleanup"
-local keysLoaded = true
-local VALID_KEYS = {}
-
-local function loadKeys()
-    return true
-end
 
 local function verifyKeyOnline(key)
     local url = API_URL .. "?key=" .. key
     local response = nil
-
     local requestFunc = syn and syn.request or http_request or request
     if requestFunc then
         local r = requestFunc({Url = url, Method = "GET"})
@@ -36,20 +30,16 @@ local function verifyKeyOnline(key)
             response = r.Body
         end
     end
-    
     if not response then
-        local HttpService = game:GetService("HttpService")
         local success, result = pcall(HttpService.GetAsync, HttpService, url)
         if success then
             response = result
         end
     end
-
     if not response then
-        return false, "网络错误，请检查手机后台是否运行"
+        return false, "网络错误"
     end
-
-    local decoded = game:GetService("HttpService"):JSONDecode(response)
+    local decoded = HttpService:JSONDecode(response)
     if decoded.success then
         return true, nil, decoded.expire_date
     else
@@ -69,7 +59,7 @@ end
 
 local C = {
     Width = 280,
-    Height = 280,
+    Height = 330,
     Radius = 22,
     Blur = 24,
     Spring = Enum.EasingStyle.Elastic,
@@ -136,60 +126,13 @@ local function safeCall(fn, ctx)
     end
 end
 
-local function SafeLoad(url, name)
-    name = name or "远程脚本"
-    print("[SafeLoad] 正在加载 " .. name .. " ...")
-    local body = nil
-    local HttpService = game:GetService("HttpService")
-    pcall(function()
-        body = HttpService:GetAsync(url)
-    end)
-    if (not body or (#body < 10)) then
-        pcall(function()
-            if (syn and syn.request) then
-                local r = syn.request({Url = url, Method = "GET"})
-                if (r and r.Success) then
-                    body = r.Body
-                end
-            end
-        end)
-    end
-    if (not body or (#body < 10)) then
-        pcall(function()
-            local fn = http_request or request
-            if fn then
-                local r = fn({Url = url, Method = "GET"})
-                if (r and (r.Success or (r.StatusCode == 200))) then
-                    body = r.Body
-                end
-            end
-        end)
-    end
-    if (not body or (#body < 10)) then
-        warn("[SafeLoad] " .. name .. " 下载失败，body为空")
-        return false
-    end
-    local func, err = loadstring(body)
-    if not func then
-        warn("[SafeLoad] " .. name .. " 编译失败: " .. tostring(err))
-        return false
-    end
-    local ok, e = pcall(func)
-    if not ok then
-        warn("[SafeLoad] " .. name .. " 执行出错: " .. tostring(e))
-        return false
-    end
-    print("[SafeLoad] " .. name .. " 加载成功 ")
-    return true
-end
-
 local blur = Instance.new("BlurEffect")
 blur.Size = 0
 blur.Parent = Lighting
 makeTween(blur, {Size = C.Blur}, 0.4)
 
 local gui = Instance.new("ScreenGui")
-gui.Name = "iOS_Pro_Draggable"
+gui.Name = "shible"
 gui.Parent = PlayerGui
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
@@ -300,7 +243,7 @@ introContainer.ClipsDescendants = false
 introContainer.Parent = pageMain
 
 local subtitle = Instance.new("TextLabel")
-subtitle.Text = "欢迎使用\n请进🐧:434448780"
+subtitle.Text = "欢迎使用 shible 脚本\n群: 434448780"
 subtitle.Font = Enum.Font.Gotham
 subtitle.TextSize = 14
 subtitle.TextColor3 = Theme.TextSecondary
@@ -405,46 +348,29 @@ local function createPage(name)
     return pg
 end
 
-local pgAim = createPage("Aim")
-local pgSpeed = createPage("Speed")
-local pgESP = createPage("ESP")
-local pgFly = createPage("Fly")
-local pgFun = createPage("Fun")
 local pgAnti = createPage("Anti")
-local pgHitbox = createPage("Hitbox")
-local pgAction = createPage("Action")
 local pgServer = createPage("Server")
 
 local FuncState = {
-    SpeedEnabled = false,
-    SpeedValue = 50,
-    ESPEnabled = false,
-    HealthBarEnabled = false,
-    DistanceEnabled = false,
-    SpinEnabled = false,
-    SpinSpeed = 50,
-    AntiDetect = true,
-    AdminDetect = true,
-    BypassGroup = true,
-    Mode = 1,
-    AntennaEnabled = false,
-    RadarEnabled = false,
-    HitboxEnabled = false,
-    HitboxSize = 5,
-    BypassAC = true,
-    WallCheck = false,
-    AntiFall = false,
-    Noclip = false,
-    ShibleAimLoaded = false,
-    BlackHoleLoaded = false,
-    FECarLoaded = false,
-    InkLoaded = false,
-    R6Loaded = false,
-    R15Loaded = false,
-    AntiAFK = true,
+    KickProtect = false,
+    WaterWalk = false,
+    TeleportPoints = {},
+    SelectedPoint = nil,
+    SavedPointName = "",
+    ActionAnims = {
+        ["无头"] = "78837807518622",
+        ["直升机"] = "95301257497525",
+        ["飞机"] = "82135680487389",
+        ["坦克"] = "94915612757079",
+        ["假死"] = "88130117312312",
+        ["投降"] = "100537772865440",
+        ["环绕身体"] = "109873544976020",
+    }
 }
 
-local Flinging = false
+local waterWalkConnection = nil
+local kickHook = nil
+local animTracks = {}
 
 local function getChar()
     return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -524,7 +450,24 @@ local function createToggle(parent, yPos, labelText, getState, onToggle)
     end)
 end
 
-local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, onChanged)
+local function createButton(parent, yPos, labelText, callback)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(1, -24, 0, 32)
+    btn.Position = UDim2.new(0, 12, 0, yPos)
+    btn.BackgroundColor3 = Theme.Glass
+    btn.BackgroundTransparency = 0.4
+    btn.Text = labelText
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 14
+    btn.TextColor3 = Theme.TextPrimary
+    btn.AutoButtonColor = false
+    corner(btn, 8)
+    pressEffect(btn)
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+local function createDropdown(parent, yPos, labelText, values, defaultVal, callback)
     local row = Instance.new("Frame", parent)
     row.Size = UDim2.new(1, -24, 0, 54)
     row.Position = UDim2.new(0, 12, 0, yPos)
@@ -532,1303 +475,103 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
 
     local lbl = Instance.new("TextLabel", row)
     lbl.Text = labelText
-    lbl.Font = Enum.Font.GothamSemibold
-    lbl.TextSize = 13
-    lbl.TextColor3 = Theme.TextPrimary
+    lbl.Font = Enum.Font.Gotham
+    lbl.TextSize = 12
+    lbl.TextColor3 = Theme.TextSecondary
     lbl.BackgroundTransparency = 1
     lbl.Position = UDim2.new(0, 0, 0, 0)
-    lbl.Size = UDim2.new(0, 45, 0, 18)
+    lbl.Size = UDim2.new(1, 0, 0, 18)
     lbl.TextXAlignment = Enum.TextXAlignment.Left
 
-    local inputBox = Instance.new("TextBox", row)
-    inputBox.Text = tostring(initial)
-    inputBox.Font = Enum.Font.GothamBold
-    inputBox.TextSize = 12
-    inputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    inputBox.PlaceholderText = "输入"
-    inputBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
-    inputBox.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
-    inputBox.BackgroundTransparency = 0.2
-    inputBox.Position = UDim2.new(1, -56, 0, -1)
-    inputBox.Size = UDim2.new(0, 56, 0, 22)
-    inputBox.TextXAlignment = Enum.TextXAlignment.Center
-    inputBox.ClearTextOnFocus = true
-    inputBox.BorderSizePixel = 0
-    inputBox.ZIndex = 5
-    corner(inputBox, 5)
+    local dropdown = Instance.new("TextBox", row)
+    dropdown.Size = UDim2.new(1, 0, 0, 30)
+    dropdown.Position = UDim2.new(0, 0, 0, 20)
+    dropdown.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+    dropdown.TextColor3 = Theme.TextPrimary
+    dropdown.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+    dropdown.Font = Enum.Font.Gotham
+    dropdown.TextSize = 14
+    dropdown.BorderSizePixel = 0
+    corner(dropdown, 6)
+    dropdown.ClearTextOnFocus = false
 
-    local track = Instance.new("TextButton", row)
-    track.Size = UDim2.new(1, 0, 0, 12)
-    track.Position = UDim2.new(0, 0, 0, 30)
-    track.BackgroundColor3 = Color3.fromRGB(65, 65, 70)
-    track.BorderSizePixel = 0
-    track.Text = ""
-    track.AutoButtonColor = false
-    corner(track, 6)
-    track.SelectionImageObject = nil
-    track.Selectable = false
-    track.ZIndex = 2
+    local currentVal = defaultVal or (values and values[1]) or ""
+    dropdown.Text = currentVal
+    callback(currentVal)
 
-    local fill = Instance.new("Frame", track)
-    fill.Size = UDim2.new(0, 0, 1, 0)
-    fill.BackgroundColor3 = Theme.Accent
-    fill.BorderSizePixel = 0
-    fill.ZIndex = 3
-    corner(fill, 6)
+    local listFrame = Instance.new("Frame", row)
+    listFrame.Size = UDim2.new(1, 0, 0, 0)
+    listFrame.Position = UDim2.new(0, 0, 0, 50)
+    listFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    listFrame.BorderSizePixel = 0
+    listFrame.ClipsDescendants = true
+    listFrame.Visible = false
+    corner(listFrame, 6)
 
-    local thumb = Instance.new("Frame", track)
-    thumb.Size = UDim2.new(0, 18, 0, 18)
-    thumb.Position = UDim2.new(0, -9, 0, -3)
-    thumb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    thumb.BorderSizePixel = 0
-    thumb.ZIndex = 4
-    corner(thumb, 9)
+    local listLayout = Instance.new("UIListLayout", listFrame)
+    listLayout.Padding = UDim.new(0, 2)
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-    local dragging = false
-
-    local function setVal(val)
-        val = math.floor(math.clamp(val, minVal, maxVal))
-        local ratio = (val - minVal) / (maxVal - minVal)
-        inputBox.Text = tostring(val)
-        thumb.Position = UDim2.new(ratio, -9, 0, -3)
-        fill.Size = UDim2.new(ratio, 0, 1, 0)
-        safeCall(function()
-            onChanged(val)
-        end, "Slider:" .. labelText)
-    end
-
-    local function updateFromMouse()
-        local mouse = UserInputService:GetMouseLocation()
-        local ap = track.AbsolutePosition
-        local as = track.AbsoluteSize
-        local ratio = math.clamp((mouse.X - ap.X) / as.X, 0, 1)
-        setVal(math.floor(minVal + (ratio * (maxVal - minVal))))
-    end
-
-    track.MouseButton1Down:Connect(function()
-        dragging = true
-        updateFromMouse()
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if (dragging and ((input.UserInputType == Enum.UserInputType.MouseMovement) or (input.UserInputType == Enum.UserInputType.Touch))) then
-            updateFromMouse()
-        end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input)
-        if ((input.UserInputType == Enum.UserInputType.MouseButton1) or (input.UserInputType == Enum.UserInputType.Touch)) then
-            dragging = false
-        end
-    end)
-
-    inputBox.FocusLost:Connect(function()
-        local txt = inputBox.Text:gsub("[^0-9]", "")
-        if (txt == "") then
-            txt = tostring(minVal)
-        end
-        setVal(tonumber(txt) or minVal)
-    end)
-
-    setVal(initial)
-end
-
-do
-    local p = pgAim
-    local y = 10
-    local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "玩家自瞄"
-    hdr.Font = Enum.Font.GothamSemibold
-    hdr.TextSize = 14
-    hdr.TextColor3 = Theme.TextPrimary
-    hdr.BackgroundTransparency = 1
-    hdr.Position = UDim2.new(0, 12, 0, y)
-    hdr.Size = UDim2.new(1, -24, 0, 20)
-    hdr.TextXAlignment = Enum.TextXAlignment.Left
-    y = y + 30
-
-    local originalCameraMode = nil
-    local originalCameraCFrame = nil
-    local scriptLoaded = false
-    local aimURL = "https://raw.githubusercontent.com/odhdshhe/bu/refs/heads/main/%E6%9C%88%E4%BA%AE%E5%8A%A0%E5%AF%86%E8%BF%87%E7%9A%84%E6%9E%97%E7%9A%84%E8%87%AA%E7%9E%84.lua"
-
-    createToggle(p, y, "静默自瞄", function()
-        return scriptLoaded
-    end, function(v)
-        if v then
-            local cam = workspace.CurrentCamera
-            if cam then
-                originalCameraMode = cam.CameraType
-                originalCameraCFrame = cam.CFrame
+    local function updateList()
+        for _, child in ipairs(listFrame:GetChildren()) do
+            if child:IsA("TextButton") then
+                child:Destroy()
             end
-            scriptLoaded = SafeLoad(aimURL, "静默自瞄")
-            if not scriptLoaded then
-                warn("[静默自瞄] 加载失败")
-            end
-        else
-            local cam = workspace.CurrentCamera
-            if cam then
-                pcall(function()
-                    if originalCameraMode then
-                        cam.CameraType = originalCameraMode
-                    else
-                        cam.CameraType = Enum.CameraType.Custom
-                    end
-                end)
-                pcall(function()
-                    if originalCameraCFrame then
-                        cam.CFrame = originalCameraCFrame
-                    end
-                end)
-            end
-            pcall(function()
-                getgenv().AimbotEnabled = false
+        end
+        listFrame.Size = UDim2.new(1, 0, 0, math.min(#values * 30, 120))
+        for _, val in ipairs(values or {}) do
+            local item = Instance.new("TextButton", listFrame)
+            item.Size = UDim2.new(1, 0, 0, 30)
+            item.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+            item.Text = val
+            item.TextColor3 = Theme.TextPrimary
+            item.Font = Enum.Font.Gotham
+            item.TextSize = 13
+            item.BorderSizePixel = 0
+            item.AutoButtonColor = false
+            item.MouseButton1Click:Connect(function()
+                dropdown.Text = val
+                currentVal = val
+                listFrame.Visible = false
+                callback(val)
             end)
-            pcall(function()
-                getgenv().SilentAim = false
-            end)
-            pcall(function()
-                getgenv()._G.AimbotEnabled = false
-            end)
-            scriptLoaded = false
-        end
-    end)
-
-    y = y + 46
-    local bulletTrackLoaded = false
-    local bulletTrackURL = "https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/%E5%AD%90%E8%BF%BD"
-
-    createToggle(p, y, "子弹追踪", function()
-        return bulletTrackLoaded
-    end, function(v)
-        if v then
-            bulletTrackLoaded = SafeLoad(bulletTrackURL, "子弹追踪")
-            if not bulletTrackLoaded then
-                warn("[子弹追踪] 加载失败")
-            end
-        else
-            pcall(function()
-                getgenv().BulletTrackEnabled = false
-            end)
-            pcall(function()
-                _G.BulletTrackEnabled = false
-            end)
-            bulletTrackLoaded = false
-        end
-    end)
-end
-
-do
-    local p = pgSpeed
-    local y = 10
-    local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "人物移速"
-    hdr.Font = Enum.Font.GothamSemibold
-    hdr.TextSize = 14
-    hdr.TextColor3 = Theme.TextPrimary
-    hdr.BackgroundTransparency = 1
-    hdr.Position = UDim2.new(0, 12, 0, y)
-    hdr.Size = UDim2.new(1, -24, 0, 20)
-    hdr.TextXAlignment = Enum.TextXAlignment.Left
-    y = y + 30
-
-    createToggle(p, y, "启用加速", function()
-        return FuncState.SpeedEnabled
-    end, function(v)
-        FuncState.SpeedEnabled = v
-        local h = getHumanoid()
-        if h then
-            h.WalkSpeed = (v and FuncState.SpeedValue) or 16
-        end
-    end)
-
-    y = y + 46
-    createSlider(p, y, "移速 (16-700)", 16, 700, 50, function(v)
-        FuncState.SpeedValue = v
-    end)
-
-    RunService.Heartbeat:Connect(function()
-        if FuncState.SpeedEnabled then
-            local h = getHumanoid()
-            if (h and (h.WalkSpeed ~= FuncState.SpeedValue)) then
-                h.WalkSpeed = FuncState.SpeedValue
-            end
-        end
-    end)
-
-    LocalPlayer.CharacterAdded:Connect(function(char)
-        task.wait(0.1)
-        local h = char:FindFirstChild("Humanoid")
-        if (h and FuncState.SpeedEnabled) then
-            h.WalkSpeed = FuncState.SpeedValue
-        end
-    end)
-end
-
-do
-    local p = pgESP
-    local y = 10
-    local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "人物功能"
-    hdr.Font = Enum.Font.GothamSemibold
-    hdr.TextSize = 14
-    hdr.TextColor3 = Theme.TextPrimary
-    hdr.BackgroundTransparency = 1
-    hdr.Position = UDim2.new(0, 12, 0, y)
-    hdr.Size = UDim2.new(1, -24, 0, 20)
-    hdr.TextXAlignment = Enum.TextXAlignment.Left
-    y = y + 30
-
-    createToggle(p, y, "全身透视", function()
-        return FuncState.ESPEnabled
-    end, function(v)
-        FuncState.ESPEnabled = v
-    end)
-
-    y = y + 46
-    createToggle(p, y, "头顶血条", function()
-        return FuncState.HealthBarEnabled
-    end, function(v)
-        FuncState.HealthBarEnabled = v
-    end)
-
-    y = y + 46
-    createToggle(p, y, "距离显示", function()
-        return FuncState.DistanceEnabled
-    end, function(v)
-        FuncState.DistanceEnabled = v
-    end)
-
-    y = y + 46
-    createToggle(p, y, "人物天线", function()
-        return FuncState.AntennaEnabled
-    end, function(v)
-        FuncState.AntennaEnabled = v
-    end)
-
-    y = y + 46
-    createToggle(p, y, "玩家雷达", function()
-        return FuncState.RadarEnabled
-    end, function(v)
-        FuncState.RadarEnabled = v
-    end)
-
-    local cache = {}
-    local antennaLines = {}
-    local useDrawing = pcall(function()
-        return Drawing.new("Line")
-    end)
-
-    if not useDrawing then
-        warn("[人物天线] 当前环境不支持 Drawing，天线将无法使用")
-    end
-
-    local radarFrame = nil
-    local radarPoints = {}
-    local radarRadiusPixels = 85
-    local radarWorldRange = 300
-
-    local function createRadar()
-        if radarFrame then
-            return
-        end
-        radarFrame = Instance.new("Frame")
-        radarFrame.Name = "Radar"
-        radarFrame.Size = UDim2.new(0, 180, 0, 180)
-        radarFrame.AnchorPoint = Vector2.new(1, 0)
-        radarFrame.Position = UDim2.new(1, -10, 0, 10)
-        radarFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        radarFrame.BackgroundTransparency = 0.4
-        radarFrame.BorderSizePixel = 0
-        radarFrame.ClipsDescendants = true
-        radarFrame.Visible = false
-        radarFrame.ZIndex = 2
-        radarFrame.Parent = gui
-        corner(radarFrame, 90)
-
-        local cross = Instance.new("Frame", radarFrame)
-        cross.Size = UDim2.new(1, 0, 0, 1)
-        cross.Position = UDim2.new(0, 0, 0.5, 0)
-        cross.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        cross.BackgroundTransparency = 0.6
-        cross.BorderSizePixel = 0
-
-        local cross2 = Instance.new("Frame", radarFrame)
-        cross2.Size = UDim2.new(0, 1, 1, 0)
-        cross2.Position = UDim2.new(0.5, 0, 0, 0)
-        cross2.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        cross2.BackgroundTransparency = 0.6
-        cross2.BorderSizePixel = 0
-
-        local maxDist = radarWorldRange
-        local ringDistances = {150, 300}
-
-        for _, dist in ipairs(ringDistances) do
-            local ratio = dist / maxDist
-            local ring = Instance.new("Frame", radarFrame)
-            ring.Size = UDim2.new(2 * ratio, 0, 2 * ratio, 0)
-            ring.Position = UDim2.new(0.5 - ratio, 0, 0.5 - ratio, 0)
-            ring.BackgroundTransparency = 1
-            ring.BorderSizePixel = 1
-            ring.BorderColor3 = Color3.fromRGB(255, 255, 255)
-            ring.BorderTransparency = 0.4
-            ring.Visible = true
-            corner(ring, 90)
-        end
-
-        local border = Instance.new("Frame", radarFrame)
-        border.Size = UDim2.new(1, 0, 1, 0)
-        border.BackgroundTransparency = 1
-        border.BorderSizePixel = 2
-        border.BorderColor3 = Color3.fromRGB(255, 255, 255)
-        border.BorderTransparency = 0.2
-        border.BorderMode = Enum.BorderMode.Inset
-        corner(border, 90)
-    end
-
-    local function updateRadar()
-        if not FuncState.RadarEnabled then
-            if radarFrame then
-                radarFrame.Visible = false
-            end
-            for _, point in pairs(radarPoints) do
-                point:Destroy()
-            end
-            radarPoints = {}
-            return
-        end
-
-        if not radarFrame then
-            createRadar()
-        end
-
-        if not radarFrame then
-            return
-        end
-
-        local myRoot = getRootPart()
-        if not myRoot then
-            radarFrame.Visible = false
-            return
-        end
-
-        radarFrame.Visible = true
-        local myPos = myRoot.Position
-        local radarSize = radarFrame.AbsoluteSize
-
-        if ((radarSize.X == 0) or (radarSize.Y == 0)) then
-            return
-        end
-
-        local maxDist = radarWorldRange
-
-        for _, point in pairs(radarPoints) do
-            point:Destroy()
-        end
-        radarPoints = {}
-
-        local camera = workspace.CurrentCamera
-        local camCF = camera.CFrame
-        local forward = camCF.LookVector
-        forward = Vector3.new(forward.X, 0, forward.Z).Unit
-        if forward.Magnitude < 0.01 then forward = Vector3.new(1,0,0) end
-        local right = Vector3.new(forward.Z, 0, -forward.X)
-
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr == LocalPlayer then continue end
-            if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then
-                continue
-            end
-            if plr.Character then
-                local char = plr.Character
-                local hrp = char:FindFirstChild("HumanoidRootPart")
-
-                if hrp then
-                    local targetPos = hrp.Position
-                    local diff = targetPos - myPos
-                    local horizontalDist = math.sqrt((diff.X ^ 2) + (diff.Z ^ 2))
-
-                    if (horizontalDist <= maxDist) then
-                        local dirWorld = Vector3.new(diff.X, 0, diff.Z).Unit
-                        if dirWorld.Magnitude < 0.01 then continue end
-                        local fwdComp = dirWorld:Dot(forward)
-                        local rightComp = dirWorld:Dot(right)
-                        local angle = math.atan2(rightComp, fwdComp)
-
-                        local normalizedDist = horizontalDist / maxDist
-                        local pixelOffsetX = normalizedDist * radarRadiusPixels * math.sin(angle)
-                        local pixelOffsetY = -normalizedDist * radarRadiusPixels * math.cos(angle)
-
-                        local point = Instance.new("ImageLabel")
-                        point.Size = UDim2.new(0, 7, 0, 7)
-                        point.AnchorPoint = Vector2.new(0.5, 0.5)
-                        point.Position = UDim2.new(0.5, pixelOffsetX, 0.5, pixelOffsetY)
-                        point.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-                        point.BackgroundTransparency = 0
-                        point.BorderSizePixel = 0
-                        point.ZIndex = 3
-                        point.Parent = radarFrame
-                        corner(point, 4)
-                        radarPoints[plr] = point
-                    end
-                end
-            end
         end
     end
 
-    local function createHealthBar(head)
-        local bb = Instance.new("BillboardGui")
-        bb.Name = "ESP_HB"
-        bb.Size = UDim2.new(0, 55, 0, 5)
-        bb.StudsOffset = Vector3.new(0, 1.3, 0)
-        bb.Adornee = head
-        bb.AlwaysOnTop = true
-        bb.MaxDistance = 500
-        bb.Enabled = false
-        bb.Parent = head
-
-        local bg = Instance.new("Frame", bb)
-        bg.Size = UDim2.new(1, 0, 1, 0)
-        bg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-        bg.BackgroundTransparency = 0.15
-        bg.BorderSizePixel = 0
-        corner(bg, 2)
-
-        local fill = Instance.new("Frame", bb)
-        fill.Name = "Fill"
-        fill.Size = UDim2.new(1, 0, 1, 0)
-        fill.BackgroundColor3 = Color3.fromRGB(0, 255, 60)
-        fill.BorderSizePixel = 0
-        fill.ZIndex = 2
-        corner(fill, 2)
-
-        return bb
-    end
-
-    local function getOrCreateESP(char)
-        if (cache[char] and cache[char].hl and (cache[char].hl.Parent == char)) then
-            return cache[char].hl, cache[char].hb
-        end
-
-        cache[char] = nil
-        local oldHL = char:FindFirstChild("ESP_Highlight")
-        if oldHL then
-            oldHL:Destroy()
-        end
-
-        local hl = Instance.new("Highlight")
-        hl.Name = "ESP_Highlight"
-        hl.Adornee = char
-        hl.FillColor = Color3.fromRGB(255, 50, 50)
-        hl.FillTransparency = 0.5
-        hl.OutlineColor = Color3.fromRGB(255, 100, 100)
-        hl.OutlineTransparency = 0.05
-        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        hl.Enabled = false
-        hl.Parent = char
-
-        local hb
-        local head = char:FindFirstChild("Head")
-
-        if head then
-            local oldHB = head:FindFirstChild("ESP_HB")
-            if oldHB then
-                oldHB:Destroy()
-            end
-            hb = createHealthBar(head)
-        end
-
-        cache[char] = {hl = hl, hb = hb}
-        return hl, hb
-    end
-
-    local function removeESP(char)
-        local entry = cache[char]
-
-        if entry then
-            pcall(function()
-                if entry.hl then
-                    entry.hl:Destroy()
-                end
-            end)
-            pcall(function()
-                if entry.hb then
-                    entry.hb:Destroy()
-                end
-            end)
-        end
-
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-
-        if hrp then
-            local d = hrp:FindFirstChild("ESP_Distance")
-            if d then
-                d:Destroy()
-            end
-        end
-
-        cache[char] = nil
-    end
-
-    RunService.RenderStepped:Connect(function()
-        safeCall(function()
-            local myRoot = getRootPart()
-
-            if (not FuncState.AntennaEnabled or not myRoot) then
-                for _, line in pairs(antennaLines) do
-                    pcall(function()
-                        line:Remove()
-                    end)
-                end
-                antennaLines = {}
-            end
-
-            for _, plr in ipairs(Players:GetPlayers()) do
-                if plr == LocalPlayer then continue end
-                if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then
-                    continue
-                end
-                if plr.Character then
-                    local char = plr.Character
-                    local hum = char:FindFirstChild("Humanoid")
-                    local head = char:FindFirstChild("Head")
-
-                    if (not hum or (hum.Health <= 0) or not head) then
-                        removeESP(char)
-                    else
-                        local hl, hb = getOrCreateESP(char)
-
-                        if hl then
-                            hl.Enabled = FuncState.ESPEnabled
-                        end
-
-                        if hb then
-                            hb.Enabled = FuncState.HealthBarEnabled
-
-                            if FuncState.HealthBarEnabled then
-                                local fill = hb:FindFirstChild("Fill")
-
-                                if fill then
-                                    local ratio = math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1)
-                                    fill.Size = UDim2.new(ratio, 0, 1, 0)
-
-                                    if (ratio > 0.5) then
-                                        fill.BackgroundColor3 = Color3.fromRGB(50, 215, 75)
-                                    elseif (ratio > 0.25) then
-                                        fill.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
-                                    else
-                                        fill.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-                                    end
-                                end
-
-                                if (myRoot and head) then
-                                    local dist = (myRoot.Position - head.Position).Magnitude
-                                    local scale = math.clamp(8 / math.max(dist, 1), 0.3, 1.3)
-                                    local newWidth = math.floor(55 * scale)
-                                    local newHeight = math.floor(5 * scale)
-                                    hb.Size = UDim2.new(0, newWidth, 0, newHeight)
-                                end
-                            end
-                        end
-
-                        local hrp = char:FindFirstChild("HumanoidRootPart")
-
-                        if (FuncState.DistanceEnabled and hrp and myRoot) then
-                            local distStuds = (myRoot.Position - hrp.Position).Magnitude
-                            local distMeters = distStuds * 0.28
-                            local distGui = hrp:FindFirstChild("ESP_Distance")
-
-                            if not distGui then
-                                distGui = Instance.new("BillboardGui")
-                                distGui.Name = "ESP_Distance"
-                                distGui.Size = UDim2.new(0, 100, 0, 20)
-                                distGui.StudsOffset = Vector3.new(0, -3, 0)
-                                distGui.Adornee = hrp
-                                distGui.AlwaysOnTop = true
-                                distGui.MaxDistance = 500
-                                distGui.Enabled = true
-                                distGui.Parent = hrp
-
-                                local textLabel = Instance.new("TextLabel", distGui)
-                                textLabel.Size = UDim2.new(1, 0, 1, 0)
-                                textLabel.BackgroundTransparency = 1
-                                textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                                textLabel.Font = Enum.Font.GothamBold
-                                textLabel.TextSize = 13
-                                textLabel.TextStrokeTransparency = 0.5
-                            else
-                                distGui.Enabled = true
-                            end
-
-                            local textLabel = distGui:FindFirstChild("TextLabel")
-
-                            if textLabel then
-                                textLabel.Text = string.format("%.1f m", distMeters)
-                            end
-                        elseif hrp then
-                            local existing = hrp:FindFirstChild("ESP_Distance")
-                            if existing then
-                                existing:Destroy()
-                            end
-                        end
-
-                        if (FuncState.AntennaEnabled and myRoot) then
-                            local camera = workspace.CurrentCamera
-
-                            if (camera and useDrawing) then
-                                local viewportSize = camera.ViewportSize
-                                local startPos = Vector2.new(viewportSize.X / 2, 0)
-
-                                for _, otherPlr in ipairs(Players:GetPlayers()) do
-                                    if otherPlr == LocalPlayer then continue end
-                                    if otherPlr.Team and LocalPlayer.Team and otherPlr.Team == LocalPlayer.Team then
-                                        continue
-                                    end
-                                    local otherChar = otherPlr.Character
-                                    if otherChar then
-                                        local otherHrp = otherChar:FindFirstChild("HumanoidRootPart")
-                                        if otherHrp then
-                                            local screenPos, onScreen = camera:WorldToScreenPoint(otherHrp.Position)
-                                            local line = antennaLines[otherPlr]
-
-                                            if onScreen then
-                                                if not line then
-                                                    line = Drawing.new("Line")
-                                                    line.Thickness = 2
-                                                    line.Color = Color3.new(0, 0, 0)
-                                                    line.Transparency = 1
-                                                    line.Visible = true
-                                                    antennaLines[otherPlr] = line
-                                                end
-
-                                                line.From = startPos
-                                                line.To = Vector2.new(screenPos.X, screenPos.Y)
-                                                line.Visible = true
-                                            elseif line then
-                                                line.Visible = false
-                                            end
-                                        end
-                                    end
-                                end
-
-                                for otherPlr, line in pairs(antennaLines) do
-                                    if (not otherPlr.Character or not otherPlr.Character:FindFirstChild("HumanoidRootPart")) then
-                                        pcall(function()
-                                            line:Remove()
-                                        end)
-                                        antennaLines[otherPlr] = nil
-                                    end
-                                end
-                            end
-                        else
-                            for _, line in pairs(antennaLines) do
-                                pcall(function()
-                                    line:Remove()
-                                end)
-                            end
-                            antennaLines = {}
-                        end
-                    end
-                end
-            end
-
-            updateRadar()
-        end, "ESP")
-    end)
-
-    Players.PlayerRemoving:Connect(function(plr)
-        if plr.Character then
-            removeESP(plr.Character)
-        end
-
-        local line = antennaLines[plr]
-        if line then
-            pcall(function()
-                line:Remove()
-            end)
-            antennaLines[plr] = nil
-        end
-
-        local point = radarPoints[plr]
-        if point then
-            point:Destroy()
-            radarPoints[plr] = nil
-        end
-    end)
-end
-
-do
-    local p = pgFly
-    local y = 20
-    local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "shible · 飞行"
-    hdr.Font = Enum.Font.GothamSemibold
-    hdr.TextSize = 14
-    hdr.TextColor3 = Theme.TextPrimary
-    hdr.BackgroundTransparency = 1
-    hdr.Position = UDim2.new(0, 12, 0, y)
-    hdr.Size = UDim2.new(1, -24, 0, 20)
-    hdr.TextXAlignment = Enum.TextXAlignment.Left
-    y = y + 36
-
-    local execBtn = Instance.new("TextButton", p)
-    execBtn.Text = "启动飞行"
-    execBtn.Font = Enum.Font.GothamSemibold
-    execBtn.TextSize = 14
-    execBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    execBtn.BackgroundColor3 = Theme.Accent
-    execBtn.AutoButtonColor = false
-    execBtn.Position = UDim2.new(0, 12, 0, y)
-    execBtn.Size = UDim2.new(1, -24, 0, 40)
-    corner(execBtn, 10)
-    pressEffect(execBtn)
-
-    local function notify(title, text)
-        task.spawn(function()
-            for i = 1, 5 do
-                local ok = pcall(function()
-                    game:GetService("StarterGui"):SetCore("SendNotification", {
-                        Title = title,
-                        Text = text,
-                        Icon = "rbxthumb://type=Asset&id=5107182114&w=150&h=150",
-                        Duration = 2
-                    })
-                end)
-
-                if ok then
-                    break
-                end
-
-                task.wait(0.2)
-            end
-        end)
-    end
-
-    execBtn.MouseButton1Click:Connect(function()
-        makeTween(execBtn, {TextSize = 16}, 0.12)
-        task.delay(0.12, function()
-            makeTween(execBtn, {TextSize = 14}, 0.15)
-        end)
-        notify("IOS脚本", "创作者：shible")
-
-        task.spawn(function()
-            local ok, err = pcall(function()
-                local fg = Instance.new("ScreenGui")
-                fg.Name = "shible_Fly"
-                fg.ResetOnSpawn = false
-                fg.Parent = LocalPlayer:WaitForChild("PlayerGui")
-
-                local f = Instance.new("Frame", fg)
-                f.BackgroundColor3 = Color3.fromRGB(163, 255, 137)
-                f.BorderColor3 = Color3.fromRGB(103, 221, 213)
-                f.Position = UDim2.new(0.1, 0, 0.38, 0)
-                f.Size = UDim2.new(0, 190, 0, 57)
-                f.Active = true
-                f.Draggable = true
-
-                local up = Instance.new("TextButton", f)
-                up.Size = UDim2.new(0, 44, 0, 28)
-                up.Text = "上升"
-                up.BackgroundColor3 = Color3.fromRGB(79, 255, 152)
-
-                local down = Instance.new("TextButton", f)
-                down.Size = UDim2.new(0, 44, 0, 28)
-                down.Position = UDim2.new(0, 0, 0.49, 0)
-                down.Text = "下落"
-                down.BackgroundColor3 = Color3.fromRGB(215, 255, 121)
-
-                local onof = Instance.new("TextButton", f)
-                onof.Size = UDim2.new(0, 56, 0, 28)
-                onof.Position = UDim2.new(0.7, 0, 0.49, 0)
-                onof.Text = "飞"
-                onof.BackgroundColor3 = Color3.fromRGB(255, 249, 74)
-
-                local tl = Instance.new("TextLabel", f)
-                tl.Size = UDim2.new(0, 100, 0, 28)
-                tl.Position = UDim2.new(0.47, 0, 0, 0)
-                tl.Text = "shible"
-                tl.BackgroundColor3 = Color3.fromRGB(242, 60, 255)
-                tl.TextScaled = true
-
-                local plus = Instance.new("TextButton", f)
-                plus.Size = UDim2.new(0, 45, 0, 28)
-                plus.Position = UDim2.new(0.23, 0, 0, 0)
-                plus.Text = "+"
-                plus.BackgroundColor3 = Color3.fromRGB(133, 145, 255)
-                plus.TextScaled = true
-
-                local spd = Instance.new("TextLabel", f)
-                spd.Size = UDim2.new(0, 44, 0, 28)
-                spd.Position = UDim2.new(0.47, 0, 0.49, 0)
-                spd.Text = "1"
-                spd.BackgroundColor3 = Color3.fromRGB(255, 85, 0)
-                spd.TextScaled = true
-
-                local mine = Instance.new("TextButton", f)
-                mine.Size = UDim2.new(0, 45, 0, 29)
-                mine.Position = UDim2.new(0.23, 0, 0.49, 0)
-                mine.Text = "-"
-                mine.BackgroundColor3 = Color3.fromRGB(123, 255, 247)
-                mine.TextScaled = true
-
-                local xbtn = Instance.new("TextButton", f)
-                xbtn.Size = UDim2.new(0, 45, 0, 28)
-                xbtn.Position = UDim2.new(0, 0, -1, 27)
-                xbtn.Text = "X"
-                xbtn.TextSize = 30
-                xbtn.BackgroundColor3 = Color3.fromRGB(225, 25, 0)
-
-                local mini = Instance.new("TextButton", f)
-                mini.Size = UDim2.new(0, 45, 0, 28)
-                mini.Position = UDim2.new(0, 44, -1, 27)
-                mini.Text = "-"
-                mini.TextSize = 40
-                mini.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
-
-                local mini2 = Instance.new("TextButton", f)
-                mini2.Size = UDim2.new(0, 45, 0, 28)
-                mini2.Position = UDim2.new(0, 44, 0, 30)
-                mini2.Text = "+"
-                mini2.TextSize = 40
-                mini2.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
-                mini2.Visible = false
-
-                for _, btn in ipairs(f:GetDescendants()) do
-                    if btn:IsA("TextButton") then
-                        btn.AutoButtonColor = false
-                        btn.SelectionImageObject = nil
-                        btn.Selectable = false
-                    end
-                end
-
-                local speeds = 1
-                local nowe = false
-                local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-                local hum = chr:FindFirstChildOfClass("Humanoid")
-                local moveConn, renderConn, bgObj, bvObj
-
-                xbtn.MouseButton1Click:Connect(function()
-                    fg:Destroy()
-                end)
-
-                up.MouseButton1Click:Connect(function()
-                    if (chr and chr:FindFirstChild("HumanoidRootPart")) then
-                        chr.HumanoidRootPart.CFrame = chr.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
-                    end
-                end)
-
-                down.MouseButton1Click:Connect(function()
-                    if (chr and chr:FindFirstChild("HumanoidRootPart")) then
-                        chr.HumanoidRootPart.CFrame = chr.HumanoidRootPart.CFrame + Vector3.new(0, -3, 0)
-                    end
-                end)
-
-                mini.MouseButton1Click:Connect(function()
-                    for _, v in ipairs({up, down, onof, plus, spd, mine, xbtn}) do
-                        v.Visible = false
-                    end
-                    mini.Visible = false
-                    mini2.Visible = true
-                    f.Size = UDim2.new(0, 100, 0, 28)
-                    tl.Position = UDim2.new(0, 0, 0, 0)
-                end)
-
-                mini2.MouseButton1Click:Connect(function()
-                    for _, v in ipairs({up, down, onof, plus, spd, mine, xbtn}) do
-                        v.Visible = true
-                    end
-                    mini.Visible = true
-                    mini2.Visible = false
-                    f.Size = UDim2.new(0, 190, 0, 57)
-                    tl.Position = UDim2.new(0.47, 0, 0, 0)
-                end)
-
-                plus.MouseButton1Click:Connect(function()
-                    speeds = speeds + 1
-                    spd.Text = tostring(speeds)
-                end)
-
-                mine.MouseButton1Click:Connect(function()
-                    if (speeds > 1) then
-                        speeds = speeds - 1
-                        spd.Text = tostring(speeds)
-                    else
-                        spd.Text = "错误"
-                        task.wait(0.2)
-                        spd.Text = "1"
-                    end
-                end)
-
-                local function resetHum()
-                    if hum then
-                        pcall(function()
-                            for _, s in pairs(Enum.HumanoidStateType:GetEnumItems()) do
-                                hum:SetStateEnabled(s, true)
-                            end
-                            hum.PlatformStand = false
-                            hum:ChangeState(Enum.HumanoidStateType.Running)
-                        end)
-                    end
-
-                    local anim = chr and chr:FindFirstChild("Animate")
-                    if anim then
-                        anim.Disabled = false
-                    end
-                end
-
-                local function stopFly()
-                    if moveConn then
-                        pcall(function()
-                            moveConn:Disconnect()
-                        end)
-                        moveConn = nil
-                    end
-
-                    if renderConn then
-                        pcall(function()
-                            renderConn:Disconnect()
-                        end)
-                        renderConn = nil
-                    end
-
-                    if bgObj then
-                        pcall(function()
-                            bgObj:Destroy()
-                        end)
-                        bgObj = nil
-                    end
-
-                    if bvObj then
-                        pcall(function()
-                            bvObj:Destroy()
-                        end)
-                        bvObj = nil
-                    end
-
-                    resetHum()
-                end
-
-                local function startFly()
-                    stopFly()
-                    chr = LocalPlayer.Character
-                    hum = chr and chr:FindFirstChildOfClass("Humanoid")
-
-                    if not hum then
-                        return
-                    end
-
-                    pcall(function()
-                        for _, s in pairs(Enum.HumanoidStateType:GetEnumItems()) do
-                            hum:SetStateEnabled(s, false)
-                        end
-                        hum:ChangeState(Enum.HumanoidStateType.Swimming)
-                    end)
-
-                    local anim = chr:FindFirstChild("Animate")
-                    if anim then
-                        anim.Disabled = true
-                    end
-
-                    moveConn = RunService.Heartbeat:Connect(function()
-                        if (not nowe or not hum or (hum.Health <= 0)) then
-                            return
-                        end
-
-                        if (hum.MoveDirection.Magnitude > 0) then
-                            chr:TranslateBy(hum.MoveDirection * speeds)
-                        end
-                    end)
-
-                    local torso = chr:FindFirstChild("Torso") or chr:FindFirstChild("UpperTorso")
-
-                    if torso then
-                        bgObj = Instance.new("BodyGyro", torso)
-                        bgObj.P = 90000
-                        bgObj.MaxTorque = Vector3.new(8999999488, 8999999488, 8999999488)
-
-                        bvObj = Instance.new("BodyVelocity", torso)
-                        bvObj.Velocity = Vector3.zero
-                        bvObj.MaxForce = Vector3.new(8999999488, 8999999488, 8999999488)
-
-                        renderConn = RunService.RenderStepped:Connect(function()
-                            if (not nowe or not torso.Parent) then
-                                stopFly()
-                                return
-                            end
-                            bgObj.CFrame = workspace.CurrentCamera.CoordinateFrame
-                        end)
-                    end
-                end
-
-                LocalPlayer.CharacterAdded:Connect(function(c)
-                    nowe = false
-                    onof.Text = "飞"
-                    chr = c
-                    hum = chr:WaitForChild("Humanoid", 5)
-                    stopFly()
-                end)
-
-                onof.MouseButton1Click:Connect(function()
-                    nowe = not nowe
-                    onof.Text = (nowe and "停") or "飞"
-
-                    if nowe then
-                        startFly()
-                    else
-                        stopFly()
-                    end
-                end)
-            end)
-
-            if not ok then
-                notify("加载失败", tostring(err))
-            end
-        end)
-    end)
-end
-
-do
-    local p = pgFun
-    local y = 10
-    local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "娱乐"
-    hdr.Font = Enum.Font.GothamSemibold
-    hdr.TextSize = 14
-    hdr.TextColor3 = Theme.TextPrimary
-    hdr.BackgroundTransparency = 1
-    hdr.Position = UDim2.new(0, 12, 0, y)
-    hdr.Size = UDim2.new(1, -24, 0, 20)
-    hdr.TextXAlignment = Enum.TextXAlignment.Left
-
-    y = y + 36
-    createToggle(p, y, "旋转", function()
-        return FuncState.SpinEnabled
-    end, function(v)
-        FuncState.SpinEnabled = v
-    end)
-
-    y = y + 50
-    createSlider(p, y, "旋转倍数 (10-999)", 10, 999, 50, function(v)
-        FuncState.SpinSpeed = v
-    end)
-
-    y = y + 50
-    local flingLoaded = false
-    local flingURL = "https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/%E7%94%A9%E9%A3%9E"
-
-    createToggle(p, y, "甩飞所有", function()
-        return flingLoaded
-    end, function(v)
-        if v then
-            flingLoaded = SafeLoad(flingURL, "甩飞所有")
-            if not flingLoaded then
-                warn("[甩飞所有] 加载失败")
-            end
-        else
-            pcall(function()
-                getgenv().FlingAllEnabled = false
-            end)
-            pcall(function()
-                _G.FlingAllEnabled = false
-            end)
-            flingLoaded = false
-        end
-    end)
-
-    y = y + 42
-    createToggle(p, y, "防掉落伤害", function() return FuncState.AntiFall end, function(v)
-        FuncState.AntiFall = v
-        if v then
-            local char = getChar()
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local root = char.HumanoidRootPart
-                local conn
-                conn = RunService.Heartbeat:Connect(function()
-                    if not FuncState.AntiFall or not root or not root.Parent then
-                        if conn then conn:Disconnect() end
-                        return
-                    end
-                    local vel = root.AssemblyLinearVelocity
-                    root.AssemblyLinearVelocity = Vector3.zero
-                    task.wait(0.016)
-                    root.AssemblyLinearVelocity = vel
-                end)
-                if not p._antiFallConn then p._antiFallConn = {} end
-                p._antiFallConn[char] = conn
-            end
-        else
-            if p._antiFallConn then
-                for char, conn in pairs(p._antiFallConn) do
-                    if conn then conn:Disconnect() end
-                end
-                p._antiFallConn = {}
+    dropdown.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            listFrame.Visible = not listFrame.Visible
+            if listFrame.Visible then
+                updateList()
             end
         end
     end)
 
-    y = y + 46
-    local fecarBtn = Instance.new("TextButton", p)
-    fecarBtn.Size = UDim2.new(1, -24, 0, 32)
-    fecarBtn.Position = UDim2.new(0, 12, 0, y)
-    fecarBtn.BackgroundColor3 = Theme.Glass
-    fecarBtn.BackgroundTransparency = 0.4
-    fecarBtn.Text = "FE变车"
-    fecarBtn.Font = Enum.Font.Gotham
-    fecarBtn.TextSize = 14
-    fecarBtn.TextColor3 = Theme.TextPrimary
-    fecarBtn.AutoButtonColor = false
-    corner(fecarBtn, 8)
-    pressEffect(fecarBtn)
-    fecarBtn.MouseButton1Click:Connect(function()
-        SafeLoad("https://rawscripts.net/raw/Universal-Script-FE-SILLY-CAR-V1-48227", "FE变车")
-    end)
-
-    y = y + 42
-    local blackholeBtn = Instance.new("TextButton", p)
-    blackholeBtn.Size = UDim2.new(1, -24, 0, 32)
-    blackholeBtn.Position = UDim2.new(0, 12, 0, y)
-    blackholeBtn.BackgroundColor3 = Theme.Glass
-    blackholeBtn.BackgroundTransparency = 0.4
-    blackholeBtn.Text = "黑洞"
-    blackholeBtn.Font = Enum.Font.Gotham
-    blackholeBtn.TextSize = 14
-    blackholeBtn.TextColor3 = Theme.TextPrimary
-    blackholeBtn.AutoButtonColor = false
-    corner(blackholeBtn, 8)
-    pressEffect(blackholeBtn)
-    blackholeBtn.MouseButton1Click:Connect(function()
-        SafeLoad("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/%E9%BB%91%E6%B4%9E", "黑洞")
-    end)
-
-    RunService.RenderStepped:Connect(function(dt)
-        safeCall(function()
-            if not FuncState.SpinEnabled then
-                return
+    return {
+        SetValues = function(newValues)
+            values = newValues
+            if #values > 0 then
+                currentVal = values[1]
+                dropdown.Text = currentVal
+                callback(currentVal)
             end
-            local rp = getRootPart()
-            if rp then
-                rp.CFrame = rp.CFrame * CFrame.Angles(0, math.rad((FuncState.SpinSpeed or 50) * dt * 60), 0)
-            end
-        end, "Spin")
-    end)
-end
-
-do
-    local p = pgAction
-    local y = 10
-    local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "人物动作"
-    hdr.Font = Enum.Font.GothamSemibold
-    hdr.TextSize = 14
-    hdr.TextColor3 = Theme.TextPrimary
-    hdr.BackgroundTransparency = 1
-    hdr.Position = UDim2.new(0, 12, 0, y)
-    hdr.Size = UDim2.new(1, -24, 0, 20)
-    hdr.TextXAlignment = Enum.TextXAlignment.Left
-    y = y + 36
-
-    local animTracks = {}
-
-    local function addActionBtn(label, id)
-        local btn = Instance.new("TextButton", p)
-        btn.Size = UDim2.new(1, -24, 0, 32)
-        btn.Position = UDim2.new(0, 12, 0, y)
-        btn.BackgroundColor3 = Theme.Glass
-        btn.BackgroundTransparency = 0.4
-        btn.Text = label
-        btn.Font = Enum.Font.Gotham
-        btn.TextSize = 14
-        btn.TextColor3 = Theme.TextPrimary
-        btn.AutoButtonColor = false
-        corner(btn, 8)
-        pressEffect(btn)
-        btn.MouseButton1Click:Connect(function()
-            local char = getChar()
-            if char and char:FindFirstChildOfClass("Humanoid") then
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                local anim = Instance.new("Animation")
-                anim.AnimationId = "rbxassetid://" .. id
-                local track = hum:LoadAnimation(anim)
-                track:Play()
-                table.insert(animTracks, track)
-            end
-        end)
-        return btn
-    end
-
-    local actions = {
-        {"环绕身体动作", "109873544976020"},
-        {"无头", "78837807518622"},
-        {"直升机", "95301257497525"},
-        {"飞机", "82135680487389"},
-        {"坦克", "94915612757079"},
-        {"假死", "88130117312312"},
-        {"投降", "100537772865440"},
+        end,
+        SetValue = function(val)
+            currentVal = val
+            dropdown.Text = val
+            callback(val)
+        end,
+        GetValue = function()
+            return currentVal
+        end
     }
-
-    for _, act in ipairs(actions) do
-        addActionBtn(act[1], act[2])
-        y = y + 42
-    end
-
-    local function addDlgBtn(label, url)
-        local btn = Instance.new("TextButton", p)
-        btn.Size = UDim2.new(1, -24, 0, 32)
-        btn.Position = UDim2.new(0, 12, 0, y)
-        btn.BackgroundColor3 = Theme.Glass
-        btn.BackgroundTransparency = 0.4
-        btn.Text = label
-        btn.Font = Enum.Font.Gotham
-        btn.TextSize = 14
-        btn.TextColor3 = Theme.TextPrimary
-        btn.AutoButtonColor = false
-        corner(btn, 8)
-        pressEffect(btn)
-        btn.MouseButton1Click:Connect(function()
-            SafeLoad(url, label)
-        end)
-        y = y + 42
-        return btn
-    end
-
-    addDlgBtn("r6道馆", "https://pastefy.app/wa3v2Vgm/raw")
-    addDlgBtn("r15道馆", "https://pastefy.app/YZoglOyJ/raw")
-
-    local closeBtnAction = Instance.new("TextButton", p)
-    closeBtnAction.Size = UDim2.new(1, -24, 0, 32)
-    closeBtnAction.Position = UDim2.new(0, 12, 0, y)
-    closeBtnAction.BackgroundColor3 = Theme.Glass
-    closeBtnAction.BackgroundTransparency = 0.4
-    closeBtnAction.Text = "关闭所有动作"
-    closeBtnAction.Font = Enum.Font.Gotham
-    closeBtnAction.TextSize = 14
-    closeBtnAction.TextColor3 = Theme.TextPrimary
-    closeBtnAction.AutoButtonColor = false
-    corner(closeBtnAction, 8)
-    pressEffect(closeBtnAction)
-    closeBtnAction.MouseButton1Click:Connect(function()
-        for _, track in ipairs(animTracks) do
-            pcall(function()
-                track:Stop()
-                track:Destroy()
-            end)
-        end
-        animTracks = {}
-        local char = getChar()
-        if char and char:FindFirstChildOfClass("Humanoid") then
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            pcall(function()
-                hum:LoadAnimation(Instance.new("Animation")):Stop()
-            end)
-        end
-    end)
 end
 
 do
     local p = pgAnti
-    local y = 10
+    local y = 20
     local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "防系统检测"
+    hdr.Text = "防检测"
     hdr.Font = Enum.Font.GothamSemibold
     hdr.TextSize = 14
     hdr.TextColor3 = Theme.TextPrimary
@@ -1836,118 +579,30 @@ do
     hdr.Position = UDim2.new(0, 12, 0, y)
     hdr.Size = UDim2.new(1, -24, 0, 20)
     hdr.TextXAlignment = Enum.TextXAlignment.Left
-
-    y = y + 36
-    createToggle(p, y, "开启预防检测", function()
-        return FuncState.AntiDetect
-    end, function(v)
-        FuncState.AntiDetect = v
-    end)
-
-    y = y + 46
-    createToggle(p, y, "管理员检测", function()
-        return FuncState.AdminDetect
-    end, function(v)
-        FuncState.AdminDetect = v
-    end)
-
-    y = y + 46
-    createToggle(p, y, "绕过群组检测", function()
-        return FuncState.BypassGroup
-    end, function(v)
-        FuncState.BypassGroup = v
-    end)
-
-    y = y + 46
-    createToggle(p, y, "绕过AC检测", function()
-        return FuncState.BypassAC
-    end, function(v)
-        FuncState.BypassAC = v
-    end)
-
-    local info = Instance.new("TextLabel", p)
-    info.Text = "默认全部开启,(非紧急请勿关闭!)\n如执意关闭,(后果自负!)。"
-    info.Font = Enum.Font.Gotham
-    info.TextSize = 12
-    info.TextColor3 = Theme.TextSecondary
-    info.BackgroundTransparency = 1
-    info.Position = UDim2.new(0, 16, 0, y + 46)
-    info.Size = UDim2.new(1, -32, 0, 130)
-    info.TextXAlignment = Enum.TextXAlignment.Left
-    info.TextYAlignment = Enum.TextYAlignment.Top
-    info.TextWrapped = true
-    y = y + 130
-
-    local serverTitle = Instance.new("TextLabel", p)
-    serverTitle.Text = "关于服务器"
-    serverTitle.Font = Enum.Font.GothamSemibold
-    serverTitle.TextSize = 14
-    serverTitle.TextColor3 = Theme.TextPrimary
-    serverTitle.BackgroundTransparency = 1
-    serverTitle.Position = UDim2.new(0, 16, 0, y)
-    serverTitle.Size = UDim2.new(1, -32, 0, 20)
-    serverTitle.TextXAlignment = Enum.TextXAlignment.Left
-
     y = y + 30
-    createToggle(p, y, "防挂机踢出", function()
-        return FuncState.AntiAFK
+
+    createToggle(p, y, "拦截踢出", function()
+        return FuncState.KickProtect
     end, function(v)
-        FuncState.AntiAFK = v
-    end)
-
-    y = y + 46
-    local rejoinBtn = Instance.new("TextButton", p)
-    rejoinBtn.Size = UDim2.new(1, -24, 0, 32)
-    rejoinBtn.Position = UDim2.new(0, 12, 0, y)
-    rejoinBtn.BackgroundColor3 = Theme.Glass
-    rejoinBtn.BackgroundTransparency = 0.4
-    rejoinBtn.Text = "重进服务器"
-    rejoinBtn.Font = Enum.Font.Gotham
-    rejoinBtn.TextSize = 14
-    rejoinBtn.TextColor3 = Theme.TextPrimary
-    rejoinBtn.AutoButtonColor = false
-    corner(rejoinBtn, 8)
-    pressEffect(rejoinBtn)
-    rejoinBtn.MouseButton1Click:Connect(function()
-        local TeleportService = game:GetService("TeleportService")
-        TeleportService:Teleport(game.PlaceId, LocalPlayer)
-    end)
-
-    y = y + 42
-    local shutdownBtn = Instance.new("TextButton", p)
-    shutdownBtn.Size = UDim2.new(1, -24, 0, 32)
-    shutdownBtn.Position = UDim2.new(0, 12, 0, y)
-    shutdownBtn.BackgroundColor3 = Theme.Glass
-    shutdownBtn.BackgroundTransparency = 0.4
-    shutdownBtn.Text = "强制退出"
-    shutdownBtn.Font = Enum.Font.Gotham
-    shutdownBtn.TextSize = 14
-    shutdownBtn.TextColor3 = Theme.TextPrimary
-    shutdownBtn.AutoButtonColor = false
-    corner(shutdownBtn, 8)
-    pressEffect(shutdownBtn)
-    shutdownBtn.MouseButton1Click:Connect(function()
-        game:Shutdown()
-    end)
-
-    y = y + 42
-    local suicideBtn = Instance.new("TextButton", p)
-    suicideBtn.Size = UDim2.new(1, -24, 0, 32)
-    suicideBtn.Position = UDim2.new(0, 12, 0, y)
-    suicideBtn.BackgroundColor3 = Theme.Glass
-    suicideBtn.BackgroundTransparency = 0.4
-    suicideBtn.Text = "自杀（重生）"
-    suicideBtn.Font = Enum.Font.Gotham
-    suicideBtn.TextSize = 14
-    suicideBtn.TextColor3 = Theme.TextPrimary
-    suicideBtn.AutoButtonColor = false
-    corner(suicideBtn, 8)
-    pressEffect(suicideBtn)
-    suicideBtn.MouseButton1Click:Connect(function()
-        local char = getChar()
-        if char then
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if hum then hum.Health = 0 end
+        FuncState.KickProtect = v
+        if v then
+            if not kickHook then
+                local oldKick = LocalPlayer.Kick
+                kickHook = hookfunction(LocalPlayer.Kick, function(self, ...)
+                    if self == LocalPlayer then
+                        Notify("shible", "已拦截踢出!", 2)
+                        return
+                    end
+                    return oldKick(self, ...)
+                end)
+            end
+            Notify("shible", "拦截踢出已开启", 2)
+        else
+            if kickHook then
+                LocalPlayer.Kick = kickHook
+                kickHook = nil
+            end
+            Notify("shible", "拦截踢出已关闭", 2)
         end
     end)
 end
@@ -1955,31 +610,229 @@ end
 do
     local p = pgServer
     local y = 10
-    local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "服务器缝合"
-    hdr.Font = Enum.Font.GothamSemibold
-    hdr.TextSize = 14
-    hdr.TextColor3 = Theme.TextPrimary
-    hdr.BackgroundTransparency = 1
-    hdr.Position = UDim2.new(0, 12, 0, y)
-    hdr.Size = UDim2.new(1, -24, 0, 20)
-    hdr.TextXAlignment = Enum.TextXAlignment.Left
-    y = y + 36
 
-    local inkBtn = Instance.new("TextButton", p)
-    inkBtn.Size = UDim2.new(1, -24, 0, 32)
-    inkBtn.Position = UDim2.new(0, 12, 0, y)
-    inkBtn.BackgroundColor3 = Theme.Glass
-    inkBtn.BackgroundTransparency = 0.4
-    inkBtn.Text = "墨水游戏（Rb）"
-    inkBtn.Font = Enum.Font.Gotham
-    inkBtn.TextSize = 14
-    inkBtn.TextColor3 = Theme.TextPrimary
-    inkBtn.AutoButtonColor = false
-    corner(inkBtn, 8)
-    pressEffect(inkBtn)
-    inkBtn.MouseButton1Click:Connect(function()
-        SafeLoad("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/ink", "墨水游戏")
+    local serverHdr = Instance.new("TextLabel", p)
+    serverHdr.Text = "服务器信息"
+    serverHdr.Font = Enum.Font.GothamSemibold
+    serverHdr.TextSize = 14
+    serverHdr.TextColor3 = Theme.TextPrimary
+    serverHdr.BackgroundTransparency = 1
+    serverHdr.Position = UDim2.new(0, 12, 0, y)
+    serverHdr.Size = UDim2.new(1, -24, 0, 20)
+    serverHdr.TextXAlignment = Enum.TextXAlignment.Left
+    y = y + 30
+
+    local serverName = Instance.new("TextLabel", p)
+    serverName.Text = "加载中..."
+    serverName.Font = Enum.Font.Gotham
+    serverName.TextSize = 13
+    serverName.TextColor3 = Theme.TextSecondary
+    serverName.BackgroundTransparency = 1
+    serverName.Position = UDim2.new(0, 12, 0, y)
+    serverName.Size = UDim2.new(1, -24, 0, 20)
+    serverName.TextXAlignment = Enum.TextXAlignment.Left
+
+    task.spawn(function()
+        local ok, info = pcall(function()
+            return MarketplaceService:GetProductInfo(game.PlaceId)
+        end)
+        if ok and info then
+            serverName.Text = "当前服务器: " .. info.Name
+        else
+            serverName.Text = "当前服务器: 未知"
+        end
+    end)
+
+    y = y + 30
+
+    local div1 = Instance.new("Frame", p)
+    div1.Size = UDim2.new(1, -24, 0, 1)
+    div1.Position = UDim2.new(0, 12, 0, y)
+    div1.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    div1.BorderSizePixel = 0
+    y = y + 16
+
+    local wwHdr = Instance.new("TextLabel", p)
+    wwHdr.Text = "特殊移动"
+    wwHdr.Font = Enum.Font.GothamSemibold
+    wwHdr.TextSize = 14
+    wwHdr.TextColor3 = Theme.TextPrimary
+    wwHdr.BackgroundTransparency = 1
+    wwHdr.Position = UDim2.new(0, 12, 0, y)
+    wwHdr.Size = UDim2.new(1, -24, 0, 20)
+    wwHdr.TextXAlignment = Enum.TextXAlignment.Left
+    y = y + 30
+
+    createToggle(p, y, "水上行走", function()
+        return FuncState.WaterWalk
+    end, function(v)
+        FuncState.WaterWalk = v
+        if v then
+            if waterWalkConnection then
+                waterWalkConnection:Disconnect()
+            end
+            waterWalkConnection = RunService.Heartbeat:Connect(function()
+                local char = getChar()
+                local hrp = getRootPart()
+                if char and hrp then
+                    local head = char:FindFirstChild("Head")
+                    if head then
+                        local rayParams = RaycastParams.new()
+                        rayParams.FilterDescendantsInstances = {char}
+                        rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                        local ray = Workspace:Raycast(hrp.Position, Vector3.new(0, -5, 0), rayParams)
+                        if ray then
+                            local water = ray.Instance:IsA("Terrain") or ray.Instance.Name:lower():find("water")
+                            if water and ray.Position.Y > hrp.Position.Y - 2 then
+                                hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, 0.5, hrp.AssemblyLinearVelocity.Z)
+                            end
+                        end
+                    end
+                end
+            end)
+            Notify("shible", "水上行走已开启", 2)
+        else
+            if waterWalkConnection then
+                waterWalkConnection:Disconnect()
+                waterWalkConnection = nil
+            end
+            Notify("shible", "水上行走已关闭", 2)
+        end
+    end)
+
+    y = y + 46
+
+    local div2 = Instance.new("Frame", p)
+    div2.Size = UDim2.new(1, -24, 0, 1)
+    div2.Position = UDim2.new(0, 12, 0, y)
+    div2.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    div2.BorderSizePixel = 0
+    y = y + 16
+
+    local tpHdr = Instance.new("TextLabel", p)
+    tpHdr.Text = "传送点"
+    tpHdr.Font = Enum.Font.GothamSemibold
+    tpHdr.TextSize = 14
+    tpHdr.TextColor3 = Theme.TextPrimary
+    tpHdr.BackgroundTransparency = 1
+    tpHdr.Position = UDim2.new(0, 12, 0, y)
+    tpHdr.Size = UDim2.new(1, -24, 0, 20)
+    tpHdr.TextXAlignment = Enum.TextXAlignment.Left
+    y = y + 30
+
+    local pointNames = {"点1", "点2", "点3", "点4", "点5"}
+    local pointData = {}
+    local selectedPoint = "点1"
+
+    local tpDropdown = createDropdown(p, y, "选择传送点", pointNames, "点1", function(val)
+        selectedPoint = val
+    end)
+    y = y + 60
+
+    createButton(p, y, "保存当前为: " .. selectedPoint, function()
+        local hrp = getRootPart()
+        if hrp then
+            pointData[selectedPoint] = hrp.Position
+            Notify("shible", "已保存传送点: " .. selectedPoint, 2)
+        else
+            Notify("shible", "找不到角色", 2)
+        end
+    end)
+    y = y + 42
+
+    createButton(p, y, "传送至: " .. selectedPoint, function()
+        local pos = pointData[selectedPoint]
+        local hrp = getRootPart()
+        if pos and hrp then
+            hrp.CFrame = CFrame.new(pos)
+            Notify("shible", "已传送至: " .. selectedPoint, 2)
+        elseif not pos then
+            Notify("shible", "该传送点未保存", 2)
+        end
+    end)
+    y = y + 42
+
+    createButton(p, y, "清除所有传送点", function()
+        pointData = {}
+        Notify("shible", "已清除所有传送点", 2)
+    end)
+
+    y = y + 50
+
+    local div3 = Instance.new("Frame", p)
+    div3.Size = UDim2.new(1, -24, 0, 1)
+    div3.Position = UDim2.new(0, 12, 0, y)
+    div3.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    div3.BorderSizePixel = 0
+    y = y + 16
+
+    local actionHdr = Instance.new("TextLabel", p)
+    actionHdr.Text = "人物动作"
+    actionHdr.Font = Enum.Font.GothamSemibold
+    actionHdr.TextSize = 14
+    actionHdr.TextColor3 = Theme.TextPrimary
+    actionHdr.BackgroundTransparency = 1
+    actionHdr.Position = UDim2.new(0, 12, 0, y)
+    actionHdr.Size = UDim2.new(1, -24, 0, 20)
+    actionHdr.TextXAlignment = Enum.TextXAlignment.Left
+    y = y + 30
+
+    for name, id in pairs(FuncState.ActionAnims) do
+        createButton(p, y, name, function()
+            local char = getChar()
+            local hum = getHumanoid()
+            if char and hum then
+                local anim = Instance.new("Animation")
+                anim.AnimationId = "rbxassetid://" .. id
+                local track = hum:LoadAnimation(anim)
+                track:Play()
+                table.insert(animTracks, track)
+                Notify("shible", "播放动作: " .. name, 2)
+            end
+        end)
+        y = y + 42
+    end
+
+    createButton(p, y, "停止所有动作", function()
+        for _, track in ipairs(animTracks) do
+            pcall(function()
+                track:Stop()
+                track:Destroy()
+            end)
+        end
+        animTracks = {}
+        Notify("shible", "已停止所有动作", 2)
+    end)
+
+    y = y + 50
+
+    local div4 = Instance.new("Frame", p)
+    div4.Size = UDim2.new(1, -24, 0, 1)
+    div4.Position = UDim2.new(0, 12, 0, y)
+    div4.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    div4.BorderSizePixel = 0
+    y = y + 16
+
+    local bhHdr = Instance.new("TextLabel", p)
+    bhHdr.Text = "娱乐"
+    bhHdr.Font = Enum.Font.GothamSemibold
+    bhHdr.TextSize = 14
+    bhHdr.TextColor3 = Theme.TextPrimary
+    bhHdr.BackgroundTransparency = 1
+    bhHdr.Position = UDim2.new(0, 12, 0, y)
+    bhHdr.Size = UDim2.new(1, -24, 0, 20)
+    bhHdr.TextXAlignment = Enum.TextXAlignment.Left
+    y = y + 30
+
+    createButton(p, y, "黑洞", function()
+        local success = pcall(function()
+            loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Super-ring-Parts-V6-28581"))()
+        end)
+        if success then
+            Notify("shible", "黑洞已加载", 2)
+        else
+            Notify("shible", "黑洞加载失败", 2)
+        end
     end)
 end
 
@@ -2023,75 +876,17 @@ local function createFuncItem(name, key)
         if selectedItem then
             makeTween(selectedItem, {BackgroundTransparency = 0.6}, 0.2)
         end
-
         selectedItem = item
         makeTween(item, {BackgroundTransparency = 0.2}, 0.2)
-
         for _, pg in pairs(pages) do
             pg.Visible = false
         end
-
         pages[key].Visible = true
     end)
 end
 
-createFuncItem("自瞄", "Aim")
-createFuncItem("移速", "Speed")
-createFuncItem("人物功能", "ESP")
-createFuncItem("飞天", "Fly")
-createFuncItem("娱乐", "Fun")
-createFuncItem("范围", "Hitbox")
-createFuncItem("人物动作", "Action")
-createFuncItem("服务器缝合", "Server")
 createFuncItem("防检测", "Anti")
-
-do
-    local p = pgHitbox
-    local y = 10
-    local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "受击范围调节"
-    hdr.Font = Enum.Font.GothamSemibold
-    hdr.TextSize = 14
-    hdr.TextColor3 = Theme.TextPrimary
-    hdr.BackgroundTransparency = 1
-    hdr.Position = UDim2.new(0, 12, 0, y)
-    hdr.Size = UDim2.new(1, -24, 0, 20)
-    hdr.TextXAlignment = Enum.TextXAlignment.Left
-
-    y = y + 36
-    createToggle(p, y, "启用受击范围", function()
-        return FuncState.HitboxEnabled
-    end, function(v)
-        FuncState.HitboxEnabled = v
-    end)
-
-    y = y + 50
-    createSlider(p, y, "范围大小", 1, 100, 1, function(v)
-        FuncState.HitboxSize = v
-    end)
-
-    local info = Instance.new("TextLabel", p)
-    info.Text = "只有部分服务器有效"
-    info.Font = Enum.Font.Gotham
-    info.TextSize = 12
-    info.TextColor3 = Theme.TextSecondary
-    info.BackgroundTransparency = 1
-    info.Position = UDim2.new(0, 16, 0, y + 46)
-    info.Size = UDim2.new(1, -32, 0, 30)
-    info.TextXAlignment = Enum.TextXAlignment.Left
-    info.TextWrapped = true
-end
-
-task.defer(function()
-    safeCall(function()
-        for _, btn in ipairs(funcList:GetChildren()) do
-            if btn:IsA("TextButton") then
-                btn.MouseButton1Click:Fire()
-                break
-            end
-        end
-    end, "DefaultSelect")
-end)
+createFuncItem("服务器缝合", "Server")
 
 local backBtn = Instance.new("TextButton", pageFunction)
 backBtn.Text = "返回"
@@ -2184,15 +979,12 @@ DragSystem.enable = function(frame, opts)
                 local delta = mouse - startMousePos
                 local newX = startFramePos.X.Offset + delta.X
                 local newY = startFramePos.Y.Offset + delta.Y
-
                 if clampY then
                     newY = math.max(0, newY)
                 end
-
                 local ss = gui.AbsoluteSize
                 local fs = frame.AbsoluteSize
                 newX = math.clamp(newX, -fs.X / 2, ss.X - (fs.X / 2))
-
                 local target = UDim2.new(0, newX, 0, newY)
                 lastPos = UDim2.new(
                     lastPos.X.Scale + ((target.X.Scale - lastPos.X.Scale) * smoothness),
@@ -2212,7 +1004,6 @@ DragSystem.enable(mini)
 minBtn.MouseButton1Click:Connect(function()
     makeTween(root, {Size = UDim2.new(0, C.Width, 0, 0), BackgroundTransparency = 1}, 0.25)
     makeTween(blur, {Size = 6}, 0.25)
-
     task.delay(0.2, function()
         root.Visible = false
         mini.Visible = true
@@ -2233,12 +1024,7 @@ closeBtn.MouseButton1Click:Connect(function()
     makeTween(blur, {Size = 0}, 0.3)
     makeTween(root, {Size = UDim2.new(0, C.Width, 0, 0), BackgroundTransparency = 1}, 0.3)
     task.wait(0.35)
-
     safeCall(function()
-        local fg = PlayerGui:FindFirstChild("FOV_Circle")
-        if fg then
-            fg:Destroy()
-        end
         gui:Destroy()
         blur:Destroy()
     end, "Close")
@@ -2388,10 +1174,10 @@ local function showVerifyPanel()
                 isVerified = true
 
                 if expireDate == "9999-99-99" then
-                    expireLabel.Text = "♾️ 卡密到期时间-永久有效"
+                    expireLabel.Text = "♾️ 永久有效"
                     expireLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
                 else
-                    expireLabel.Text = "📅 卡密到期时间-" .. expireDate
+                    expireLabel.Text = "📅 " .. expireDate
                     expireLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
                 end
 
@@ -2471,67 +1257,13 @@ end)
 
 makeTween(blur, {Size = C.Blur}, 0.5)
 
-local function fetchCleanup()
-    local HttpService = game:GetService("HttpService")
-    local ok, code = pcall(HttpService.GetAsync, HttpService, ANTI_DETECT_URL)
-    if ok and code then
-        local func, err = loadstring(code)
-        if func then
-            pcall(func)
-        end
-    end
-end
-
-fetchCleanup()
-task.spawn(function()
-    while true do
-        task.wait(5)
-        if FuncState.BypassAC then
-            fetchCleanup()
-        end
-    end
-end)
-
 LocalPlayer.OnTeleport:Connect(function(state)
     if state == Enum.TeleportState.InProgress then
         pcall(function()
-            _G = {}
-            if getgenv then
-                for k, v in pairs(getgenv()) do
-                    getgenv()[k] = nil
-                end
-            end
-            if shared then
-                for k, v in pairs(shared) do
-                    shared[k] = nil
-                end
-            end
-            for _, guiObj in pairs(PlayerGui:GetChildren()) do
-                if guiObj:IsA("ScreenGui") and guiObj ~= gui then
-                    guiObj:Destroy()
-                end
-            end
-            local char = getChar()
-            if char then
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum then
-                    hum.WalkSpeed = 16
-                    hum.JumpPower = 50
-                end
+            if waterWalkConnection then
+                waterWalkConnection:Disconnect()
+                waterWalkConnection = nil
             end
         end)
-    end
-end)
-
-task.spawn(function()
-    while true do
-        task.wait(50)
-        if FuncState.AntiAFK then
-            pcall(function()
-                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.LeftControl, false, nil)
-                task.wait(0.05)
-                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.LeftControl, false, nil)
-            end)
-        end
     end
 end)
