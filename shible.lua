@@ -8,7 +8,6 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
-local Mouse = LocalPlayer:GetMouse()
 
 if not LocalPlayer then
     LocalPlayer = Players.PlayerAdded:Wait()
@@ -470,18 +469,24 @@ local FuncState = {
     R15Loaded = false,
     AntiAFK = true,
     WaterWalk = false,
-    KickProtect = true,
     MapTeleport = false,
+    SubZhui = false,
 }
 
 local Flinging = false
 local waterWalkConnection = nil
-local kickHook = nil
 local animTracks = {}
 local mapTeleportGui = nil
 local mapTeleportActive = false
 local selectedPosition = nil
 local originalCamera = nil
+local viewportFrame = nil
+local mapCamera = nil
+local mapPart = nil
+local mapDragging = false
+local mapDragStart = nil
+local mapCamStart = nil
+local mapZoom = 150
 
 local function getChar()
     return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -703,104 +708,192 @@ local function createMapTeleportUI()
     local bg = Instance.new("Frame", mapTeleportGui)
     bg.Size = UDim2.new(1, 0, 1, 0)
     bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    bg.BackgroundTransparency = 0.3
+    bg.BackgroundTransparency = 0.2
     bg.Active = true
 
-    local hint = Instance.new("TextLabel", mapTeleportGui)
-    hint.Size = UDim2.new(0, 300, 0, 30)
-    hint.Position = UDim2.new(0.5, -150, 0, 10)
-    hint.BackgroundTransparency = 1
-    hint.Text = "点击地面选择传送位置"
-    hint.TextColor3 = Color3.fromRGB(255, 255, 255)
-    hint.Font = Enum.Font.GothamBold
-    hint.TextSize = 16
+    local mapFrame = Instance.new("Frame", mapTeleportGui)
+    mapFrame.Size = UDim2.new(0.9, 0, 0.75, 0)
+    mapFrame.Position = UDim2.new(0.05, 0, 0.05, 0)
+    mapFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    mapFrame.BackgroundTransparency = 0.1
+    corner(mapFrame, 12)
 
-    local confirmBtn = Instance.new("TextButton", mapTeleportGui)
-    confirmBtn.Size = UDim2.new(0, 120, 0, 40)
-    confirmBtn.Position = UDim2.new(0.5, -60, 1, -50)
-    confirmBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-    confirmBtn.Text = "确认传送"
-    confirmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    confirmBtn.Font = Enum.Font.GothamBold
-    confirmBtn.TextSize = 16
-    corner(confirmBtn, 8)
-    pressEffect(confirmBtn)
+    local viewport = Instance.new("ViewportFrame", mapFrame)
+    viewport.Size = UDim2.new(1, 0, 1, 0)
+    viewport.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    viewport.BackgroundTransparency = 0
+    viewport.Active = true
+    viewport.Selectable = true
 
-    local cancelBtn = Instance.new("TextButton", mapTeleportGui)
-    cancelBtn.Size = UDim2.new(0, 80, 0, 40)
-    cancelBtn.Position = UDim2.new(0.5, 70, 1, -50)
-    cancelBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    cancelBtn.Text = "取消"
-    cancelBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    cancelBtn.Font = Enum.Font.GothamBold
-    cancelBtn.TextSize = 16
-    corner(cancelBtn, 8)
-    pressEffect(cancelBtn)
+    local mapPart = Instance.new("Part")
+    mapPart.Size = Vector3.new(500, 1, 500)
+    mapPart.Position = Vector3.new(0, -0.5, 0)
+    mapPart.Anchored = true
+    mapPart.CanCollide = false
+    mapPart.Transparency = 0.9
+    mapPart.Color = Color3.fromRGB(40, 40, 45)
+    mapPart.Parent = workspace
 
-    local crosshair = Instance.new("Frame", mapTeleportGui)
+    local gridPart = Instance.new("Part")
+    gridPart.Size = Vector3.new(500, 0.1, 500)
+    gridPart.Position = Vector3.new(0, 0, 0)
+    gridPart.Anchored = true
+    gridPart.CanCollide = false
+    gridPart.Transparency = 0.7
+    gridPart.Color = Color3.fromRGB(60, 60, 70)
+    gridPart.Parent = workspace
+
+    local cam = Instance.new("Camera")
+    cam.CameraType = Enum.CameraType.Scriptable
+    cam.FieldOfView = 60
+    cam.Parent = viewport
+    viewport.CurrentCamera = cam
+
+    mapCamera = cam
+    mapZoom = 150
+    local camTarget = Vector3.new(0, 0, 0)
+    cam.CFrame = CFrame.new(Vector3.new(0, mapZoom, 0), Vector3.new(0, 0, 0))
+
+    local crosshair = Instance.new("Frame", mapFrame)
     crosshair.Size = UDim2.new(0, 20, 0, 2)
     crosshair.Position = UDim2.new(0.5, -10, 0.5, -1)
     crosshair.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
     crosshair.BorderSizePixel = 0
+    crosshair.ZIndex = 10
 
-    local crosshair2 = Instance.new("Frame", mapTeleportGui)
+    local crosshair2 = Instance.new("Frame", mapFrame)
     crosshair2.Size = UDim2.new(0, 2, 0, 20)
     crosshair2.Position = UDim2.new(0.5, -1, 0.5, -10)
     crosshair2.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
     crosshair2.BorderSizePixel = 0
+    crosshair2.ZIndex = 10
 
     local posLabel = Instance.new("TextLabel", mapTeleportGui)
     posLabel.Size = UDim2.new(0, 300, 0, 25)
-    posLabel.Position = UDim2.new(0.5, -150, 0.5, 30)
+    posLabel.Position = UDim2.new(0.5, -150, 0.05, 0)
     posLabel.BackgroundTransparency = 1
-    posLabel.Text = "请点击地面"
-    posLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+    posLabel.Text = "滚轮缩放 · 拖拽移动 · 点击选择位置"
+    posLabel.TextColor3 = Color3.fromRGB(255, 255, 200)
     posLabel.Font = Enum.Font.Gotham
     posLabel.TextSize = 14
 
-    local cam = workspace.CurrentCamera
-    originalCamera = {
-        CFrame = cam.CFrame,
-        CameraType = cam.CameraType,
-        FieldOfView = cam.FieldOfView
-    }
+    local selectedLabel = Instance.new("TextLabel", mapTeleportGui)
+    selectedLabel.Size = UDim2.new(0, 300, 0, 25)
+    selectedLabel.Position = UDim2.new(0.5, -150, 0.82, 0)
+    selectedLabel.BackgroundTransparency = 1
+    selectedLabel.Text = "未选择位置"
+    selectedLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+    selectedLabel.Font = Enum.Font.Gotham
+    selectedLabel.TextSize = 14
 
-    cam.CameraType = Enum.CameraType.Scriptable
-    local hrp = getRootPart()
-    if hrp then
-        local pos = hrp.Position
-        cam.CFrame = CFrame.new(pos.X, pos.Y + 150, pos.Z + 150) * CFrame.Angles(math.rad(-60), 0, 0)
-        cam.FieldOfView = 70
+    local confirmBtn = Instance.new("TextButton", mapTeleportGui)
+    confirmBtn.Size = UDim2.new(0, 100, 0, 35)
+    confirmBtn.Position = UDim2.new(1, -120, 1, -45)
+    confirmBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+    confirmBtn.Text = "确认传送"
+    confirmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    confirmBtn.Font = Enum.Font.GothamBold
+    confirmBtn.TextSize = 14
+    corner(confirmBtn, 8)
+    pressEffect(confirmBtn)
+
+    local cancelBtn = Instance.new("TextButton", mapTeleportGui)
+    cancelBtn.Size = UDim2.new(0, 80, 0, 35)
+    cancelBtn.Position = UDim2.new(1, -20, 1, -45)
+    cancelBtn.AnchorPoint = Vector2.new(1, 0)
+    cancelBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    cancelBtn.Text = "取消"
+    cancelBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    cancelBtn.Font = Enum.Font.GothamBold
+    cancelBtn.TextSize = 14
+    corner(cancelBtn, 8)
+    pressEffect(cancelBtn)
+
+    local function getWorldPosition(screenX, screenY)
+        local viewportSize = viewport.AbsoluteSize
+        local relX = screenX / viewportSize.X
+        local relY = screenY / viewportSize.Y
+        if relX < 0 or relX > 1 or relY < 0 or relY > 1 then
+            return nil
+        end
+        local ray = cam:ViewportPointToRay(relX * viewportSize.X, relY * viewportSize.Y)
+        local params = RaycastParams.new()
+        params.FilterDescendantsInstances = {mapPart, gridPart}
+        params.FilterType = Enum.RaycastFilterType.Blacklist
+        local result = workspace:Raycast(ray.Origin, ray.Direction * 1000, params)
+        if result and result.Instance ~= mapPart and result.Instance ~= gridPart then
+            return result.Position
+        end
+        return nil
     end
 
-    local connection
-    local function onMouseClick(input)
+    local function onMapClick(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             local mousePos = UserInputService:GetMouseLocation()
-            local ray = cam:ViewportPointToRay(mousePos.X, mousePos.Y)
-            local raycastParams = RaycastParams.new()
-            raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
-            raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-            local result = Workspace:Raycast(ray.Origin, ray.Direction * 1000, raycastParams)
-            if result then
-                selectedPosition = result.Position
-                posLabel.Text = "已选择: X=" .. math.floor(selectedPosition.X) .. " Z=" .. math.floor(selectedPosition.Z)
-                posLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-                local dot = Instance.new("Part", Workspace)
-                dot.Size = Vector3.new(2, 0.5, 2)
-                dot.Position = selectedPosition + Vector3.new(0, 0.5, 0)
-                dot.Color = Color3.fromRGB(0, 255, 0)
-                dot.Material = Enum.Material.Neon
-                dot.Anchored = true
-                dot.CanCollide = false
-                task.delay(0.5, function()
-                    pcall(function() dot:Destroy() end)
-                end)
+            local viewportPos = viewport.AbsolutePosition
+            local viewportSize = viewport.AbsoluteSize
+            local relX = (mousePos.X - viewportPos.X) / viewportSize.X
+            local relY = (mousePos.Y - viewportPos.Y) / viewportSize.Y
+            if relX >= 0 and relX <= 1 and relY >= 0 and relY <= 1 then
+                local pos = getWorldPosition(mousePos.X - viewportPos.X, mousePos.Y - viewportPos.Y)
+                if pos then
+                    selectedPosition = pos
+                    selectedLabel.Text = "已选择: X=" .. math.floor(pos.X) .. " Z=" .. math.floor(pos.Z)
+                    selectedLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+                    local dot = Instance.new("Part", workspace)
+                    dot.Size = Vector3.new(2, 0.5, 2)
+                    dot.Position = pos + Vector3.new(0, 0.5, 0)
+                    dot.Color = Color3.fromRGB(0, 255, 0)
+                    dot.Material = Enum.Material.Neon
+                    dot.Anchored = true
+                    dot.CanCollide = false
+                    task.delay(0.5, function()
+                        pcall(function() dot:Destroy() end)
+                    end)
+                end
             end
         end
     end
 
-    local inputConnection = UserInputService.InputBegan:Connect(onMouseClick)
+    viewport.InputBegan:Connect(onMapClick)
+
+    local dragStart = nil
+    local dragCamStart = nil
+
+    viewport.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton2 then
+            mapDragging = true
+            dragStart = input.Position
+            dragCamStart = cam.CFrame
+        end
+    end)
+
+    viewport.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton2 then
+            mapDragging = false
+        end
+    end)
+
+    viewport.InputChanged:Connect(function(input)
+        if mapDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            local moveX = -delta.X * (mapZoom / 5000)
+            local moveZ = delta.Y * (mapZoom / 5000)
+            local newPos = dragCamStart.Position + Vector3.new(moveX, 0, moveZ)
+            cam.CFrame = CFrame.new(newPos, Vector3.new(newPos.X, 0, newPos.Z))
+            dragCamStart = cam.CFrame
+            dragStart = input.Position
+        end
+    end)
+
+    viewport.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseWheel then
+            local zoomDelta = input.Position.Z
+            mapZoom = math.clamp(mapZoom - zoomDelta * 5, 30, 500)
+            local currentPos = cam.CFrame.Position
+            cam.CFrame = CFrame.new(Vector3.new(currentPos.X, mapZoom, currentPos.Z), Vector3.new(currentPos.X, 0, currentPos.Z))
+        end
+    end)
 
     confirmBtn.MouseButton1Click:Connect(function()
         if selectedPosition then
@@ -808,35 +901,30 @@ local function createMapTeleportUI()
             if hrp then
                 hrp.CFrame = CFrame.new(selectedPosition.X, selectedPosition.Y + 3, selectedPosition.Z)
                 Notify("shible", "已传送到选定位置", 2)
+                selectedPosition = nil
+                selectedLabel.Text = "未选择位置"
+                selectedLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
             end
         else
-            Notify("shible", "请先点击地面选择位置", 2)
+            Notify("shible", "请先点击地图选择位置", 2)
         end
     end)
 
     cancelBtn.MouseButton1Click:Connect(function()
-        if connection then connection:Disconnect() end
-        if inputConnection then inputConnection:Disconnect() end
-        if originalCamera then
-            cam.CameraType = originalCamera.CameraType
-            cam.CFrame = originalCamera.CFrame
-            cam.FieldOfView = originalCamera.FieldOfView
-        end
+        pcall(function() mapPart:Destroy() end)
+        pcall(function() gridPart:Destroy() end)
         mapTeleportGui:Destroy()
         mapTeleportGui = nil
         mapTeleportActive = false
         FuncState.MapTeleport = false
         selectedPosition = nil
+        mapDragging = false
+        Notify("shible", "地图传送已关闭", 2)
     end)
 
     local function cleanup()
-        if connection then connection:Disconnect() end
-        if inputConnection then inputConnection:Disconnect() end
-        if originalCamera then
-            cam.CameraType = originalCamera.CameraType
-            cam.CFrame = originalCamera.CFrame
-            cam.FieldOfView = originalCamera.FieldOfView
-        end
+        pcall(function() mapPart:Destroy() end)
+        pcall(function() gridPart:Destroy() end)
         if mapTeleportGui then
             mapTeleportGui:Destroy()
             mapTeleportGui = nil
@@ -844,7 +932,10 @@ local function createMapTeleportUI()
         mapTeleportActive = false
         FuncState.MapTeleport = false
         selectedPosition = nil
+        mapDragging = false
     end
+
+    mapTeleportActive = true
 
     bg.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -861,8 +952,6 @@ local function createMapTeleportUI()
             end
         end
     end)
-
-    mapTeleportActive = true
 end
 
 do
@@ -946,6 +1035,18 @@ do
                 _G.BulletTrackEnabled = false
             end)
             bulletTrackLoaded = false
+        end
+    end)
+
+    y = y + 46
+    createToggle(p, y, "子追(推荐)", function()
+        return FuncState.SubZhui
+    end, function(v)
+        FuncState.SubZhui = v
+        if v then
+            Notify("shible", "子追已开启(功能待实现)", 2)
+        else
+            Notify("shible", "子追已关闭", 2)
         end
     end)
 end
@@ -1988,20 +2089,17 @@ do
         if v then
             if not mapTeleportActive then
                 createMapTeleportUI()
-                Notify("shible", "地图传送已开启，点击地面选择位置", 2)
+                Notify("shible", "地图传送已开启，点击地图选择位置", 2)
             end
         else
             if mapTeleportGui then
-                local cam = workspace.CurrentCamera
-                if originalCamera then
-                    cam.CameraType = originalCamera.CameraType
-                    cam.CFrame = originalCamera.CFrame
-                    cam.FieldOfView = originalCamera.FieldOfView
-                end
+                pcall(function() mapPart:Destroy() end)
+                pcall(function() gridPart:Destroy() end)
                 mapTeleportGui:Destroy()
                 mapTeleportGui = nil
                 mapTeleportActive = false
                 selectedPosition = nil
+                mapDragging = false
                 Notify("shible", "地图传送已关闭", 2)
             end
         end
@@ -2169,44 +2267,6 @@ do
         return FuncState.BypassAC
     end, function(v)
         FuncState.BypassAC = v
-    end)
-
-    if FuncState.KickProtect then
-        task.spawn(function()
-            local oldKick = LocalPlayer.Kick
-            kickHook = hookfunction(LocalPlayer.Kick, function(self, ...)
-                if self == LocalPlayer then
-                    Notify("shible", "已拦截踢出!", 2)
-                    return
-                end
-                return oldKick(self, ...)
-            end)
-        end)
-    end
-
-    createToggle(p, y, "拦截踢出", function()
-        return FuncState.KickProtect
-    end, function(v)
-        FuncState.KickProtect = v
-        if v then
-            if not kickHook then
-                local oldKick = LocalPlayer.Kick
-                kickHook = hookfunction(LocalPlayer.Kick, function(self, ...)
-                    if self == LocalPlayer then
-                        Notify("shible", "已拦截踢出!", 2)
-                        return
-                    end
-                    return oldKick(self, ...)
-                end)
-            end
-            Notify("shible", "拦截踢出已开启", 2)
-        else
-            if kickHook then
-                LocalPlayer.Kick = kickHook
-                kickHook = nil
-            end
-            Notify("shible", "拦截踢出已关闭", 2)
-        end
     end)
 
     local info = Instance.new("TextLabel", p)
@@ -2387,23 +2447,6 @@ do
     pressEffect(dizzyBtn)
     dizzyBtn.MouseButton1Click:Connect(function()
         SafeLoad("https://raw.githubusercontent.com/dizyhvh/rbx_scripts/main/321_blast_off_simulator", "Dizzy HUB")
-    end)
-
-    y = y + 42
-    local xiaoxiBtn = Instance.new("TextButton", p)
-    xiaoxiBtn.Size = UDim2.new(1, -24, 0, 32)
-    xiaoxiBtn.Position = UDim2.new(0, 12, 0, y)
-    xiaoxiBtn.BackgroundColor3 = Theme.Glass
-    xiaoxiBtn.BackgroundTransparency = 0.4
-    xiaoxiBtn.Text = "XIAOXI犯罪源码"
-    xiaoxiBtn.Font = Enum.Font.Gotham
-    xiaoxiBtn.TextSize = 14
-    xiaoxiBtn.TextColor3 = Theme.TextPrimary
-    xiaoxiBtn.AutoButtonColor = false
-    corner(xiaoxiBtn, 8)
-    pressEffect(xiaoxiBtn)
-    xiaoxiBtn.MouseButton1Click:Connect(function()
-        SafeLoad("https://raw.githubusercontent.com/xiaoxi9008/Server./refs/heads/main/XIAOXIHUB%E7%8A%AF%E7%BD%AA%E6%BA%90%E7%A0%81.lua", "XIAOXI犯罪源码")
     end)
 end
 
