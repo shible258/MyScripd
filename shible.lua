@@ -1,8 +1,3 @@
--- ============================================================
--- shible 脚本 (完整修复版)
--- 修复：卡密验证锁定机制 + 覆盖层彻底拦截点击
--- ============================================================
-
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
@@ -373,44 +368,6 @@ funcList.AutomaticCanvasSize = Enum.AutomaticSize.Y
 funcList.CanvasSize = UDim2.new(0, 0, 0, 0)
 funcList.Parent = pageFunction
 corner(funcList, 12)
-
--- ===== 新增：覆盖层（锁定用） =====
-local overlay = Instance.new("Frame")
-overlay.Name = "LockOverlay"
-overlay.Size = UDim2.new(1, 0, 1, 0)
-overlay.BackgroundTransparency = 1        -- 完全透明
-overlay.Active = true
-overlay.Selectable = true
-overlay.ZIndex = 10
-overlay.Visible = false                  -- 默认隐藏
-overlay.Parent = funcList
-
--- ===== 锁定/解锁函数 =====
-local function lockLeftButtons()
-    overlay.Visible = true
-    for _, btn in ipairs(funcList:GetChildren()) do
-        if btn:IsA("TextButton") then
-            btn.Active = false
-            btn.Selectable = false
-            btn.AutoButtonColor = false
-            btn.BackgroundTransparency = 0.8
-            btn.TextColor3 = Color3.fromRGB(100, 100, 110)
-        end
-    end
-end
-
-local function unlockLeftButtons()
-    overlay.Visible = false
-    for _, btn in ipairs(funcList:GetChildren()) do
-        if btn:IsA("TextButton") then
-            btn.Active = true
-            btn.Selectable = true
-            btn.AutoButtonColor = false
-            btn.BackgroundTransparency = 0.6
-            btn.TextColor3 = Theme.TextPrimary
-        end
-    end
-end
 
 local listLayout = Instance.new("UIListLayout", funcList)
 listLayout.Padding = UDim.new(0, 6)
@@ -2292,6 +2249,42 @@ local verifyPanel = nil
 local inputBox = nil
 local confirmVerifyBtn = nil
 
+local overlay = Instance.new("Frame")
+overlay.Name = "LockOverlay"
+overlay.Size = UDim2.new(1, 0, 1, 0)
+overlay.BackgroundTransparency = 1
+overlay.Active = true
+overlay.Selectable = true
+overlay.ZIndex = 10
+overlay.Visible = false
+overlay.Parent = funcList
+
+local function lockLeftButtons()
+    overlay.Visible = true
+    for _, btn in ipairs(funcList:GetChildren()) do
+        if btn:IsA("TextButton") then
+            btn.Active = false
+            btn.Selectable = false
+            btn.AutoButtonColor = false
+            btn.BackgroundTransparency = 0.8
+            btn.TextColor3 = Color3.fromRGB(100, 100, 110)
+        end
+    end
+end
+
+local function unlockLeftButtons()
+    overlay.Visible = false
+    for _, btn in ipairs(funcList:GetChildren()) do
+        if btn:IsA("TextButton") then
+            btn.Active = true
+            btn.Selectable = true
+            btn.AutoButtonColor = false
+            btn.BackgroundTransparency = 0.6
+            btn.TextColor3 = Theme.TextPrimary
+        end
+    end
+end
+
 local function showVerifyPanel()
     for _, pg in pairs(pages) do
         pg.Visible = false
@@ -2370,6 +2363,8 @@ local function showVerifyPanel()
     extra.TextXAlignment = Enum.TextXAlignment.Center
     extra.Parent = verifyPanel
 
+    lockLeftButtons()
+
     inputBox.FocusLost:Connect(function(enterPressed)
         if enterPressed then
             confirmVerifyBtn.MouseButton1Click:Fire()
@@ -2407,7 +2402,6 @@ local function showVerifyPanel()
                     verifyPanel = nil
                 end
 
-                -- 解锁左侧功能按钮
                 unlockLeftButtons()
 
                 for _, pg in pairs(pages) do
@@ -2419,7 +2413,6 @@ local function showVerifyPanel()
                 inputBox.Text = ""
                 inputBox:CaptureFocus()
                 Notify("❌ 卡密错误", errMsg, 2)
-                return
             end
         end)
     end)
@@ -2436,8 +2429,13 @@ confirm.MouseButton1Click:Connect(function()
     pageFunction.Position = UDim2.new(1, 0, 0, 0)
     makeTween(pageFunction, {Position = UDim2.new(0, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
 
-    -- 锁定左侧按钮
-    lockLeftButtons()
+    for _, btn in ipairs(funcList:GetChildren()) do
+        if btn:IsA("TextButton") then
+            btn.Active = false
+            btn.BackgroundTransparency = 0.8
+            btn.TextColor3 = Color3.fromRGB(100, 100, 110)
+        end
+    end
 
     showVerifyPanel()
 end)
@@ -2456,6 +2454,10 @@ backBtn.MouseButton1Click:Connect(function()
     task.delay(0.3, function()
         pageFunction.Visible = false
     end)
+
+    if not isVerified then
+        lockLeftButtons()
+    end
 end)
 
 root.Size = UDim2.new(0, C.Width, 0, C.Height)
