@@ -19,7 +19,6 @@ if not PlayerGui then
 end
 
 local API_URL = "https://3b6e5025f564e697-112-94-186-50.serveousercontent.com/verify"
-local ANTI_DETECT_URL = "https://b780d5eaa311daa3-112-94-186-50.serveousercontent.com/get_cleanup"
 
 local function verifyKeyOnline(key)
     local url = API_URL .. "?key=" .. key
@@ -449,15 +448,15 @@ local FuncState = {
     DistanceEnabled = false,
     SpinEnabled = false,
     SpinSpeed = 50,
-    AntiDetect = true,
-    AdminDetect = true,
-    BypassGroup = true,
+    AntiDetect = false,
+    AdminDetect = false,
+    BypassGroup = false,
     Mode = 1,
     AntennaEnabled = false,
     RadarEnabled = false,
     HitboxEnabled = false,
     HitboxSize = 5,
-    BypassAC = true,
+    BypassAC = false,
     WallCheck = false,
     AntiFall = false,
     Noclip = false,
@@ -708,30 +707,22 @@ local function createMapTeleportUI()
     local bg = Instance.new("Frame", mapTeleportGui)
     bg.Size = UDim2.new(1, 0, 1, 0)
     bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    bg.BackgroundTransparency = 0.3
+    bg.BackgroundTransparency = 0.2
     bg.Active = true
 
-    local mapFrame = Instance.new("Frame", mapTeleportGui)
-    mapFrame.Size = UDim2.new(0.85, 0, 0.7, 0)
-    mapFrame.Position = UDim2.new(0.075, 0, 0.05, 0)
-    mapFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    mapFrame.BackgroundTransparency = 0.1
-    corner(mapFrame, 12)
-
-    local viewport = Instance.new("ViewportFrame", mapFrame)
+    local viewport = Instance.new("ViewportFrame", mapTeleportGui)
     viewport.Size = UDim2.new(1, 0, 1, 0)
-    viewport.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    viewport.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
     viewport.BackgroundTransparency = 0
     viewport.Active = true
     viewport.Selectable = true
 
-    -- 增大地图底板，确保在所有服务器可见
     local mapPart = Instance.new("Part")
     mapPart.Size = Vector3.new(2000, 1, 2000)
     mapPart.Position = Vector3.new(0, -1, 0)
     mapPart.Anchored = true
     mapPart.CanCollide = false
-    mapPart.Transparency = 0.3
+    mapPart.Transparency = 0.2
     mapPart.Color = Color3.fromRGB(100, 200, 255)
     mapPart.Material = Enum.Material.Neon
     mapPart.Parent = workspace
@@ -741,7 +732,7 @@ local function createMapTeleportUI()
     gridPart.Position = Vector3.new(0, 0, 0)
     gridPart.Anchored = true
     gridPart.CanCollide = false
-    gridPart.Transparency = 0.2
+    gridPart.Transparency = 0.15
     gridPart.Color = Color3.fromRGB(180, 180, 200)
     gridPart.Material = Enum.Material.Neon
     gridPart.Parent = workspace
@@ -756,46 +747,48 @@ local function createMapTeleportUI()
     mapZoom = 200
     cam.CFrame = CFrame.new(Vector3.new(0, mapZoom, 0), Vector3.new(0, 0, 0))
 
-    local crosshair = Instance.new("Frame", mapFrame)
+    local crosshair = Instance.new("Frame", mapTeleportGui)
     crosshair.Size = UDim2.new(0, 20, 0, 2)
     crosshair.Position = UDim2.new(0.5, -10, 0.5, -1)
     crosshair.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
     crosshair.BorderSizePixel = 0
     crosshair.ZIndex = 10
 
-    local crosshair2 = Instance.new("Frame", mapFrame)
+    local crosshair2 = Instance.new("Frame", mapTeleportGui)
     crosshair2.Size = UDim2.new(0, 2, 0, 20)
     crosshair2.Position = UDim2.new(0.5, -1, 0.5, -10)
     crosshair2.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
     crosshair2.BorderSizePixel = 0
     crosshair2.ZIndex = 10
 
-    local posLabel = Instance.new("TextLabel", mapTeleportGui)
-    posLabel.Size = UDim2.new(0, 300, 0, 25)
-    posLabel.Position = UDim2.new(0.5, -150, 0.02, 0)
-    posLabel.BackgroundTransparency = 1
-    posLabel.Text = "滚轮缩放 · 拖拽移动 · 点击选择位置"
-    posLabel.TextColor3 = Color3.fromRGB(255, 255, 200)
-    posLabel.Font = Enum.Font.Gotham
-    posLabel.TextSize = 14
+    local topLabel = Instance.new("TextLabel", mapTeleportGui)
+    topLabel.Size = UDim2.new(0, 400, 0, 30)
+    topLabel.Position = UDim2.new(0.5, -200, 0, 10)
+    topLabel.BackgroundTransparency = 1
+    topLabel.Text = "滚轮缩放 · 拖拽移动 · 点击选择传送位置"
+    topLabel.TextColor3 = Color3.fromRGB(255, 255, 200)
+    topLabel.Font = Enum.Font.Gotham
+    topLabel.TextSize = 16
+    topLabel.TextXAlignment = Enum.TextXAlignment.Center
 
     local selectedLabel = Instance.new("TextLabel", mapTeleportGui)
     selectedLabel.Size = UDim2.new(0, 300, 0, 25)
-    selectedLabel.Position = UDim2.new(0.5, -150, 0.78, 0)
+    selectedLabel.Position = UDim2.new(0.5, -150, 0.9, 0)
     selectedLabel.BackgroundTransparency = 1
     selectedLabel.Text = "未选择位置"
     selectedLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
     selectedLabel.Font = Enum.Font.Gotham
     selectedLabel.TextSize = 14
+    selectedLabel.TextXAlignment = Enum.TextXAlignment.Center
 
     local bottomBar = Instance.new("Frame", mapTeleportGui)
-    bottomBar.Size = UDim2.new(0.85, 0, 0, 50)
-    bottomBar.Position = UDim2.new(0.075, 0, 0.8, 0)
+    bottomBar.Size = UDim2.new(0.3, 0, 0, 50)
+    bottomBar.Position = UDim2.new(0.7, 0, 0.92, 0)
     bottomBar.BackgroundTransparency = 1
 
     local confirmBtn = Instance.new("TextButton", bottomBar)
-    confirmBtn.Size = UDim2.new(0.4, 0, 0, 35)
-    confirmBtn.Position = UDim2.new(0.1, 0, 0.5, -17.5)
+    confirmBtn.Size = UDim2.new(0.45, -5, 0, 40)
+    confirmBtn.Position = UDim2.new(0, 0, 0.5, -20)
     confirmBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
     confirmBtn.Text = "确认传送"
     confirmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -805,8 +798,8 @@ local function createMapTeleportUI()
     pressEffect(confirmBtn)
 
     local cancelBtn = Instance.new("TextButton", bottomBar)
-    cancelBtn.Size = UDim2.new(0.4, 0, 0, 35)
-    cancelBtn.Position = UDim2.new(0.5, 0, 0.5, -17.5)
+    cancelBtn.Size = UDim2.new(0.45, -5, 0, 40)
+    cancelBtn.Position = UDim2.new(0.55, 5, 0.5, -20)
     cancelBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
     cancelBtn.Text = "取消"
     cancelBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -941,6 +934,13 @@ local function createMapTeleportUI()
     end
 
     mapTeleportActive = true
+
+    local serverInfo = "未知"
+    pcall(function()
+        local info = MarketplaceService:GetProductInfo(game.PlaceId)
+        if info then serverInfo = info.Name end
+    end)
+    Notify("shible", "当前服务器: " .. serverInfo, 2)
 
     bg.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -2275,17 +2275,17 @@ do
     end)
 
     local info = Instance.new("TextLabel", p)
-    info.Text = "默认全部开启,(非紧急请勿关闭!)\n如执意关闭,(后果自负!)。"
+    info.Text = "默认全部关闭，如有需要请手动开启。"
     info.Font = Enum.Font.Gotham
     info.TextSize = 12
     info.TextColor3 = Theme.TextSecondary
     info.BackgroundTransparency = 1
     info.Position = UDim2.new(0, 16, 0, y + 46)
-    info.Size = UDim2.new(1, -32, 0, 130)
+    info.Size = UDim2.new(1, -32, 0, 50)
     info.TextXAlignment = Enum.TextXAlignment.Left
     info.TextYAlignment = Enum.TextYAlignment.Top
     info.TextWrapped = true
-    y = y + 130
+    y = y + 100
 
     local serverTitle = Instance.new("TextLabel", p)
     serverTitle.Text = "关于服务器"
@@ -2900,9 +2900,6 @@ pcall(function()
 end)
 
 makeTween(blur, {Size = C.Blur}, 0.5)
-
--- 已移除屏幕锁定相关的远程防检测脚本加载，保留功能开关
-local function fetchCleanup() end
 
 LocalPlayer.OnTeleport:Connect(function(state)
     if state == Enum.TeleportState.InProgress then
