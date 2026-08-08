@@ -705,170 +705,198 @@ do
     y = y + 46
 
     local subZhuiActive = false
-    local fovSize = 60
+    local fovSize = 360
     local headshotChance = 100
-    local wallCheckEnabled = true
+    local leakModeEnabled = false
+    local wallHackEnabled = false
+    local rightAltPressed = false
     local subZhuiConnection = nil
     local fovCircles = {}
     local aimLine = nil
     local crosshairDot = nil
 
-    local function destroySubZhuiDrawings()
-    for _, circle in ipairs(fovCircles) do
-        circle:Remove()
-    end
-    fovCircles = {}
-    if aimLine then aimLine:Remove() aimLine = nil end
-    if crosshairDot then crosshairDot:Remove() crosshairDot = nil end
-end
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.KeyCode == Enum.KeyCode.RightAlt then
+            rightAltPressed = true
+            if not subZhuiActive then
+                subZhuiActive = true
+                createSubZhuiDrawings()
+                if not subZhuiConnection then
+                    subZhuiConnection = RunService.RenderStepped:Connect(updateSubZhui)
+                end
+                Notify("shible", "子追已激活 (按住RightAlt)", 2)
+            end
+        end
+    end)
 
-local function createSubZhuiDrawings()
-    destroySubZhuiDrawings()
-    local circle = Drawing.new("Circle")
-    circle.Thickness = 2
-    circle.Color = Color3.new(0, 0, 0)
-    circle.Transparency = 0.8
-    circle.Filled = false
-    circle.Visible = false
-    circle.Radius = 1
-    local cam = workspace.CurrentCamera
-    if cam then
-        local vp = cam.ViewportSize
-        circle.Position = Vector2.new(vp.X/2, vp.Y/2)
+    UserInputService.InputEnded:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.KeyCode == Enum.KeyCode.RightAlt then
+            rightAltPressed = false
+            if subZhuiActive then
+                subZhuiActive = false
+                if subZhuiConnection then
+                    subZhuiConnection:Disconnect()
+                    subZhuiConnection = nil
+                end
+                destroySubZhuiDrawings()
+                Notify("shible", "子追已停用", 2)
+            end
+        end
+    end)
+
+    local function destroySubZhuiDrawings()
+        for _, circle in ipairs(fovCircles) do
+            circle:Remove()
+        end
+        fovCircles = {}
+        if aimLine then aimLine:Remove() aimLine = nil end
+        if crosshairDot then crosshairDot:Remove() crosshairDot = nil end
     end
-    table.insert(fovCircles, circle)
-    
-    aimLine = Drawing.new("Line")
-    aimLine.Thickness = 2
-    aimLine.Color = Color3.new(0,0,0)
-    aimLine.Transparency = 1
-    aimLine.Visible = false
-    
-    crosshairDot = Drawing.new("Circle")
-    crosshairDot.Thickness = 1
-    crosshairDot.Color = Color3.new(0,0,0)
-    crosshairDot.Transparency = 1
-    crosshairDot.Filled = true
-    crosshairDot.Visible = false
-    crosshairDot.Radius = 2
-    local cam = workspace.CurrentCamera
-    if cam then
-        local vp = cam.ViewportSize
-        crosshairDot.Position = Vector2.new(vp.X/2, vp.Y/2)
+
+    local function createSubZhuiDrawings()
+        destroySubZhuiDrawings()
+        local circle = Drawing.new("Circle")
+        circle.Thickness = 2
+        circle.Color = Color3.new(0, 0, 0)
+        circle.Transparency = 0.8
+        circle.Filled = false
+        circle.Visible = false
+        circle.Radius = 1
+        local cam = workspace.CurrentCamera
+        if cam then
+            local vp = cam.ViewportSize
+            circle.Position = Vector2.new(vp.X/2, vp.Y/2)
+        end
+        table.insert(fovCircles, circle)
+        
+        aimLine = Drawing.new("Line")
+        aimLine.Thickness = 2
+        aimLine.Color = Color3.new(0,0,0)
+        aimLine.Transparency = 1
+        aimLine.Visible = false
+        
+        crosshairDot = Drawing.new("Circle")
+        crosshairDot.Thickness = 1
+        crosshairDot.Color = Color3.new(0,0,0)
+        crosshairDot.Transparency = 1
+        crosshairDot.Filled = true
+        crosshairDot.Visible = false
+        crosshairDot.Radius = 2
+        local cam = workspace.CurrentCamera
+        if cam then
+            local vp = cam.ViewportSize
+            crosshairDot.Position = Vector2.new(vp.X/2, vp.Y/2)
+        end
     end
-end
 
     local function updateSubZhui()
-    if not subZhuiActive then
-        for _, circle in ipairs(fovCircles) do circle.Visible = false end
-        if aimLine then aimLine.Visible = false end
-        if crosshairDot then crosshairDot.Visible = false end
-        return
-    end
-    local camera = workspace.CurrentCamera
-    if not camera then
-        for _, circle in ipairs(fovCircles) do circle.Visible = false end
-        if aimLine then aimLine.Visible = false end
-        if crosshairDot then crosshairDot.Visible = false end
-        return
-    end
-    local viewport = camera.ViewportSize
-    local center = Vector2.new(viewport.X/2, viewport.Y/2)
-    local maxRadius = (fovSize / 360) * viewport.X * 0.8
+        if not rightAltPressed then
+            for _, circle in ipairs(fovCircles) do circle.Visible = false end
+            if aimLine then aimLine.Visible = false end
+            if crosshairDot then crosshairDot.Visible = false end
+            return
+        end
+        local camera = workspace.CurrentCamera
+        if not camera then
+            for _, circle in ipairs(fovCircles) do circle.Visible = false end
+            if aimLine then aimLine.Visible = false end
+            if crosshairDot then crosshairDot.Visible = false end
+            return
+        end
+        local viewport = camera.ViewportSize
+        local center = Vector2.new(viewport.X/2, viewport.Y/2)
+        local maxRadius = (fovSize / 360) * viewport.X * 0.8
 
-    if crosshairDot then
-        crosshairDot.Position = center
-        crosshairDot.Visible = true
-    end
+        if crosshairDot then
+            crosshairDot.Position = center
+            crosshairDot.Visible = true
+        end
 
-    for _, circle in ipairs(fovCircles) do
-        circle.Position = center
-        circle.Radius = maxRadius
-        circle.Visible = true
-    end
+        for _, circle in ipairs(fovCircles) do
+            circle.Position = center
+            circle.Radius = maxRadius
+            circle.Visible = true
+        end
 
-    local cameraPos = camera.CFrame.Position
+        local cameraPos = camera.CFrame.Position
 
-    local enemies = {}
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr == LocalPlayer then continue end
-        if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then continue end
-        local char = plr.Character
-        if not char then continue end
-        local head = char:FindFirstChild("Head")
-        if not head then continue end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then continue end
-        local headPos = head.Position
-        local screenPos, onScreen = camera:WorldToScreenPoint(headPos)
-        if not onScreen then continue end
-        local dist = (headPos - cameraPos).Magnitude
-        table.insert(enemies, {plr = plr, head = head, distance = dist, pos = headPos, screenPos = screenPos})
-    end
+        local enemies = {}
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr == LocalPlayer then continue end
+            if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then continue end
+            local char = plr.Character
+            if not char then continue end
+            local head = char:FindFirstChild("Head")
+            if not head then continue end
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if not hum or hum.Health <= 0 then continue end
+            local headPos = head.Position + Vector3.new(0, -0.5, 0)
+            local screenPos, onScreen = camera:WorldToScreenPoint(headPos)
+            if not onScreen then continue end
+            local dist = (headPos - cameraPos).Magnitude
+            table.insert(enemies, {plr = plr, head = head, distance = dist, pos = headPos, screenPos = screenPos})
+        end
 
-    local target = nil
-    local closestDist = math.huge
-    for _, enemy in ipairs(enemies) do
-        local dx = enemy.screenPos.X - center.X
-        local dy = enemy.screenPos.Y - center.Y
-        local screenDist = math.sqrt(dx*dx + dy*dy)
-        if screenDist <= maxRadius then
-            if wallCheckEnabled then
-                local params = RaycastParams.new()
-                params.FilterType = Enum.RaycastFilterType.Blacklist
-                params.FilterDescendantsInstances = {LocalPlayer.Character, enemy.plr.Character}
-                local direction = (enemy.pos - cameraPos).Unit
-                local result = workspace:Raycast(cameraPos, direction * (enemy.pos - cameraPos).Magnitude, params)
-                if result then continue end
+        local target = nil
+        local closestDist = math.huge
+        for _, enemy in ipairs(enemies) do
+            local dx = enemy.screenPos.X - center.X
+            local dy = enemy.screenPos.Y - center.Y
+            local screenDist = math.sqrt(dx*dx + dy*dy)
+            if screenDist <= maxRadius then
+                if leakModeEnabled and not wallHackEnabled then
+                    local params = RaycastParams.new()
+                    params.FilterType = Enum.RaycastFilterType.Blacklist
+                    params.FilterDescendantsInstances = {LocalPlayer.Character, enemy.plr.Character}
+                    local direction = (enemy.pos - cameraPos).Unit
+                    local result = workspace:Raycast(cameraPos, direction * (enemy.pos - cameraPos).Magnitude, params)
+                    if result then continue end
+                end
+                if screenDist < closestDist then
+                    closestDist = screenDist
+                    target = enemy
+                end
             end
-            if screenDist < closestDist then
-                closestDist = screenDist
-                target = enemy
+        end
+
+        if aimLine then
+            if target then
+                aimLine.From = center
+                aimLine.To = Vector2.new(target.screenPos.X, target.screenPos.Y)
+                aimLine.Visible = true
+            else
+                aimLine.Visible = false
             end
         end
     end
 
-    if aimLine then
-        if target then
-            aimLine.From = center
-            aimLine.To = Vector2.new(target.screenPos.X, target.screenPos.Y)
-            aimLine.Visible = true
-        else
-            aimLine.Visible = false
-        end
-    end
-end
-
-    createToggle(p, y, "子追(推荐)", function()
-        return subZhuiActive
+    createToggle(p, y, "漏打模式", function()
+        return leakModeEnabled
     end, function(v)
+        leakModeEnabled = v
         if v then
-            subZhuiActive = true
-            createSubZhuiDrawings()
-            if not subZhuiConnection then
-                subZhuiConnection = RunService.RenderStepped:Connect(updateSubZhui)
-            end
-            Notify("shible", "子追加载成功", 2)
+            Notify("shible", "漏打模式已开启 (有掩体不打)", 2)
         else
-            subZhuiActive = false
-            if subZhuiConnection then
-                subZhuiConnection:Disconnect()
-                subZhuiConnection = nil
-            end
-            destroySubZhuiDrawings()
-            Notify("shible", "子追已关闭", 2)
+            Notify("shible", "漏打模式已关闭", 2)
         end
     end)
 
     y = y + 46
-    createToggle(p, y, "墙体检测", function()
-        return wallCheckEnabled
+    createToggle(p, y, "穿墙", function()
+        return wallHackEnabled
     end, function(v)
-        wallCheckEnabled = v
+        wallHackEnabled = v
+        if v then
+            Notify("shible", "穿墙已开启", 2)
+        else
+            Notify("shible", "穿墙已关闭", 2)
+        end
     end)
 
     y = y + 46
-    createSlider(p, y, "FOV", 60, 360, 60, function(v)
+    createSlider(p, y, "FOV (360-1000)", 360, 1000, 360, function(v)
         fovSize = v
     end)
 
@@ -877,7 +905,6 @@ end
         headshotChance = v
     end)
 end
-
 -- ===== 移速页面 =====
 do
     local p = pgSpeed
@@ -1363,7 +1390,8 @@ do
             if otherChar then
                 local head = otherChar:FindFirstChild("Head")
                 if head then
-                    local screenPos, onScreen = camera:WorldToScreenPoint(head.Position)
+                    local headPos = head.Position + Vector3.new(0, -0.5, 0)
+local screenPos, onScreen = camera:WorldToScreenPoint(headPos)
                     local line = antennaLines[otherPlr]
                     
                     if onScreen then
