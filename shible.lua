@@ -1165,57 +1165,57 @@ do
                             end
                         end
 
-                        -- 人物天线 - 连接到自瞄瞄准位置
-                        if (FuncState.AntennaEnabled and myRoot) then
-                            local camera = workspace.CurrentCamera
-                            if camera then
-                                local viewportSize = camera.ViewportSize
-                                local center = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+                     -- 人物天线 - 终点连接到自瞄瞄准位置（头部正中心）
+if (FuncState.AntennaEnabled and myRoot) then
+    local camera = workspace.CurrentCamera
+    if camera then
+        local viewportSize = camera.ViewportSize
+        local center = Vector2.new(viewportSize.X / 2, 0)
 
-                                for _, otherPlr in ipairs(Players:GetPlayers()) do
-                                    if otherPlr == LocalPlayer then continue end
-                                    if otherPlr.Team and LocalPlayer.Team and otherPlr.Team == LocalPlayer.Team then continue end
-                                    local otherChar = otherPlr.Character
-                                    if otherChar then
-                                        local head = otherChar:FindFirstChild("Head")
-                                        if head then
-                                            -- 瞄准头部位置（自瞄瞄准点）
-                                            local aimPos = head.Position + Vector3.new(0, 0, 0)
-                                            local screenPos, onScreen = camera:WorldToScreenPoint(aimPos)
-                                            local line = antennaLines[otherPlr]
-                                            
-                                            if onScreen then
-                                                if not line then
-                                                    line = Drawing.new("Line")
-                                                    line.Thickness = 2
-                                                    line.Color = Color3.new(1, 1, 1)
-                                                    line.Transparency = 1
-                                                    line.Visible = true
-                                                    antennaLines[otherPlr] = line
-                                                end
-                                                line.From = center
-                                                line.To = Vector2.new(screenPos.X, screenPos.Y)
-                                                line.Visible = true
-                                            elseif line then
-                                                line.Visible = false
-                                            end
-                                        end
-                                    end
-                                end
-
-                                for otherPlr, line in pairs(antennaLines) do
-                                    if not otherPlr.Character or not otherPlr.Character:FindFirstChild("Head") then
-                                        pcall(function() line:Remove() end)
-                                        antennaLines[otherPlr] = nil
-                                    end
-                                end
-                            end
-                        else
-                            for _, line in pairs(antennaLines) do
-                                pcall(function() line:Remove() end)
-                            end
-                            antennaLines = {}
+        for _, otherPlr in ipairs(Players:GetPlayers()) do
+            if otherPlr == LocalPlayer then continue end
+            if otherPlr.Team and LocalPlayer.Team and otherPlr.Team == LocalPlayer.Team then continue end
+            local otherChar = otherPlr.Character
+            if otherChar then
+                local head = otherChar:FindFirstChild("Head")
+                if head then
+                    -- 瞄准头部正中心（和自瞄瞄准的位置一致）
+                    local aimPos = head.Position
+                    local screenPos, onScreen = camera:WorldToScreenPoint(aimPos)
+                    local line = antennaLines[otherPlr]
+                    
+                    if onScreen then
+                        if not line then
+                            line = Drawing.new("Line")
+                            line.Thickness = 2
+                            line.Color = Color3.new(1, 1, 1)
+                            line.Transparency = 1
+                            line.Visible = true
+                            antennaLines[otherPlr] = line
                         end
+                        line.From = center
+                        line.To = Vector2.new(screenPos.X, screenPos.Y)
+                        line.Visible = true
+                    elseif line then
+                        line.Visible = false
+                    end
+                end
+            end
+        end
+
+        for otherPlr, line in pairs(antennaLines) do
+            if not otherPlr.Character or not otherPlr.Character:FindFirstChild("Head") then
+                pcall(function() line:Remove() end)
+                antennaLines[otherPlr] = nil
+            end
+        end
+    end
+else
+    for _, line in pairs(antennaLines) do
+        pcall(function() line:Remove() end)
+    end
+    antennaLines = {}
+end
                     end
                 end
             end
