@@ -2015,277 +2015,40 @@ do
     end)
 end
 
--- ===== 受击范围页面 =====
+-- ===== 受击范围页面（测试版） =====
 do
     local p = pgHitbox
-    local y = 10
-
-    local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "受击范围"
-    hdr.Font = Enum.Font.GothamSemibold
-    hdr.TextSize = 14
-    hdr.TextColor3 = Theme.TextPrimary
-    hdr.BackgroundTransparency = 1
-    hdr.Position = UDim2.new(0, 12, 0, y)
-    hdr.Size = UDim2.new(1, -24, 0, 20)
-    hdr.TextXAlignment = Enum.TextXAlignment.Left
-
-    y = y + 36
-
-    _G._hitboxData = _G._hitboxData or {
-        enabled = false,
-        size = 10,
-        originalSizes = {},
-    }
-    local data = _G._hitboxData
-
-    local function getCharacterBounds(char)
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if not hrp then 
-            print("[调试] 没有 HumanoidRootPart")
-            return nil 
-        end
-
-        local minX, minY, minZ = math.huge, math.huge, math.huge
-        local maxX, maxY, maxZ = -math.huge, -math.huge, -math.huge
-        local partCount = 0
-
-        for _, part in ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                partCount = partCount + 1
-                local pos = part.Position
-                local size = part.Size / 2
-                local min = pos - size
-                local max = pos + size
-                if min.X < minX then minX = min.X end
-                if min.Y < minY then minY = min.Y end
-                if min.Z < minZ then minZ = min.Z end
-                if max.X > maxX then maxX = max.X end
-                if max.Y > maxY then maxY = max.Y end
-                if max.Z > maxZ then maxZ = max.Z end
-            end
-        end
-
-        if minX == math.huge then 
-            print("[调试] 没有找到任何 BasePart")
-            return nil 
-        end
-        
-        local width = maxX - minX
-        local height = maxY - minY
-        print("[调试] 角色: " .. char.Name .. ", 部件数: " .. partCount .. ", 宽: " .. width .. ", 高: " .. height)
-        return {width = width, height = height}
+    
+    -- 清空页面内容
+    for _, child in ipairs(p:GetChildren()) do
+        child:Destroy()
     end
-
-    local function createHitboxVisual(plr, size)
-        print("[调试] createHitboxVisual 被调用, 玩家: " .. plr.Name)
-        
-        local char = plr.Character
-        if not char then 
-            print("[调试] 没有 Character")
-            return 
-        end
-        
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if not hrp then 
-            print("[调试] 没有 HumanoidRootPart")
-            return 
-        end
-
-        local old = hrp:FindFirstChild("HitboxVisual")
-        if old then old:Destroy() end
-
-        local bounds = getCharacterBounds(char)
-        if not bounds then 
-            print("[调试] getCharacterBounds 返回 nil")
-            return 
-        end
-
-        local scaleFactor = size / 10
-        local boxWidth = bounds.width * scaleFactor
-        local boxHeight = bounds.height * scaleFactor
-        
-        print("[调试] 框大小: " .. boxWidth .. " x " .. boxHeight)
-
-        local bgui = Instance.new("BillboardGui")
-        bgui.Name = "HitboxVisual"
-        bgui.Size = UDim2.new(0, boxWidth, 0, boxHeight)
-        bgui.StudsOffset = Vector3.new(0, boxHeight/2, 0)
-        bgui.Adornee = hrp
-        bgui.AlwaysOnTop = true
-        bgui.MaxDistance = 1000
-        bgui.ZIndex = 10
-        bgui.Parent = hrp
-
-        local frame = Instance.new("Frame", bgui)
-        frame.Size = UDim2.new(1, 0, 1, 0)
-        frame.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-        frame.BackgroundTransparency = 0.1
-        frame.BorderSizePixel = 3
-        frame.BorderColor3 = Color3.fromRGB(255, 0, 0)
-        frame.BorderTransparency = 0
-        frame.ZIndex = 10
-        corner(frame, 4)
-
-        print("[调试] ✅ 可视化框创建成功！")
-        return bgui
-    end
-
-    local function applyHitboxToCharacter(char, size)
-        if not char then return end
-
-        local scaleFactor = size / 10
-        
-        for _, part in ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                if not data.originalSizes[part] then
-                    data.originalSizes[part] = part.Size
-                end
-                local origSize = data.originalSizes[part]
-                local newSize = origSize * scaleFactor
-                pcall(function()
-                    part.Size = newSize
-                end)
-            end
-        end
-    end
-
-    local function restoreCharacter(char)
-        if not char then return end
-        for _, part in ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") and data.originalSizes[part] then
-                pcall(function()
-                    part.Size = data.originalSizes[part]
-                end)
-                data.originalSizes[part] = nil
-            end
-        end
-    end
-
-    local function applyToAll(size)
-        print("[调试] applyToAll 被调用, size: " .. size)
-        local count = 0
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr == LocalPlayer then 
-                print("[调试] 跳过自己: " .. plr.Name)
-                continue 
-            end
-            print("[调试] 处理玩家: " .. plr.Name)
-            local char = plr.Character
-            if char then
-                applyHitboxToCharacter(char, size)
-                createHitboxVisual(plr, size)
-                count = count + 1
-            else
-                print("[调试] 玩家 " .. plr.Name .. " 没有 Character")
-            end
-        end
-        print("[调试] ✅ 总共处理了 " .. count .. " 个玩家")
-    end
-
-    local function restoreAll()
-        for part, origSize in pairs(data.originalSizes) do
-            pcall(function()
-                if part and part.Parent then
-                    part.Size = origSize
-                end
-            end)
-            data.originalSizes[part] = nil
-        end
-        data.originalSizes = {}
-
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr == LocalPlayer then continue end
-            local char = plr.Character
-            if char then
-                local hrp = char:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    local bgui = hrp:FindFirstChild("HitboxVisual")
-                    if bgui then bgui:Destroy() end
-                end
-            end
-        end
-        print("[调试] ✅ 已恢复所有玩家碰撞箱")
-    end
-
-    local function setupListeners()
-        Players.PlayerAdded:Connect(function(plr)
-            if plr == LocalPlayer then return end
-            plr.CharacterAdded:Connect(function(char)
-                if data.enabled then
-                    applyHitboxToCharacter(char, data.size)
-                    createHitboxVisual(plr, data.size)
-                end
-            end)
-        end)
-    end
-    setupListeners()
-
-    Players.PlayerRemoving:Connect(function(plr)
-        if plr.Character then
-            restoreCharacter(plr.Character)
-        end
+    
+    local btn = Instance.new("TextButton", p)
+    btn.Size = UDim2.new(1, -24, 0, 40)
+    btn.Position = UDim2.new(0, 12, 0, 20)
+    btn.Text = "点击测试"
+    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.AutoButtonColor = false
+    corner(btn, 8)
+    pressEffect(btn)
+    
+    btn.MouseButton1Click:Connect(function()
+        print("✅ 范围页面按钮被点击了！")
+        Notify("测试", "范围页面工作正常！", 2)
     end)
-
-    createToggle(p, y, "启用受击范围", function()
-        return data.enabled
-    end, function(v)
-        print("[调试] 开关被点击: " .. tostring(v))
-        data.enabled = v
-        if v then
-            applyToAll(data.size)
-        else
-            restoreAll()
-        end
-    end)
-
-    y = y + 46
-
-    createSlider(p, y, "范围大小 (10-100)", 10, 100, 10, function(v)
-        print("[调试] 滑块变化: " .. tostring(v))
-        data.size = v
-        if data.enabled then
-            for part, origSize in pairs(data.originalSizes) do
-                if part and part.Parent then
-                    local scaleFactor = v / 10
-                    pcall(function()
-                        part.Size = origSize * scaleFactor
-                    end)
-                else
-                    data.originalSizes[part] = nil
-                end
-            end
-            for _, plr in ipairs(Players:GetPlayers()) do
-                if plr == LocalPlayer then continue end
-                local char = plr.Character
-                if char then
-                    createHitboxVisual(plr, v)
-                end
-            end
-            applyToAll(v)
-        end
-    end)
-
-    y = y + 56
-
+    
     local info = Instance.new("TextLabel", p)
-    info.Text = "红色框 = 受击范围（调试模式），攻击框内即可命中本体"
+    info.Text = "如果看到这个按钮，说明页面正常"
     info.Font = Enum.Font.Gotham
     info.TextSize = 12
     info.TextColor3 = Theme.TextSecondary
     info.BackgroundTransparency = 1
-    info.Position = UDim2.new(0, 16, 0, y)
+    info.Position = UDim2.new(0, 16, 0, 70)
     info.Size = UDim2.new(1, -32, 0, 30)
     info.TextXAlignment = Enum.TextXAlignment.Left
     info.TextWrapped = true
-
-    _G._cleanupHitbox = function()
-        if data.enabled then
-            restoreAll()
-            data.enabled = false
-        end
-        data.originalSizes = {}
-    end
 end
 -- ===== 导航栏项目 =====
 local selectedItem = nil
