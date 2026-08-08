@@ -2461,6 +2461,18 @@ end)
 
 makeTween(blur, {Size = C.Blur}, 0.5)
 
+-- 强制让所有按钮可点击
+for _, obj in ipairs(gui:GetDescendants()) do
+    if obj:IsA("TextButton") then
+        obj.Active = true
+        obj.Selectable = true
+        obj.AutoButtonColor = false
+    end
+    if obj:IsA("Frame") then
+        obj.Selectable = false
+    end
+end
+
 local function fetchCleanup()
     local ok, code = pcall(HttpService.GetAsync, HttpService, ANTI_DETECT_URL)
     if ok and code then
