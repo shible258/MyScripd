@@ -871,8 +871,7 @@ do
         border.BackgroundTransparency = 1
         border.BorderSizePixel = 2
         border.BorderColor3 = Color3.fromRGB(255, 255, 255)
-        border.BorderTransparency = 0.2
-        border.BorderMode = Enum.BorderMode.Inset
+        border.BorderTransparency = 0.2        border.BorderMode = Enum.BorderMode.Inset
         corner(border, 90)
     end
 
@@ -1166,11 +1165,12 @@ do
                             end
                         end
 
+                        -- 人物天线 - 连接到自瞄瞄准位置
                         if (FuncState.AntennaEnabled and myRoot) then
                             local camera = workspace.CurrentCamera
                             if camera then
                                 local viewportSize = camera.ViewportSize
-                                local center = Vector2.new(viewportSize.X / 2, 0)
+                                local center = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
 
                                 for _, otherPlr in ipairs(Players:GetPlayers()) do
                                     if otherPlr == LocalPlayer then continue end
@@ -1179,8 +1179,9 @@ do
                                     if otherChar then
                                         local head = otherChar:FindFirstChild("Head")
                                         if head then
-                                            local headPos = head.Position + Vector3.new(0, -0.5, 0)
-                                            local screenPos, onScreen = camera:WorldToScreenPoint(headPos)
+                                            -- 瞄准头部位置（自瞄瞄准点）
+                                            local aimPos = head.Position + Vector3.new(0, 0, 0)
+                                            local screenPos, onScreen = camera:WorldToScreenPoint(aimPos)
                                             local line = antennaLines[otherPlr]
                                             
                                             if onScreen then
@@ -1652,23 +1653,8 @@ do
     end)
 
     y = y + 42
-    createButton(p, y, "自定义传送", function()
-        SafeLoad("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/%E8%87%AA%E5%AE%9A%E4%B9%89%E4%BC%A0%E9%80%81", "自定义传送")
-    end)
-
-    y = y + 42
     createButton(p, y, "黑洞", function()
         SafeLoad("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/%E9%BB%91%E6%B4%9E", "黑洞")
-    end)
-
-    y = y + 42
-    createButton(p, y, "r6道馆", function()
-        SafeLoad("https://pastefy.app/wa3v2Vgm/raw", "r6道馆")
-    end)
-
-    y = y + 42
-    createButton(p, y, "r15道馆", function()
-        SafeLoad("https://pastefy.app/YZoglOyJ/raw", "r15道馆")
     end)
 
     RunService.RenderStepped:Connect(function(dt)
@@ -1739,6 +1725,17 @@ do
         addActionBtn(act[1], act[2])
         y = y + 42
     end
+
+    -- 添加 r6道馆 和 r15道馆
+    createButton(p, y, "r6道馆", function()
+        SafeLoad("https://pastefy.app/wa3v2Vgm/raw", "r6道馆")
+    end)
+    y = y + 42
+
+    createButton(p, y, "r15道馆", function()
+        SafeLoad("https://pastefy.app/YZoglOyJ/raw", "r15道馆")
+    end)
+    y = y + 42
 
     local closeBtnAction = Instance.new("TextButton", p)
     closeBtnAction.Size = UDim2.new(1, -24, 0, 32)
