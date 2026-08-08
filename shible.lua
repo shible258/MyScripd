@@ -2015,37 +2015,139 @@ do
     end)
 end
 
--- ===== 受击范围页面（测试版） =====
+-- ===== 受击范围页面（调试版 - 带背景框） =====
 do
     local p = pgHitbox
     
-    -- 清空页面内容
+    -- 清空页面
     for _, child in ipairs(p:GetChildren()) do
         child:Destroy()
     end
     
-    local btn = Instance.new("TextButton", p)
-    btn.Size = UDim2.new(1, -24, 0, 40)
-    btn.Position = UDim2.new(0, 12, 0, 20)
-    btn.Text = "点击测试"
-    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.AutoButtonColor = false
-    corner(btn, 8)
-    pressEffect(btn)
+    local y = 10
     
-    btn.MouseButton1Click:Connect(function()
-        print("✅ 范围页面按钮被点击了！")
-        Notify("测试", "范围页面工作正常！", 2)
+    -- 标题
+    local hdr = Instance.new("TextLabel", p)
+    hdr.Text = "受击范围 (调试)"
+    hdr.Font = Enum.Font.GothamSemibold
+    hdr.TextSize = 14
+    hdr.TextColor3 = Theme.TextPrimary
+    hdr.BackgroundTransparency = 1
+    hdr.Position = UDim2.new(0, 12, 0, y)
+    hdr.Size = UDim2.new(1, -24, 0, 20)
+    hdr.TextXAlignment = Enum.TextXAlignment.Left
+    y = y + 36
+    
+    -- 加一个灰色背景框，确保内容可见
+    local bg = Instance.new("Frame", p)
+    bg.Position = UDim2.new(0, 12, 0, y)
+    bg.Size = UDim2.new(1, -24, 0, 200)
+    bg.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+    bg.BackgroundTransparency = 0.3
+    bg.BorderSizePixel = 1
+    bg.BorderColor3 = Color3.fromRGB(80, 80, 85)
+    corner(bg, 8)
+    
+    -- 开关（放在背景框里）
+    local toggleBtn = Instance.new("TextButton", bg)
+    toggleBtn.Size = UDim2.new(1, -20, 0, 36)
+    toggleBtn.Position = UDim2.new(0, 10, 0, 10)
+    toggleBtn.Text = "启用受击范围 (OFF)"
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+    toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleBtn.AutoButtonColor = false
+    corner(toggleBtn, 8)
+    pressEffect(toggleBtn)
+    
+    local toggled = false
+    
+    toggleBtn.MouseButton1Click:Connect(function()
+        toggled = not toggled
+        toggleBtn.Text = toggled and "启用受击范围 (ON)" or "启用受击范围 (OFF)"
+        toggleBtn.BackgroundColor3 = toggled and Color3.fromRGB(0, 180, 80) or Color3.fromRGB(60, 60, 65)
+        print("[调试] 受击范围开关: " .. tostring(toggled))
+        Notify("调试", "受击范围: " .. tostring(toggled), 1)
     end)
     
+    -- 滑块（放在背景框里）
+    local sliderLabel = Instance.new("TextLabel", bg)
+    sliderLabel.Text = "范围大小: 10"
+    sliderLabel.Font = Enum.Font.Gotham
+    sliderLabel.TextSize = 13
+    sliderLabel.TextColor3 = Theme.TextPrimary
+    sliderLabel.BackgroundTransparency = 1
+    sliderLabel.Position = UDim2.new(0, 10, 0, 56)
+    sliderLabel.Size = UDim2.new(1, -20, 0, 20)
+    sliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local sliderTrack = Instance.new("Frame", bg)
+    sliderTrack.Position = UDim2.new(0, 10, 0, 80)
+    sliderTrack.Size = UDim2.new(1, -20, 0, 8)
+    sliderTrack.BackgroundColor3 = Color3.fromRGB(65, 65, 70)
+    sliderTrack.BorderSizePixel = 0
+    corner(sliderTrack, 4)
+    
+    local sliderFill = Instance.new("Frame", sliderTrack)
+    sliderFill.Size = UDim2.new(0, 0, 1, 0)
+    sliderFill.BackgroundColor3 = Theme.Accent
+    sliderFill.BorderSizePixel = 0
+    corner(sliderFill, 4)
+    
+    local sliderThumb = Instance.new("Frame", sliderTrack)
+    sliderThumb.Size = UDim2.new(0, 18, 0, 18)
+    sliderThumb.Position = UDim2.new(0, -9, 0, -5)
+    sliderThumb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    sliderThumb.BorderSizePixel = 0
+    corner(sliderThumb, 9)
+    
+    local sliderValue = 10
+    local dragging = false
+    
+    local function updateSlider(val)
+        val = math.floor(math.clamp(val, 10, 100))
+        sliderValue = val
+        sliderLabel.Text = "范围大小: " .. tostring(val)
+        local ratio = (val - 10) / 90
+        sliderThumb.Position = UDim2.new(ratio, -9, 0, -5)
+        sliderFill.Size = UDim2.new(ratio, 0, 1, 0)
+        print("[调试] 滑块值: " .. tostring(val))
+    end
+    
+    sliderTrack.MouseButton1Down:Connect(function(input)
+        dragging = true
+        local mouse = UserInputService:GetMouseLocation()
+        local ap = sliderTrack.AbsolutePosition
+        local as = sliderTrack.AbsoluteSize
+        local ratio = math.clamp((mouse.X - ap.X) / as.X, 0, 1)
+        updateSlider(10 + math.floor(ratio * 90))
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement) then
+            local mouse = UserInputService:GetMouseLocation()
+            local ap = sliderTrack.AbsolutePosition
+            local as = sliderTrack.AbsoluteSize
+            local ratio = math.clamp((mouse.X - ap.X) / as.X, 0, 1)
+            updateSlider(10 + math.floor(ratio * 90))
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    updateSlider(10)
+    
+    -- 提示信息
     local info = Instance.new("TextLabel", p)
-    info.Text = "如果看到这个按钮，说明页面正常"
+    info.Text = "如果看到灰色背景框、开关和滑块，说明页面正常"
     info.Font = Enum.Font.Gotham
     info.TextSize = 12
     info.TextColor3 = Theme.TextSecondary
     info.BackgroundTransparency = 1
-    info.Position = UDim2.new(0, 16, 0, 70)
+    info.Position = UDim2.new(0, 16, 0, y + 220)
     info.Size = UDim2.new(1, -32, 0, 30)
     info.TextXAlignment = Enum.TextXAlignment.Left
     info.TextWrapped = true
