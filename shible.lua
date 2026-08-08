@@ -2015,20 +2015,18 @@ do
     end)
 end
 
--- ===== 受击范围页面（调试版 - 带背景框） =====
+-- ===== 受击范围页面（可点击版） =====
 do
     local p = pgHitbox
     
-    -- 清空页面
     for _, child in ipairs(p:GetChildren()) do
         child:Destroy()
     end
     
     local y = 10
     
-    -- 标题
     local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "受击范围 (调试)"
+    hdr.Text = "受击范围"
     hdr.Font = Enum.Font.GothamSemibold
     hdr.TextSize = 14
     hdr.TextColor3 = Theme.TextPrimary
@@ -2038,20 +2036,9 @@ do
     hdr.TextXAlignment = Enum.TextXAlignment.Left
     y = y + 36
     
-    -- 加一个灰色背景框，确保内容可见
-    local bg = Instance.new("Frame", p)
-    bg.Position = UDim2.new(0, 12, 0, y)
-    bg.Size = UDim2.new(1, -24, 0, 200)
-    bg.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-    bg.BackgroundTransparency = 0.3
-    bg.BorderSizePixel = 1
-    bg.BorderColor3 = Color3.fromRGB(80, 80, 85)
-    corner(bg, 8)
-    
-    -- 开关（放在背景框里）
-    local toggleBtn = Instance.new("TextButton", bg)
-    toggleBtn.Size = UDim2.new(1, -20, 0, 36)
-    toggleBtn.Position = UDim2.new(0, 10, 0, 10)
+    local toggleBtn = Instance.new("TextButton", p)
+    toggleBtn.Size = UDim2.new(1, -24, 0, 36)
+    toggleBtn.Position = UDim2.new(0, 12, 0, y)
     toggleBtn.Text = "启用受击范围 (OFF)"
     toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
     toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -2065,24 +2052,26 @@ do
         toggled = not toggled
         toggleBtn.Text = toggled and "启用受击范围 (ON)" or "启用受击范围 (OFF)"
         toggleBtn.BackgroundColor3 = toggled and Color3.fromRGB(0, 180, 80) or Color3.fromRGB(60, 60, 65)
-        print("[调试] 受击范围开关: " .. tostring(toggled))
-        Notify("调试", "受击范围: " .. tostring(toggled), 1)
+        Notify("受击范围", toggled and "已开启" or "已关闭", 1)
     end)
     
-    -- 滑块（放在背景框里）
-    local sliderLabel = Instance.new("TextLabel", bg)
+    y = y + 50
+    
+    local sliderLabel = Instance.new("TextLabel", p)
     sliderLabel.Text = "范围大小: 10"
     sliderLabel.Font = Enum.Font.Gotham
     sliderLabel.TextSize = 13
     sliderLabel.TextColor3 = Theme.TextPrimary
     sliderLabel.BackgroundTransparency = 1
-    sliderLabel.Position = UDim2.new(0, 10, 0, 56)
-    sliderLabel.Size = UDim2.new(1, -20, 0, 20)
+    sliderLabel.Position = UDim2.new(0, 12, 0, y)
+    sliderLabel.Size = UDim2.new(1, -24, 0, 20)
     sliderLabel.TextXAlignment = Enum.TextXAlignment.Left
     
-    local sliderTrack = Instance.new("Frame", bg)
-    sliderTrack.Position = UDim2.new(0, 10, 0, 80)
-    sliderTrack.Size = UDim2.new(1, -20, 0, 8)
+    y = y + 24
+    
+    local sliderTrack = Instance.new("Frame", p)
+    sliderTrack.Position = UDim2.new(0, 12, 0, y)
+    sliderTrack.Size = UDim2.new(1, -24, 0, 8)
     sliderTrack.BackgroundColor3 = Color3.fromRGB(65, 65, 70)
     sliderTrack.BorderSizePixel = 0
     corner(sliderTrack, 4)
@@ -2110,10 +2099,9 @@ do
         local ratio = (val - 10) / 90
         sliderThumb.Position = UDim2.new(ratio, -9, 0, -5)
         sliderFill.Size = UDim2.new(ratio, 0, 1, 0)
-        print("[调试] 滑块值: " .. tostring(val))
     end
     
-    sliderTrack.MouseButton1Down:Connect(function(input)
+    sliderTrack.MouseButton1Down:Connect(function()
         dragging = true
         local mouse = UserInputService:GetMouseLocation()
         local ap = sliderTrack.AbsolutePosition
@@ -2140,14 +2128,13 @@ do
     
     updateSlider(10)
     
-    -- 提示信息
     local info = Instance.new("TextLabel", p)
-    info.Text = "如果看到灰色背景框、开关和滑块，说明页面正常"
+    info.Text = "开关和滑块正常工作"
     info.Font = Enum.Font.Gotham
     info.TextSize = 12
     info.TextColor3 = Theme.TextSecondary
     info.BackgroundTransparency = 1
-    info.Position = UDim2.new(0, 16, 0, y + 220)
+    info.Position = UDim2.new(0, 16, 0, y + 20)
     info.Size = UDim2.new(1, -32, 0, 30)
     info.TextXAlignment = Enum.TextXAlignment.Left
     info.TextWrapped = true
