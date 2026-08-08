@@ -393,7 +393,6 @@ local FuncState = {
     R6Loaded = false,
     R15Loaded = false,
     MapTeleport = false,
-    SubZhui = false,
     ESPMaster = false,
     FlingLoaded = false,
 }
@@ -693,527 +692,6 @@ do
                 _G.BulletTrackEnabled = false
             end)
             bulletTrackLoaded = false
-        end
-    end)
-
-    y = y + 46
-
-    local subZhuiUIVisible = false
-    local subZhuiUI = nil
-
-    local function createSubZhuiUI()
-        if subZhuiUI then
-            subZhuiUI.Visible = true
-            return
-        end
-
-        subZhuiUI = Instance.new("Frame", gui)
-        subZhuiUI.Name = "SubZhuiUI"
-        subZhuiUI.AnchorPoint = Vector2.new(0.5, 0.5)
-        subZhuiUI.Position = UDim2.fromScale(0.5, 0.5)
-        subZhuiUI.Size = UDim2.new(0, 500, 0, 400)
-        subZhuiUI.BackgroundColor3 = Theme.Glass
-        subZhuiUI.BackgroundTransparency = 0.12
-        subZhuiUI.BorderSizePixel = 0
-        subZhuiUI.Active = true
-        subZhuiUI.Visible = true
-        subZhuiUI.ZIndex = 100
-        corner(subZhuiUI, C.Radius)
-
-        local titleBar = Instance.new("Frame", subZhuiUI)
-        titleBar.Size = UDim2.new(1, 0, 0, 30)
-        titleBar.BackgroundTransparency = 1
-        titleBar.Active = true
-
-        local titleLbl = Instance.new("TextLabel", titleBar)
-        titleLbl.Text = "子追设置"
-        titleLbl.Font = Enum.Font.GothamSemibold
-        titleLbl.TextSize = 16
-        titleLbl.TextColor3 = Theme.TextPrimary
-        titleLbl.BackgroundTransparency = 1
-        titleLbl.Position = UDim2.new(0, 12, 0, 0)
-        titleLbl.Size = UDim2.new(0.6, 0, 1, 0)
-        titleLbl.TextXAlignment = Enum.TextXAlignment.Left
-
-        local closeUI = Instance.new("TextButton", titleBar)
-        closeUI.Text = "✕"
-        closeUI.Font = Enum.Font.GothamBold
-        closeUI.TextSize = 16
-        closeUI.TextColor3 = Theme.Danger
-        closeUI.BackgroundTransparency = 1
-        closeUI.Position = UDim2.new(1, -30, 0, 0)
-        closeUI.Size = UDim2.new(0, 30, 1, 0)
-        closeUI.AutoButtonColor = false
-        closeUI.MouseButton1Click:Connect(function()
-            subZhuiUIVisible = false
-            subZhuiUI.Visible = false
-            toggleSetters["子追(自研)"](false)
-        end)
-
-        local dragging = false
-        local dragStart, startPos
-
-        titleBar.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = true
-                dragStart = input.Position
-                startPos = subZhuiUI.Position
-            end
-        end)
-
-        titleBar.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = false
-            end
-        end)
-
-        UserInputService.InputChanged:Connect(function(input)
-            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                local delta = input.Position - dragStart
-                subZhuiUI.Position = UDim2.new(
-                    startPos.X.Scale,
-                    startPos.X.Offset + delta.X,
-                    startPos.Y.Scale,
-                    startPos.Y.Offset + delta.Y
-                )
-            end
-        end)
-
-        local content = Instance.new("Frame", subZhuiUI)
-        content.Size = UDim2.new(1, 0, 1, -30)
-        content.Position = UDim2.new(0, 0, 0, 30)
-        content.BackgroundTransparency = 1
-        content.ClipsDescendants = true
-
-        local leftPanel = Instance.new("ScrollingFrame", content)
-        leftPanel.Size = UDim2.new(0.48, -6, 1, 0)
-        leftPanel.Position = UDim2.new(0, 6, 0, 0)
-        leftPanel.BackgroundTransparency = 1
-        leftPanel.ScrollBarThickness = 3
-        leftPanel.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        leftPanel.CanvasSize = UDim2.new(0, 0, 0, 0)
-
-        local rightPanel = Instance.new("ScrollingFrame", content)
-        rightPanel.Size = UDim2.new(0.48, -6, 1, 0)
-        rightPanel.Position = UDim2.new(0.52, 0, 0, 0)
-        rightPanel.BackgroundTransparency = 1
-        rightPanel.ScrollBarThickness = 3
-        rightPanel.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        rightPanel.CanvasSize = UDim2.new(0, 0, 0, 0)
-
-        local leftY = 0
-        local rightY = 0
-
-        local modeLabel = Instance.new("TextLabel", leftPanel)
-        modeLabel.Text = "模式:"
-        modeLabel.Font = Enum.Font.Gotham
-        modeLabel.TextSize = 13
-        modeLabel.TextColor3 = Theme.TextPrimary
-        modeLabel.BackgroundTransparency = 1
-        modeLabel.Position = UDim2.new(0, 0, 0, leftY)
-        modeLabel.Size = UDim2.new(0, 45, 0, 30)
-        modeLabel.TextXAlignment = Enum.TextXAlignment.Right
-
-        local modeBtnFrame = Instance.new("Frame", leftPanel)
-        modeBtnFrame.Size = UDim2.new(1, -55, 0, 28)
-        modeBtnFrame.Position = UDim2.new(0, 50, 0, leftY + 1)
-        modeBtnFrame.BackgroundTransparency = 1
-
-        local currentMode = "rightalt"
-        local function createModeBtn(text, xPos)
-            local btn = Instance.new("TextButton", modeBtnFrame)
-            btn.Size = UDim2.new(0.45, -4, 1, 0)
-            btn.Position = UDim2.new(xPos, 2, 0, 0)
-            btn.Text = text
-            btn.Font = Enum.Font.Gotham
-            btn.TextSize = 12
-            btn.TextColor3 = Theme.TextPrimary
-            btn.BackgroundColor3 = Theme.Glass
-            btn.BackgroundTransparency = 0.5
-            btn.BorderSizePixel = 0
-            btn.AutoButtonColor = false
-            corner(btn, 4)
-            pressEffect(btn)
-            return btn
-        end
-
-        local btnUnknow = createModeBtn("unknow", 0)
-        local btnRightAlt = createModeBtn("rightalt", 0.55)
-
-        local function updateModeButtons(selected)
-            btnUnknow.BackgroundTransparency = (selected == "unknow") and 0.2 or 0.5
-            btnRightAlt.BackgroundTransparency = (selected == "rightalt") and 0.2 or 0.5
-        end
-        updateModeButtons(currentMode)
-
-        btnUnknow.MouseButton1Click:Connect(function()
-            currentMode = "unknow"
-            updateModeButtons("unknow")
-            Notify("shible", "模式切换为: unknow (常驻)", 2)
-        end)
-
-        btnRightAlt.MouseButton1Click:Connect(function()
-            currentMode = "rightalt"
-            updateModeButtons("rightalt")
-            Notify("shible", "模式切换为: rightalt (按住激活)", 2)
-        end)
-
-        leftY = leftY + 36
-
-        local subZhuiActive = false
-        local function toggleSubZhuiUI(v)
-            subZhuiActive = v
-            if v then
-                Notify("shible", "子追已开启", 2)
-            else
-                Notify("shible", "子追已关闭", 2)
-            end
-        end
-
-        createToggle(leftPanel, leftY, "子追开关", function() return subZhuiActive end, function(v)
-            toggleSubZhuiUI(v)
-        end)
-        leftY = leftY + 46
-
-        local teamCheckEnabled = true
-        createToggle(leftPanel, leftY, "队伍检测", function() return teamCheckEnabled end, function(v)
-            teamCheckEnabled = v
-        end)
-        leftY = leftY + 46
-
-        local visibilityCheckEnabled = true
-        createToggle(leftPanel, leftY, "可见性检测", function() return visibilityCheckEnabled end, function(v)
-            visibilityCheckEnabled = v
-        end)
-        leftY = leftY + 46
-
-        local wallHackEnabled = false
-        createToggle(leftPanel, leftY, "穿墙", function() return wallHackEnabled end, function(v)
-            wallHackEnabled = v
-            Notify("shible", v and "穿墙已开启" or "穿墙已关闭", 2)
-        end)
-        leftY = leftY + 46
-
-        local leakModeEnabled = false
-        createToggle(leftPanel, leftY, "漏打模式", function() return leakModeEnabled end, function(v)
-            leakModeEnabled = v
-            Notify("shible", v and "漏打模式已开启 (有掩体不打)" or "漏打模式已关闭", 2)
-        end)
-        leftY = leftY + 46
-
-        local headshotChance = 100
-        createSlider(leftPanel, leftY, "爆头概率 (0-100)", 0, 100, 100, function(v)
-            headshotChance = v
-        end)
-        leftY = leftY + 60
-
-        local targetType = "玩家"
-        local targetTypeLabel = Instance.new("TextLabel", rightPanel)
-        targetTypeLabel.Text = "目标种类:"
-        targetTypeLabel.Font = Enum.Font.Gotham
-        targetTypeLabel.TextSize = 13
-        targetTypeLabel.TextColor3 = Theme.TextPrimary
-        targetTypeLabel.BackgroundTransparency = 1
-        targetTypeLabel.Position = UDim2.new(0, 0, 0, rightY)
-        targetTypeLabel.Size = UDim2.new(0, 70, 0, 30)
-        targetTypeLabel.TextXAlignment = Enum.TextXAlignment.Right
-
-        local targetTypeFrame = Instance.new("Frame", rightPanel)
-        targetTypeFrame.Size = UDim2.new(1, -80, 0, 28)
-        targetTypeFrame.Position = UDim2.new(0, 75, 0, rightY + 1)
-        targetTypeFrame.BackgroundTransparency = 1
-
-        local function createTargetTypeBtn(text, xPos)
-            local btn = Instance.new("TextButton", targetTypeFrame)
-            btn.Size = UDim2.new(0.3, -4, 1, 0)
-            btn.Position = UDim2.new(xPos, 2, 0, 0)
-            btn.Text = text
-            btn.Font = Enum.Font.Gotham
-            btn.TextSize = 11
-            btn.TextColor3 = Theme.TextPrimary
-            btn.BackgroundColor3 = Theme.Glass
-            btn.BackgroundTransparency = 0.5
-            btn.BorderSizePixel = 0
-            btn.AutoButtonColor = false
-            corner(btn, 4)
-            pressEffect(btn)
-            return btn
-        end
-
-        local btnPlayer = createTargetTypeBtn("玩家", 0)
-        local btnNPC = createTargetTypeBtn("NPC", 0.35)
-        local btnAll = createTargetTypeBtn("所有", 0.7)
-
-        local function updateTargetTypeBtns(selected)
-            btnPlayer.BackgroundTransparency = (selected == "玩家") and 0.2 or 0.5
-            btnNPC.BackgroundTransparency = (selected == "NPC") and 0.2 or 0.5
-            btnAll.BackgroundTransparency = (selected == "所有") and 0.2 or 0.5
-        end
-
-        btnPlayer.MouseButton1Click:Connect(function()
-            targetType = "玩家"
-            updateTargetTypeBtns("玩家")
-        end)
-        btnNPC.MouseButton1Click:Connect(function()
-            targetType = "NPC"
-            updateTargetTypeBtns("NPC")
-        end)
-        btnAll.MouseButton1Click:Connect(function()
-            targetType = "所有"
-            updateTargetTypeBtns("所有")
-        end)
-
-        rightY = rightY + 36
-
-        local targetPart = "HumanoidRootPart"
-        local partLabel = Instance.new("TextLabel", rightPanel)
-        partLabel.Text = "目标部位:"
-        partLabel.Font = Enum.Font.Gotham
-        partLabel.TextSize = 13
-        partLabel.TextColor3 = Theme.TextPrimary
-        partLabel.BackgroundTransparency = 1
-        partLabel.Position = UDim2.new(0, 0, 0, rightY)
-        partLabel.Size = UDim2.new(0, 70, 0, 30)
-        partLabel.TextXAlignment = Enum.TextXAlignment.Right
-
-        local partFrame = Instance.new("Frame", rightPanel)
-        partFrame.Size = UDim2.new(1, -80, 0, 28)
-        partFrame.Position = UDim2.new(0, 75, 0, rightY + 1)
-        partFrame.BackgroundTransparency = 1
-
-        local function createPartBtn(text, xPos)
-            local btn = Instance.new("TextButton", partFrame)
-            btn.Size = UDim2.new(0.3, -4, 1, 0)
-            btn.Position = UDim2.new(xPos, 2, 0, 0)
-            btn.Text = text
-            btn.Font = Enum.Font.Gotham
-            btn.TextSize = 10
-            btn.TextColor3 = Theme.TextPrimary
-            btn.BackgroundColor3 = Theme.Glass
-            btn.BackgroundTransparency = 0.5
-            btn.BorderSizePixel = 0
-            btn.AutoButtonColor = false
-            corner(btn, 4)
-            pressEffect(btn)
-            return btn
-        end
-
-        local btnHead = createPartBtn("Head", 0)
-        local btnRoot = createPartBtn("Root", 0.35)
-        local btnRandom = createPartBtn("Random", 0.7)
-
-        local function updatePartBtns(selected)
-            btnHead.BackgroundTransparency = (selected == "Head") and 0.2 or 0.5
-            btnRoot.BackgroundTransparency = (selected == "HumanoidRootPart") and 0.2 or 0.5
-            btnRandom.BackgroundTransparency = (selected == "Random") and 0.2 or 0.5
-        end
-        updatePartBtns("HumanoidRootPart")
-
-        btnHead.MouseButton1Click:Connect(function()
-            targetPart = "Head"
-            updatePartBtns("Head")
-        end)
-        btnRoot.MouseButton1Click:Connect(function()
-            targetPart = "HumanoidRootPart"
-            updatePartBtns("HumanoidRootPart")
-        end)
-        btnRandom.MouseButton1Click:Connect(function()
-            targetPart = "Random"
-            updatePartBtns("Random")
-        end)
-
-        rightY = rightY + 36
-
-        local priorityMode = "准星最近"
-        local priorityLabel = Instance.new("TextLabel", rightPanel)
-        priorityLabel.Text = "优先模式:"
-        priorityLabel.Font = Enum.Font.Gotham
-        priorityLabel.TextSize = 13
-        priorityLabel.TextColor3 = Theme.TextPrimary
-        priorityLabel.BackgroundTransparency = 1
-        priorityLabel.Position = UDim2.new(0, 0, 0, rightY)
-        priorityLabel.Size = UDim2.new(0, 70, 0, 30)
-        priorityLabel.TextXAlignment = Enum.TextXAlignment.Right
-
-        local priorityFrame = Instance.new("Frame", rightPanel)
-        priorityFrame.Size = UDim2.new(1, -80, 0, 28)
-        priorityFrame.Position = UDim2.new(0, 75, 0, rightY + 1)
-        priorityFrame.BackgroundTransparency = 1
-
-        local function createPriorityBtn(text, xPos)
-            local btn = Instance.new("TextButton", priorityFrame)
-            btn.Size = UDim2.new(0.23, -4, 1, 0)
-            btn.Position = UDim2.new(xPos, 2, 0, 0)
-            btn.Text = text
-            btn.Font = Enum.Font.Gotham
-            btn.TextSize = 10
-            btn.TextColor3 = Theme.TextPrimary
-            btn.BackgroundColor3 = Theme.Glass
-            btn.BackgroundTransparency = 0.5
-            btn.BorderSizePixel = 0
-            btn.AutoButtonColor = false
-            corner(btn, 4)
-            pressEffect(btn)
-            return btn
-        end
-
-        local btnCrosshair = createPriorityBtn("准星最近", 0)
-        local btnDist = createPriorityBtn("距离最近", 0.26)
-        local btnHealth = createPriorityBtn("最低血量", 0.52)
-        local btnNearest = createPriorityBtn("最近的人", 0.78)
-
-        local function updatePriorityBtns(selected)
-            btnCrosshair.BackgroundTransparency = (selected == "准星最近") and 0.2 or 0.5
-            btnDist.BackgroundTransparency = (selected == "距离最近") and 0.2 or 0.5
-            btnHealth.BackgroundTransparency = (selected == "最低血量") and 0.2 or 0.5
-            btnNearest.BackgroundTransparency = (selected == "最近的人") and 0.2 or 0.5
-        end
-        updatePriorityBtns("准星最近")
-
-        btnCrosshair.MouseButton1Click:Connect(function()
-            priorityMode = "准星最近"
-            updatePriorityBtns("准星最近")
-        end)
-        btnDist.MouseButton1Click:Connect(function()
-            priorityMode = "距离最近"
-            updatePriorityBtns("距离最近")
-        end)
-        btnHealth.MouseButton1Click:Connect(function()
-            priorityMode = "最低血量"
-            updatePriorityBtns("最低血量")
-        end)
-        btnNearest.MouseButton1Click:Connect(function()
-            priorityMode = "最近的人"
-            updatePriorityBtns("最近的人")
-        end)
-
-        rightY = rightY + 36
-
-        local maxDistance = 500
-        createSlider(rightPanel, rightY, "最大距离 (10-2000)", 10, 2000, 500, function(v)
-            maxDistance = v
-        end)
-        rightY = rightY + 60
-
-        local aimMethod = "Raycast"
-        local methodLabel = Instance.new("TextLabel", rightPanel)
-        methodLabel.Text = "瞄准方法:"
-        methodLabel.Font = Enum.Font.Gotham
-        methodLabel.TextSize = 13
-        methodLabel.TextColor3 = Theme.TextPrimary
-        methodLabel.BackgroundTransparency = 1
-        methodLabel.Position = UDim2.new(0, 0, 0, rightY)
-        methodLabel.Size = UDim2.new(0, 70, 0, 30)
-        methodLabel.TextXAlignment = Enum.TextXAlignment.Right
-
-        local methodFrame = Instance.new("Frame", rightPanel)
-        methodFrame.Size = UDim2.new(1, -80, 0, 28)
-        methodFrame.Position = UDim2.new(0, 75, 0, rightY + 1)
-        methodFrame.BackgroundTransparency = 1
-
-        local methodDropdown = Instance.new("TextButton", methodFrame)
-        methodDropdown.Size = UDim2.new(1, 0, 1, 0)
-        methodDropdown.Text = "Raycast ▼"
-        methodDropdown.Font = Enum.Font.Gotham
-        methodDropdown.TextSize = 12
-        methodDropdown.TextColor3 = Theme.TextPrimary
-        methodDropdown.BackgroundColor3 = Theme.Glass
-        methodDropdown.BackgroundTransparency = 0.3
-        methodDropdown.BorderSizePixel = 0
-        corner(methodDropdown, 4)
-
-        local methodOptions = {
-            "Raycast", "FindPartOnRay", "FindPartOnRayWithWhiteList",
-            "FindPartOnRayWithIgnoreList", "ScreenPointToRay",
-            "ViewPortPointToRay", "Ray", "Mouse.Hit/Target"
-        }
-
-        methodDropdown.MouseButton1Click:Connect(function()
-            local menu = Instance.new("Frame", methodFrame)
-            menu.Size = UDim2.new(1, 0, 0, #methodOptions * 24)
-            menu.Position = UDim2.new(0, 0, 1, 2)
-            menu.BackgroundColor3 = Theme.Glass
-            menu.BackgroundTransparency = 0.1
-            menu.BorderSizePixel = 0
-            corner(menu, 4)
-
-            for i, opt in ipairs(methodOptions) do
-                local btn = Instance.new("TextButton", menu)
-                btn.Size = UDim2.new(1, 0, 0, 24)
-                btn.Position = UDim2.new(0, 0, 0, (i-1)*24)
-                btn.Text = opt
-                btn.Font = Enum.Font.Gotham
-                btn.TextSize = 11
-                btn.TextColor3 = Theme.TextPrimary
-                btn.BackgroundTransparency = 1
-                btn.BorderSizePixel = 0
-                btn.AutoButtonColor = false
-
-                btn.MouseButton1Click:Connect(function()
-                    aimMethod = opt
-                    methodDropdown.Text = opt .. " ▼"
-                    menu:Destroy()
-                    Notify("shible", "瞄准方法切换为: " .. opt, 2)
-                end)
-            end
-
-            local closeConn
-            closeConn = UserInputService.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    task.wait(0.1)
-                    if menu and menu.Parent then
-                        menu:Destroy()
-                    end
-                    closeConn:Disconnect()
-                end
-            end)
-        end)
-
-        rightY = rightY + 36
-
-        local predictEnabled = false
-        createToggle(rightPanel, rightY, "预判", function() return predictEnabled end, function(v)
-            predictEnabled = v
-        end)
-        rightY = rightY + 46
-
-        local predictAmount = 0.165
-        createSlider(rightPanel, rightY, "预判量 (0-1)", 0, 1, 0.165, function(v)
-            predictAmount = v
-        end)
-        rightY = rightY + 60
-
-        local headshotChanceTarget = 0
-        createToggle(rightPanel, rightY, "爆头几率", function() return headshotChanceTarget > 0 end, function(v)
-            if v then
-                if headshotChanceTarget == 0 then headshotChanceTarget = 50 end
-            else
-                headshotChanceTarget = 0
-            end
-        end)
-        rightY = rightY + 46
-
-        createSlider(rightPanel, rightY, "爆头概率 (0-100)", 0, 100, 0, function(v)
-            headshotChanceTarget = v
-        end)
-        rightY = rightY + 60
-
-        leftPanel.CanvasSize = UDim2.new(0, 0, 0, leftY + 20)
-        rightPanel.CanvasSize = UDim2.new(0, 0, 0, rightY + 20)
-    end
-
-    createToggle(p, y, "子追(自研)", function()
-        return subZhuiUIVisible
-    end, function(v)
-        subZhuiUIVisible = v
-        if v then
-            createSubZhuiUI()
-            Notify("shible", "子追UI已开启", 2)
-        else
-            if subZhuiUI then
-                subZhuiUI.Visible = false
-            end
-            Notify("shible", "子追UI已关闭", 2)
         end
     end)
 end
@@ -1689,54 +1167,54 @@ do
                         end
 
                         if (FuncState.AntennaEnabled and myRoot) then
-    local camera = workspace.CurrentCamera
-    if camera then
-        local viewportSize = camera.ViewportSize
-        local center = Vector2.new(viewportSize.X / 2, 0)
+                            local camera = workspace.CurrentCamera
+                            if camera then
+                                local viewportSize = camera.ViewportSize
+                                local center = Vector2.new(viewportSize.X / 2, 0)
 
-        for _, otherPlr in ipairs(Players:GetPlayers()) do
-            if otherPlr == LocalPlayer then continue end
-            if otherPlr.Team and LocalPlayer.Team and otherPlr.Team == LocalPlayer.Team then continue end
-            local otherChar = otherPlr.Character
-            if otherChar then
-                local head = otherChar:FindFirstChild("Head")
-                if head then
-                    local headPos = head.Position + Vector3.new(0, -0.5, 0)
-local screenPos, onScreen = camera:WorldToScreenPoint(headPos)
-                    local line = antennaLines[otherPlr]
-                    
-                    if onScreen then
-                        if not line then
-                            line = Drawing.new("Line")
-                            line.Thickness = 2
-                            line.Color = Color3.new(1, 1, 1)
-                            line.Transparency = 1
-                            line.Visible = true
-                            antennaLines[otherPlr] = line
+                                for _, otherPlr in ipairs(Players:GetPlayers()) do
+                                    if otherPlr == LocalPlayer then continue end
+                                    if otherPlr.Team and LocalPlayer.Team and otherPlr.Team == LocalPlayer.Team then continue end
+                                    local otherChar = otherPlr.Character
+                                    if otherChar then
+                                        local head = otherChar:FindFirstChild("Head")
+                                        if head then
+                                            local headPos = head.Position + Vector3.new(0, -0.5, 0)
+                                            local screenPos, onScreen = camera:WorldToScreenPoint(headPos)
+                                            local line = antennaLines[otherPlr]
+                                            
+                                            if onScreen then
+                                                if not line then
+                                                    line = Drawing.new("Line")
+                                                    line.Thickness = 2
+                                                    line.Color = Color3.new(1, 1, 1)
+                                                    line.Transparency = 1
+                                                    line.Visible = true
+                                                    antennaLines[otherPlr] = line
+                                                end
+                                                line.From = center
+                                                line.To = Vector2.new(screenPos.X, screenPos.Y)
+                                                line.Visible = true
+                                            elseif line then
+                                                line.Visible = false
+                                            end
+                                        end
+                                    end
+                                end
+
+                                for otherPlr, line in pairs(antennaLines) do
+                                    if not otherPlr.Character or not otherPlr.Character:FindFirstChild("Head") then
+                                        pcall(function() line:Remove() end)
+                                        antennaLines[otherPlr] = nil
+                                    end
+                                end
+                            end
+                        else
+                            for _, line in pairs(antennaLines) do
+                                pcall(function() line:Remove() end)
+                            end
+                            antennaLines = {}
                         end
-                        line.From = center
-                        line.To = Vector2.new(screenPos.X, screenPos.Y)
-                        line.Visible = true
-                    elseif line then
-                        line.Visible = false
-                    end
-                end
-            end
-        end
-
-        for otherPlr, line in pairs(antennaLines) do
-            if not otherPlr.Character or not otherPlr.Character:FindFirstChild("Head") then
-                pcall(function() line:Remove() end)
-                antennaLines[otherPlr] = nil
-            end
-        end
-    end
-else
-    for _, line in pairs(antennaLines) do
-        pcall(function() line:Remove() end)
-    end
-    antennaLines = {}
-end
                     end
                 end
             end
@@ -2507,87 +1985,6 @@ do
         SafeLoad("https://raw.githubusercontent.com/dizyhvh/rbx_scripts/main/321_blast_off_simulator", "Dizzy HUB")
     end)
 end
-
-local floatingFrame = Instance.new("Frame", gui)
-floatingFrame.Name = "FloatingButtons"
-floatingFrame.AnchorPoint = Vector2.new(1, 0)
-floatingFrame.Position = UDim2.new(1, -10, 0, 50)
-floatingFrame.Size = UDim2.new(0, 120, 0, 80)
-floatingFrame.BackgroundTransparency = 1
-floatingFrame.ZIndex = 1000
-
-local subUIVisible = true
-local subUILocked = false
-
-local function findSubZhuiUI()
-    for _, child in ipairs(gui:GetChildren()) do
-        if child.Name == "SubZhuiUI" then
-            return child
-        end
-    end
-    return nil
-end
-
-local toggleBtn = Instance.new("TextButton", floatingFrame)
-toggleBtn.Size = UDim2.new(1, 0, 0, 32)
-toggleBtn.Position = UDim2.new(0, 0, 0, 0)
-toggleBtn.Text = "Toggle"
-toggleBtn.Font = Enum.Font.GothamSemibold
-toggleBtn.TextSize = 13
-toggleBtn.TextColor3 = Theme.TextPrimary
-toggleBtn.BackgroundColor3 = Theme.Glass
-toggleBtn.BackgroundTransparency = 0.2
-toggleBtn.BorderSizePixel = 0
-corner(toggleBtn, 8)
-pressEffect(toggleBtn)
-
-local lockBtn = Instance.new("TextButton", floatingFrame)
-lockBtn.Size = UDim2.new(1, 0, 0, 32)
-lockBtn.Position = UDim2.new(0, 0, 0, 40)
-lockBtn.Text = "Lock"
-lockBtn.Font = Enum.Font.GothamSemibold
-lockBtn.TextSize = 13
-lockBtn.TextColor3 = Theme.TextPrimary
-lockBtn.BackgroundColor3 = Theme.Glass
-lockBtn.BackgroundTransparency = 0.2
-lockBtn.BorderSizePixel = 0
-corner(lockBtn, 8)
-pressEffect(lockBtn)
-
-toggleBtn.MouseButton1Click:Connect(function()
-    local ui = findSubZhuiUI()
-    if not ui then
-        Notify("shible", "请先开启子追(自研)", 2)
-        return
-    end
-    subUIVisible = not subUIVisible
-    ui.Visible = subUIVisible
-    makeTween(toggleBtn, {TextSize = 16}, 0.12)
-    task.delay(0.12, function()
-        makeTween(toggleBtn, {TextSize = 13}, 0.15)
-    end)
-    Notify("shible", subUIVisible and "子追UI已显示" or "子追UI已隐藏", 2)
-end)
-
-lockBtn.MouseButton1Click:Connect(function()
-    local ui = findSubZhuiUI()
-    if not ui then
-        Notify("shible", "请先开启子追(自研)", 2)
-        return
-    end
-    subUILocked = not subUILocked
-    lockBtn.Text = subUILocked and "Unlock" or "Lock"
-    ui.Active = not subUILocked
-    if subUILocked then
-        makeTween(lockBtn, {BackgroundTransparency = 0.5}, 0.2)
-        lockBtn.TextColor3 = Theme.Danger
-        Notify("shible", "子追UI已锁定", 2)
-    else
-        makeTween(lockBtn, {BackgroundTransparency = 0.2}, 0.2)
-        lockBtn.TextColor3 = Theme.TextPrimary
-        Notify("shible", "子追UI已解锁", 2)
-    end
-end)
 
 local selectedItem = nil
 local function createFuncItem(name, key)
