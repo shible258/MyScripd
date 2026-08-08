@@ -1363,8 +1363,7 @@ do
             if otherChar then
                 local head = otherChar:FindFirstChild("Head")
                 if head then
-                    local headPos = head.Position + Vector3.new(0, -0.3, 0)
-                    local screenPos, onScreen = camera:WorldToScreenPoint(headPos)
+                    local screenPos, onScreen = camera:WorldToScreenPoint(head.Position)
                     local line = antennaLines[otherPlr]
                     
                     if onScreen then
