@@ -404,7 +404,27 @@ do
     corner(loadBtn, 8)
     pressEffect(loadBtn)
 
+    -- 监狱生活已知 PlaceId（可扩充）
+    local JAILBREAK_PLACE_IDS = {
+        606849621,  -- 主游戏
+        553834742,  -- 旧版
+    }
+
+    local function isJailbreak()
+        local placeId = game.PlaceId
+        for _, id in ipairs(JAILBREAK_PLACE_IDS) do
+            if placeId == id then return true end
+        end
+        return false
+    end
+
     loadBtn.MouseButton1Click:Connect(function()
+        -- 检测是否为监狱生活
+        if not isJailbreak() then
+            Notify("shible", "当前游戏不是监狱生活，无法加载对应UI", 3)
+            return
+        end
+
         -- 先销毁旧UI（避免冲突）
         for _, v in pairs(PlayerGui:GetChildren()) do
             if v.Name == "JailbreakUI" then
@@ -412,7 +432,8 @@ do
             end
         end
 
-        local gameName = "未知游戏"
+        -- 获取游戏名称（仅用于通知）
+        local gameName = "监狱生活"
         local success, info = pcall(function()
             return MarketplaceService:GetProductInfo(game.PlaceId)
         end)
@@ -421,19 +442,22 @@ do
         end
         Notify("shible", "当前服务器为: " .. gameName, 3)
 
-        -- 创建监狱UI
+        -- 自动最小化主UI（触发最小化）
+        minBtn.MouseButton1Click:Fire()
+
+        -- 创建监狱UI（横屏，宽90%，高80%）
         local jailGui = Instance.new("ScreenGui")
         jailGui.Name = "JailbreakUI"
         jailGui.ResetOnSpawn = false
-        jailGui.DisplayOrder = 999999  -- 确保在最上层
+        jailGui.DisplayOrder = 999999
         jailGui.Parent = PlayerGui
 
         local mainFrame = Instance.new("Frame")
         mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
         mainFrame.Position = UDim2.fromScale(0.5, 0.5)
-        mainFrame.Size = UDim2.new(0.9, 0, 0.7, 0)
+        mainFrame.Size = UDim2.new(0.9, 0, 0.8, 0)   -- 加宽加高
         mainFrame.BackgroundColor3 = Theme.Glass
-        mainFrame.BackgroundTransparency = 0.1   -- 稍微不透明
+        mainFrame.BackgroundTransparency = 0.1
         mainFrame.BorderSizePixel = 0
         mainFrame.Parent = jailGui
         corner(mainFrame, 20)
@@ -622,7 +646,7 @@ do
             Notify("娱乐", "永久护盾 " .. (v and "开启" or "关闭"))
         end)
 
-        -- 关闭按钮
+        -- 关闭按钮（同时恢复主UI）
         local closeJailBtn = Instance.new("TextButton", mainFrame)
         closeJailBtn.Size = UDim2.new(0, 100, 0, 36)
         closeJailBtn.Position = UDim2.new(1, -120, 1, -50)
@@ -636,6 +660,10 @@ do
         pressEffect(closeJailBtn)
         closeJailBtn.MouseButton1Click:Connect(function()
             jailGui:Destroy()
+            -- 恢复主UI（如果主UI处于最小化状态）
+            if not root.Visible then
+                restore.MouseButton1Click:Fire()
+            end
         end)
     end)
 end
