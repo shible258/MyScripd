@@ -401,110 +401,19 @@ do
     corner(loadBtn, 8)
     pressEffect(loadBtn)
 
-    local serverUIContainer = nil  -- 用来保存UI的父级，便于销毁
-    local floatBtn = nil
-
     loadBtn.MouseButton1Click:Connect(function()
         Notify("shible", "服务器检测中...", 2)
 
-        -- 获取服务器名称（这里用 JobId 作为标识）
+        -- 获取服务器名称（使用 JobId 作为服务器标识）
         local serverName = game.JobId or "未知服务器"
 
         task.delay(1.5, function()
             Notify("shible", "当前服务器为: " .. serverName, 3)
-
-            -- 如果已有UI则先销毁
-            if serverUIContainer then
-                serverUIContainer:Destroy()
-                serverUIContainer = nil
-            end
-            if floatBtn then
-                floatBtn:Destroy()
-                floatBtn = nil
-            end
-
-            -- 创建横屏自适应UI
-            local container = Instance.new("ScreenGui")
-            container.Name = "ServerUI"
-            container.ResetOnSpawn = false
-            container.Parent = PlayerGui
-
-            local mainFrame = Instance.new("Frame")
-            mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-            mainFrame.Position = UDim2.fromScale(0.5, 0.5)
-            -- 横屏：宽度占满，高度为屏幕高度的 45% 左右，保持比例
-            mainFrame.Size = UDim2.new(1, -40, 0, 0)  -- 先设宽度，高度后面自适应
-            mainFrame.Size = UDim2.new(1, -40, 0.45, 0)  -- 宽几乎满，高45%
-            mainFrame.BackgroundColor3 = Theme.Glass
-            mainFrame.BackgroundTransparency = 0.15
-            mainFrame.BorderSizePixel = 0
-            mainFrame.Parent = container
-            corner(mainFrame, 16)
-
-            -- 内容：服务器信息
-            local infoLabel = Instance.new("TextLabel", mainFrame)
-            infoLabel.Size = UDim2.new(1, -40, 1, -60)
-            infoLabel.Position = UDim2.new(0, 20, 0, 20)
-            infoLabel.BackgroundTransparency = 1
-            infoLabel.Text = "服务器名称: " .. serverName .. "\nJobId: " .. game.JobId .. "\n玩家数量: " .. #Players:GetPlayers()
-            infoLabel.Font = Enum.Font.GothamSemibold
-            infoLabel.TextSize = 20
-            infoLabel.TextColor3 = Theme.TextPrimary
-            infoLabel.TextWrapped = true
-            infoLabel.TextXAlignment = Enum.TextXAlignment.Center
-            infoLabel.TextYAlignment = Enum.TextYAlignment.Top
-
-            -- 关闭按钮（完全关闭UI和悬浮窗）
-            local closeServerBtn = Instance.new("TextButton", mainFrame)
-            closeServerBtn.Size = UDim2.new(0, 80, 0, 32)
-            closeServerBtn.Position = UDim2.new(1, -100, 1, -46)
-            closeServerBtn.AnchorPoint = Vector2.new(1, 1)
-            closeServerBtn.Text = "关闭"
-            closeServerBtn.Font = Enum.Font.GothamSemibold
-            closeServerBtn.TextSize = 14
-            closeServerBtn.TextColor3 = Theme.Danger
-            closeServerBtn.BackgroundTransparency = 1
-            closeServerBtn.AutoButtonColor = false
-            pressEffect(closeServerBtn)
-            closeServerBtn.MouseButton1Click:Connect(function()
-                container:Destroy()
-                if floatBtn then floatBtn:Destroy() end
-                serverUIContainer = nil
-                floatBtn = nil
-            end)
-
-            -- 创建悬浮窗（独立于UI，但只在UI显示时出现）
-            local float = Instance.new("TextButton")
-            float.Name = "FloatToggle"
-            float.Size = UDim2.new(0, 60, 0, 40)
-            float.Position = UDim2.new(1, -80, 0, 20)  -- 右上角
-            float.AnchorPoint = Vector2.new(1, 0)
-            float.Text = "开"
-            float.Font = Enum.Font.GothamBold
-            float.TextSize = 16
-            float.TextColor3 = Color3.fromRGB(255,255,255)
-            float.BackgroundColor3 = Theme.Accent
-            float.BackgroundTransparency = 0.2
-            float.BorderSizePixel = 0
-            float.AutoButtonColor = false
-            float.Parent = container  -- 放在同一个ScreenGui中
-            corner(float, 10)
-            pressEffect(float)
-
-            local uiVisible = true
-            float.MouseButton1Click:Connect(function()
-                uiVisible = not uiVisible
-                mainFrame.Visible = uiVisible
-                float.Text = uiVisible and "开" or "关"
-            end)
-
-            serverUIContainer = container
-            floatBtn = float
         end)
     end)
 end
 
--- 防检测页面（保持不变）
+-- 防检测页面
 do
     local p = pgAnti
     local y = 10
