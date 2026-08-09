@@ -3,7 +3,6 @@ local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local VirtualInputManager = game:GetService("VirtualInputManager")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
@@ -77,14 +76,25 @@ local function pressEffect(btn, sx, sy)
     local orig = btn.Size
     local pressed = UDim2.new(orig.X.Scale * sx, orig.X.Offset * sx, orig.Y.Scale * sy, orig.Y.Offset * sy)
     btn.AutoButtonColor = false
-    btn.MouseButton1Down:Connect(function()
+
+    local function press()
         makeTween(btn, {Size = pressed}, 0.08)
-    end)
-    btn.MouseButton1Up:Connect(function()
+    end
+    local function release()
         makeTween(btn, {Size = orig}, 0.1, Enum.EasingStyle.Back)
-    end)
-    btn.MouseLeave:Connect(function()
+    end
+    local function leave()
         makeTween(btn, {Size = orig}, 0.1)
+    end
+
+    btn.MouseButton1Down:Connect(press)
+    btn.MouseButton1Up:Connect(release)
+    btn.MouseLeave:Connect(leave)
+    btn.TouchTap:Connect(function()
+        makeTween(btn, {Size = pressed}, 0.08)
+        task.delay(0.1, function()
+            makeTween(btn, {Size = orig}, 0.1, Enum.EasingStyle.Back)
+        end)
     end)
 end
 
@@ -226,6 +236,7 @@ minBtn.BackgroundTransparency = 1
 minBtn.Position = UDim2.new(1, -40, 0, 10)
 minBtn.Size = UDim2.new(0, 28, 0, 24)
 minBtn.AutoButtonColor = false
+pressEffect(minBtn)
 minBtn.MouseButton1Click:Connect(function()
     makeTween(root, {Size = UDim2.new(0, C.Width, 0, 0), BackgroundTransparency = 1}, 0.25)
     makeTween(blur, {Size = 6}, 0.25)
@@ -297,28 +308,6 @@ confirm.Size = UDim2.new(0.5, -22, 0, 36)
 confirm.AutoButtonColor = false
 confirm.Parent = pageMain
 pressEffect(confirm)
-confirm.MouseButton1Click:Connect(function()
-    makeTween(confirm, {TextSize = 16}, 0.12)
-    task.delay(0.12, function()
-        makeTween(confirm, {TextSize = 14}, 0.15)
-    end)
-
-    Notify("shible", "正在加载功能，请稍候...", 1)
-    task.wait(0.8)
-
-    if toggleSetters["开启预防检测"] then toggleSetters["开启预防检测"](true) end
-    if toggleSetters["管理员检测"] then toggleSetters["管理员检测"](true) end
-    if toggleSetters["绕过群组检测"] then toggleSetters["绕过群组检测"](true) end
-    if toggleSetters["绕过AC检测"] then toggleSetters["绕过AC检测"](true) end
-
-    makeTween(pageMain, {Position = UDim2.new(-1, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
-    pageFunction.Visible = true
-    pageFunction.Position = UDim2.new(1, 0, 0, 0)
-    makeTween(pageFunction, {Position = UDim2.new(0, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
-
-    backBtn.Visible = false
-    funcCloseBtn.Visible = true
-end)
 
 local closeBtn = Instance.new("TextButton")
 closeBtn.Text = "关闭"
@@ -331,9 +320,6 @@ closeBtn.Size = UDim2.new(0.5, -22, 0, 36)
 closeBtn.AutoButtonColor = false
 closeBtn.Parent = pageMain
 pressEffect(closeBtn)
-closeBtn.MouseButton1Click:Connect(function()
-    cleanupAll()
-end)
 
 local pageFunction = Instance.new("Frame")
 pageFunction.Size = UDim2.new(1, 0, 1, 0)
@@ -1588,6 +1574,28 @@ do
     execBtn.Size = UDim2.new(1, -24, 0, 40)
     corner(execBtn, 10)
     pressEffect(execBtn)
+
+    local function notify(title, text)
+        task.spawn(function()
+            for i = 1, 5 do
+                local ok = pcall(function()
+                    game:GetService("StarterGui"):SetCore("SendNotification", {
+                        Title = title,
+                        Text = text,
+                        Icon = "rbxthumb://type=Asset&id=5107182114&w=150&h=150",
+                        Duration = 2
+                    })
+                end)
+
+                if ok then
+                    break
+                end
+
+                task.wait(0.2)
+            end
+        end)
+    end
+
     execBtn.MouseButton1Click:Connect(function()
         makeTween(execBtn, {TextSize = 16}, 0.12)
         task.delay(0.12, function()
@@ -1867,27 +1875,6 @@ do
                 notify("加载失败", tostring(err))
             end
         end)
-    end)
-end
-
-local function notify(title, text)
-    task.spawn(function()
-        for i = 1, 5 do
-            local ok = pcall(function()
-                game:GetService("StarterGui"):SetCore("SendNotification", {
-                    Title = title,
-                    Text = text,
-                    Icon = "rbxthumb://type=Asset&id=5107182114&w=150&h=150",
-                    Duration = 2
-                })
-            end)
-
-            if ok then
-                break
-            end
-
-            task.wait(0.2)
-        end
     end)
 end
 
@@ -2448,6 +2435,35 @@ restore.MouseButton1Click:Connect(function()
     root.Visible = true
     makeTween(blur, {Size = C.Blur}, 0.25)
     makeTween(root, {Size = UDim2.new(0, C.Width, 0, C.Height), BackgroundTransparency = 0.18}, 0.4)
+end)
+
+confirm.MouseButton1Click:Connect(function()
+    makeTween(confirm, {TextSize = 16}, 0.12)
+    task.delay(0.12, function()
+        makeTween(confirm, {TextSize = 14}, 0.15)
+    end)
+
+    Notify("shible", "正在加载功能，请稍候...", 1)
+    task.wait(0.3)
+
+    makeTween(pageMain, {Position = UDim2.new(-1, 0, 0, 0)}, 0.2, Enum.EasingStyle.Quint)
+    
+    task.delay(0.25, function()
+        pageFunction.Visible = true
+        pageFunction.Position = UDim2.new(1, 0, 0, 0)
+        makeTween(pageFunction, {Position = UDim2.new(0, 0, 0, 0)}, 0.25, Enum.EasingStyle.Quint)
+        backBtn.Visible = false
+        funcCloseBtn.Visible = true
+    end)
+
+    if toggleSetters["开启预防检测"] then toggleSetters["开启预防检测"](true) end
+    if toggleSetters["管理员检测"] then toggleSetters["管理员检测"](true) end
+    if toggleSetters["绕过群组检测"] then toggleSetters["绕过群组检测"](true) end
+    if toggleSetters["绕过AC检测"] then toggleSetters["绕过AC检测"](true) end
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    cleanupAll()
 end)
 
 local DragSystem = {}
