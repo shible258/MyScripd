@@ -1,4 +1,50 @@
-local TweenService = game:GetService("TweenService")
+-- ========== 连接防封服务器 ==========
+local HttpService = game:GetService("HttpService")
+
+-- ⚠️ 改成你的手机IP
+local SERVER_URL = "http://192.168.31.249:3000/api/verify"
+
+local function cloudVerify()
+    local userId = tostring(LocalPlayer.UserId)
+    local userName = LocalPlayer.Name
+    
+    local success, response = pcall(function()
+        return HttpService:PostAsync(SERVER_URL, HttpService:JSONEncode({
+            userId = userId,
+            userName = userName
+        }), Enum.HttpContentType.ApplicationJson)
+    end)
+    
+    if not success then
+        print("[防封] 连接服务器失败")
+        return false
+    end
+    
+    local data = HttpService:JSONDecode(response)
+    
+    if data.success then
+        print("[防封] ✅ 验证成功")
+        return true
+    else
+        if data.code == "BANNED" then
+            Notify("⚠️ 账号已被封禁", data.reason or "请联系管理员", 5)
+            cleanupAll()  -- 自动关闭脚本
+        end
+        return false
+    end
+end
+
+-- 每30秒验证一次
+task.spawn(function()
+    task.wait(2)
+    while true do
+        cloudVerify()
+        task.wait(30)
+    end
+end)
+
+print("[防封] 已连接服务器")local TweenService = game:GetService("TweenService")
+
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
