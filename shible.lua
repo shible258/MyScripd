@@ -1165,12 +1165,13 @@ do
                             end
                         end
 
--- 人物天线 - 使用头部模型几何中心（3D精确瞄准）
+-- 人物天线 - 固定长度始终指向敌人头部（不管距离多远）
 if (FuncState.AntennaEnabled and myRoot) then
     local camera = workspace.CurrentCamera
     if camera then
         local viewportSize = camera.ViewportSize
-        local center = Vector2.new(viewportSize.X / 2, 0)
+        local center = Vector2.new(viewportSize.X / 2, 0)  -- 起点：屏幕顶部中间
+        local lineLength = 400  -- 固定长度（像素），可以调整这个值
 
         for _, otherPlr in ipairs(Players:GetPlayers()) do
             if otherPlr == LocalPlayer then continue end
@@ -1179,31 +1180,33 @@ if (FuncState.AntennaEnabled and myRoot) then
             if otherChar then
                 local head = otherChar:FindFirstChild("Head")
                 if head then
-                    -- 获取头部部件的世界坐标中心（使用CFrame和Size计算精确中心）
-                    local headCFrame = head.CFrame
-                    local headSize = head.Size
-                    -- 计算头部几何中心（部件中心点）
-                    local headCenter = headCFrame.Position
-                    
-                    -- 稍微下移一点瞄准头部中心偏下（自瞄常用瞄准点）
-                    local downOffset = headSize.Y * 0.2  -- 向下偏移头部高度的20%
-                    local aimPos = headCenter - Vector3.new(0, downOffset, 0)
-                    
-                    local screenPos, onScreen = camera:WorldToScreenPoint(aimPos)
-                    local line = antennaLines[otherPlr]
+                    -- 获取头部在屏幕上的位置
+                    local screenPos, onScreen = camera:WorldToScreenPoint(head.Position)
                     
                     if onScreen then
-                        if not line then
-                            line = Drawing.new("Line")
-                            line.Thickness = 2
-                            line.Color = Color3.new(1, 1, 1)
-                            line.Transparency = 1
+                        -- 计算从顶部中心到敌人头部的方向
+                        local targetPos = Vector2.new(screenPos.X, screenPos.Y)
+                        local direction = (targetPos - center)
+                        local distance = direction.Magnitude
+                        
+                        if distance > 1 then
+                            -- 归一化方向向量，乘以固定长度
+                            local dirUnit = direction.Unit
+                            local endPos = center + dirUnit * lineLength
+                            
+                            local line = antennaLines[otherPlr]
+                            if not line then
+                                line = Drawing.new("Line")
+                                line.Thickness = 2
+                                line.Color = Color3.new(1, 1, 1)
+                                line.Transparency = 1
+                                line.Visible = true
+                                antennaLines[otherPlr] = line
+                            end
+                            line.From = center
+                            line.To = endPos
                             line.Visible = true
-                            antennaLines[otherPlr] = line
                         end
-                        line.From = center
-                        line.To = Vector2.new(screenPos.X, screenPos.Y)
-                        line.Visible = true
                     elseif line then
                         line.Visible = false
                     end
