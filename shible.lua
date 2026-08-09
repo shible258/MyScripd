@@ -378,7 +378,6 @@ local FuncState = {
     AdminDetect = true,
     BypassGroup = true,
     Mode = 1,
-    AntennaEnabled = false,
     RadarEnabled = false,
     BypassAC = true,
     WallCheck = false,
@@ -776,13 +775,6 @@ do
     end)
 
     y = y + 46
-    createToggle(p, y, "人物天线", function()
-        return FuncState.AntennaEnabled
-    end, function(v)
-        FuncState.AntennaEnabled = v
-    end)
-
-    y = y + 46
     createToggle(p, y, "玩家雷达", function()
         return FuncState.RadarEnabled
     end, function(v)
@@ -797,12 +789,10 @@ do
         FuncState.ESPEnabled = v
         FuncState.HealthBarEnabled = v
         FuncState.DistanceEnabled = v
-        FuncState.AntennaEnabled = v
         FuncState.RadarEnabled = v
     end)
 
     local cache = {}
-    local antennaLines = {}
     local useDrawing = pcall(function()
         return Drawing.new("Line")
     end)
@@ -1064,15 +1054,6 @@ do
         safeCall(function()
             local myRoot = getRootPart()
 
-            if (not FuncState.AntennaEnabled or not myRoot) then
-                for _, line in pairs(antennaLines) do
-                    pcall(function()
-                        line:Remove()
-                    end)
-                end
-                antennaLines = {}
-            end
-
             for _, plr in ipairs(Players:GetPlayers()) do
                 if plr == LocalPlayer then continue end
                 if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then
@@ -1161,82 +1142,6 @@ do
                                 existing:Destroy()
                             end
                         end
-
--- 人物天线 - 内核级平滑追踪（屏幕顶部中心 → 敌人头部）
-if (FuncState.AntennaEnabled and myRoot) then
-    local camera = workspace.CurrentCamera
-    if camera then
-        local viewportSize = camera.ViewportSize
-        local center = Vector2.new(viewportSize.X / 2, 0)
-        local smoothingFactor = 0.35
-
-        for _, otherPlr in ipairs(Players:GetPlayers()) do
-            if otherPlr == LocalPlayer then continue end
-            if otherPlr.Team and LocalPlayer.Team and otherPlr.Team == LocalPlayer.Team then continue end
-            
-            local otherChar = otherPlr.Character
-            if not otherChar then continue end
-            
-            local head = otherChar:FindFirstChild("Head")
-            if not head then continue end
-            
-            local aimPos = head.Position
-            local screenPos, onScreen = camera:WorldToScreenPoint(aimPos)
-            
-            local line = antennaLines[otherPlr]
-            
-            if onScreen then
-                if not line then
-                    line = Drawing.new("Line")
-                    line.Thickness = 2.5
-                    line.Color = Color3.new(1, 1, 1)
-                    line.Transparency = 0.85
-                    line.Visible = true
-                    antennaLines[otherPlr] = line
-                    antennaLines[otherPlr .. "_smooth"] = Vector2.new(center.X, center.Y + 50)
-                end
-                
-                local targetPos = Vector2.new(screenPos.X, screenPos.Y)
-                
-                local currentPos = antennaLines[otherPlr .. "_smooth"] or targetPos
-                local smoothPos = currentPos:Lerp(targetPos, smoothingFactor)
-                antennaLines[otherPlr .. "_smooth"] = smoothPos
-                
-                line.From = center
-                line.To = smoothPos
-                line.Visible = true
-            else
-                if line then
-                    line.Visible = false
-                end
-            end
-        end
-
-        for key, line in pairs(antennaLines) do
-            if not key:find("_smooth") then
-                local plr = nil
-                for _, p in ipairs(Players:GetPlayers()) do
-                    if antennaLines[p] == line then
-                        plr = p
-                        break
-                    end
-                end
-                if not plr or not plr.Character or not plr.Character:FindFirstChild("Head") then
-                    pcall(function() line:Remove() end)
-                    antennaLines[plr] = nil
-                    if plr then
-                        antennaLines[plr .. "_smooth"] = nil
-                    end
-                end
-            end
-        end
-    end
-else
-    for _, line in pairs(antennaLines) do
-        pcall(function() line:Remove() end)
-    end
-    antennaLines = {}
-end
                     end
                 end
             end
@@ -1248,14 +1153,6 @@ end
     Players.PlayerRemoving:Connect(function(plr)
         if plr.Character then
             removeESP(plr.Character)
-        end
-
-        local line = antennaLines[plr]
-        if line then
-            pcall(function()
-                line:Remove()
-            end)
-            antennaLines[plr] = nil
         end
 
         local point = radarPoints[plr]
@@ -2218,10 +2115,6 @@ local function cleanupAll()
             end)
         end
         animTracks = {}
-        for _, line in pairs(antennaLines) do
-            pcall(function() line:Remove() end)
-        end
-        antennaLines = {}
         for _, point in pairs(radarPoints) do
             pcall(function() point:Destroy() end)
         end
