@@ -105,6 +105,7 @@ gui.DisplayOrder = 999999
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Enabled = true
 
+-- 主框架...
 local root = Instance.new("Frame")
 root.Name = "MainFrame"
 root.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -382,6 +383,16 @@ local function createToggle(parent, yPos, labelText, getState, onToggle)
     return setState
 end
 
+-- 辅助：获取角色和Humanoid
+local function getChar()
+    return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+end
+
+local function getHumanoid()
+    local c = getChar()
+    return c and c:FindFirstChildOfClass("Humanoid")
+end
+
 -- ==================== 监狱人生页面 ====================
 do
     local p = pgJailbreak
@@ -397,62 +408,83 @@ do
     hdr.TextXAlignment = Enum.TextXAlignment.Left
     y = y + 30
 
-    -- 监狱功能
-    createToggle(p, y, "自动瞄准", function() return FuncState.Aimbot end, function(v)
-        FuncState.Aimbot = v
-        Notify("监狱", "自瞄 " .. (v and "开启" or "关闭"))
-        -- 实际自瞄代码可放置在此处，但需根据具体游戏编写
-    end)
-
-    y = y + 46
-    createToggle(p, y, "透视", function() return FuncState.ESP end, function(v)
-        FuncState.ESP = v
-        Notify("监狱", "透视 " .. (v and "开启" or "关闭"))
-    end)
-
-    y = y + 46
+    -- 加速（直接修改WalkSpeed）
     createToggle(p, y, "加速", function() return FuncState.SpeedHack end, function(v)
         FuncState.SpeedHack = v
+        local hum = getHumanoid()
+        if hum then
+            hum.WalkSpeed = v and 50 or 16
+        end
         Notify("监狱", "加速 " .. (v and "开启" or "关闭"))
-        -- 具体加速实现可修改步行速度等
+        -- 监听角色重生
+        if v then
+            LocalPlayer.CharacterAdded:Connect(function(char)
+                task.wait(0.5)
+                local h = char:FindFirstChildOfClass("Humanoid")
+                if h and FuncState.SpeedHack then
+                    h.WalkSpeed = 50
+                end
+            end)
+        end
     end)
 
     y = y + 46
+
+    -- 穿墙（修改CanCollide）
     createToggle(p, y, "穿墙", function() return FuncState.NoClip end, function(v)
         FuncState.NoClip = v
+        local char = getChar()
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = not v
+                end
+            end
+        end
         Notify("监狱", "穿墙 " .. (v and "开启" or "关闭"))
+        -- 持续刷新
+        if v then
+            local conn
+            conn = RunService.Heartbeat:Connect(function()
+                if not FuncState.NoClip then conn:Disconnect() return end
+                local c = getChar()
+                if c then
+                    for _, part in ipairs(c:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = false
+                        end
+                    end
+                end
+            end)
+        else
+            -- 恢复碰撞
+            local char = getChar()
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = true
+                    end
+                end
+            end
+        end
     end)
 
     y = y + 46
-    createToggle(p, y, "立即逮捕", function() return FuncState.InstantArrest end, function(v)
-        FuncState.InstantArrest = v
-        Notify("监狱", "立即逮捕 " .. (v and "开启" or "关闭"))
-    end)
 
-    -- 分隔线
-    y = y + 50
-    local sep = Instance.new("TextLabel", p)
-    sep.Text = "—— 娱乐功能 ——"
-    sep.Font = Enum.Font.GothamSemibold
-    sep.TextSize = 14
-    sep.TextColor3 = Theme.TextSecondary
-    sep.BackgroundTransparency = 1
-    sep.Position = UDim2.new(0, 12, 0, y)
-    sep.Size = UDim2.new(1, -24, 0, 20)
-    sep.TextXAlignment = Enum.TextXAlignment.Center
-    y = y + 30
-
-    -- 无限子弹 + 极速射速（合并为一个开关）
+    -- 无限子弹 + 极速射速（合并）
     createToggle(p, y, "无限子弹+极速射速", function() return FuncState.InfiniteAmmo end, function(v)
         FuncState.InfiniteAmmo = v
-        local char = LocalPlayer.Character
+        -- 处理当前工具
+        local char = getChar()
         if char then
             for _, tool in ipairs(char:GetChildren()) do
                 if tool:IsA("Tool") then
+                    -- 弹药
                     local ammo = tool:FindFirstChild("Ammo") or tool:FindFirstChild("Ammunition")
                     if ammo and ammo:IsA("IntValue") then
                         ammo.Value = 9999
                     end
+                    -- 射速
                     for _, obj in ipairs(tool:GetDescendants()) do
                         if obj:IsA("NumberValue") and (obj.Name == "FireRate" or obj.Name == "RateOfFire" or obj.Name == "Cooldown") then
                             obj.Value = 0.001
@@ -461,9 +493,11 @@ do
                 end
             end
         end
+        -- 持续监听新工具
         if v then
             local function onChildAdded(child)
                 if child:IsA("Tool") then
+                    task.wait(0.1)
                     local ammo = child:FindFirstChild("Ammo") or child:FindFirstChild("Ammunition")
                     if ammo and ammo:IsA("IntValue") then
                         ammo.Value = 9999
@@ -478,10 +512,11 @@ do
             LocalPlayer.CharacterAdded:Connect(function(char)
                 char.ChildAdded:Connect(onChildAdded)
             end)
+            -- 持续刷新
             local conn
             conn = RunService.Heartbeat:Connect(function()
                 if not FuncState.InfiniteAmmo then conn:Disconnect() return end
-                local c = LocalPlayer.Character
+                local c = getChar()
                 if c then
                     for _, tool in ipairs(c:GetChildren()) do
                         if tool:IsA("Tool") then
@@ -508,7 +543,7 @@ do
     createToggle(p, y, "永久护盾", function() return FuncState.ShieldForever end, function(v)
         FuncState.ShieldForever = v
         if v then
-            local char = LocalPlayer.Character
+            local char = getChar()
             if char then
                 for _, child in ipairs(char:GetChildren()) do
                     if child:IsA("ForceField") then
@@ -527,10 +562,28 @@ do
         Notify("娱乐", "永久护盾 " .. (v and "开启" or "关闭"))
     end)
 
-    -- 提示信息
+    -- 自瞄、透视、立即逮捕（占位，需针对具体游戏实现）
+    y = y + 46
+    createToggle(p, y, "自动瞄准", function() return FuncState.Aimbot end, function(v)
+        FuncState.Aimbot = v
+        Notify("监狱", "自瞄 " .. (v and "开启" or "关闭") .. "（需后续实现瞄准逻辑）")
+    end)
+
+    y = y + 46
+    createToggle(p, y, "透视", function() return FuncState.ESP end, function(v)
+        FuncState.ESP = v
+        Notify("监狱", "透视 " .. (v and "开启" or "关闭") .. "（需后续实现渲染）")
+    end)
+
+    y = y + 46
+    createToggle(p, y, "立即逮捕", function() return FuncState.InstantArrest end, function(v)
+        FuncState.InstantArrest = v
+        Notify("监狱", "立即逮捕 " .. (v and "开启" or "关闭") .. "（需后续实现逮捕逻辑）")
+    end)
+
     y = y + 50
     local info = Instance.new("TextLabel", p)
-    info.Text = "部分功能需重新装备武器或重生生效。"
+    info.Text = "加速/穿墙/无限子弹/护盾已实装。自瞄/透视/逮捕需适配游戏。"
     info.Font = Enum.Font.Gotham
     info.TextSize = 12
     info.TextColor3 = Theme.TextSecondary
@@ -541,7 +594,7 @@ do
     info.TextWrapped = true
 end
 
--- ==================== 防检测页面 ====================
+-- ==================== 防检测页面（保持不变） ====================
 do
     local p = pgAnti
     local y = 10
@@ -556,32 +609,13 @@ do
     hdr.TextXAlignment = Enum.TextXAlignment.Left
 
     y = y + 36
-    createToggle(p, y, "开启预防检测", function()
-        return FuncState.AntiDetect
-    end, function(v)
-        FuncState.AntiDetect = v
-    end)
-
+    createToggle(p, y, "开启预防检测", function() return FuncState.AntiDetect end, function(v) FuncState.AntiDetect = v end)
     y = y + 46
-    createToggle(p, y, "管理员检测", function()
-        return FuncState.AdminDetect
-    end, function(v)
-        FuncState.AdminDetect = v
-    end)
-
+    createToggle(p, y, "管理员检测", function() return FuncState.AdminDetect end, function(v) FuncState.AdminDetect = v end)
     y = y + 46
-    createToggle(p, y, "绕过群组检测", function()
-        return FuncState.BypassGroup
-    end, function(v)
-        FuncState.BypassGroup = v
-    end)
-
+    createToggle(p, y, "绕过群组检测", function() return FuncState.BypassGroup end, function(v) FuncState.BypassGroup = v end)
     y = y + 46
-    createToggle(p, y, "绕过AC检测", function()
-        return FuncState.BypassAC
-    end, function(v)
-        FuncState.BypassAC = v
-    end)
+    createToggle(p, y, "绕过AC检测", function() return FuncState.BypassAC end, function(v) FuncState.BypassAC = v end)
 
     local info = Instance.new("TextLabel", p)
     info.Text = "默认全部开启，如非必要请勿关闭。"
@@ -655,7 +689,7 @@ do
     corner(suicideBtn, 8)
     pressEffect(suicideBtn)
     suicideBtn.MouseButton1Click:Connect(function()
-        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        local char = getChar()
         if char then
             local hum = char:FindFirstChildOfClass("Humanoid")
             if hum then hum.Health = 0 end
@@ -729,7 +763,7 @@ task.defer(function()
     end, "DefaultSelect")
 end)
 
--- ==================== 其余UI组件 ====================
+-- ==================== 其余UI组件（最小化、拖动等） ====================
 local backBtn = Instance.new("TextButton", pageFunction)
 backBtn.Text = "返回"
 backBtn.Font = Enum.Font.GothamSemibold
@@ -930,6 +964,7 @@ end)
 
 makeTween(blur, {Size = C.Blur}, 0.5)
 
+-- 防检测循环
 local bypassRunning = true
 local function doAntiDetect()
     pcall(function()
