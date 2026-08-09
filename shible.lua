@@ -1165,7 +1165,7 @@ do
                             end
                         end
 
-                     -- 人物天线 - 终点连接到自瞄瞄准位置（头部正中心）
+                   -- 人物天线 - 使用自瞄瞄准点（头部中心偏下，根据头部大小动态调整）
 if (FuncState.AntennaEnabled and myRoot) then
     local camera = workspace.CurrentCamera
     if camera then
@@ -1179,8 +1179,10 @@ if (FuncState.AntennaEnabled and myRoot) then
             if otherChar then
                 local head = otherChar:FindFirstChild("Head")
                 if head then
-                    -- 瞄准头部正中心（和自瞄瞄准的位置一致）
-                    local aimPos = head.Position
+                    -- 计算头部中心偏下位置：使用头部位置减去头部高度的一部分
+                    local headHeight = head.Size.Y
+                    local offsetY = headHeight * 0.15  -- 15% 头部高度向下偏移
+                    local aimPos = head.Position - Vector3.new(0, offsetY, 0)
                     local screenPos, onScreen = camera:WorldToScreenPoint(aimPos)
                     local line = antennaLines[otherPlr]
                     
