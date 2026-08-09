@@ -293,6 +293,7 @@ local function createPage(name)
 end
 
 local pgServer = createPage("Server")
+local pgEntertainment = createPage("Entertainment")
 local pgAnti = createPage("Anti")
 
 local FuncState = {
@@ -300,6 +301,10 @@ local FuncState = {
     AdminDetect = true,
     BypassGroup = true,
     BypassAC = true,
+    -- 娱乐功能状态
+    InfiniteAmmo = false,
+    RapidFire = false,
+    ShieldForever = false,
 }
 
 local toggleSetters = {}
@@ -374,12 +379,12 @@ local function createToggle(parent, yPos, labelText, getState, onToggle)
     return setState
 end
 
--- 服务器页面
+-- ==================== 服务器页面（监狱生活UI） ====================
 do
     local p = pgServer
     local y = 10
     local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "服务器信息"
+    hdr.Text = "加载服务器"
     hdr.Font = Enum.Font.GothamSemibold
     hdr.TextSize = 14
     hdr.TextColor3 = Theme.TextPrimary
@@ -403,8 +408,7 @@ do
     pressEffect(loadBtn)
 
     loadBtn.MouseButton1Click:Connect(function()
-        Notify("shible", "服务器检测中...", 2)
-
+        -- 显示服务器名称
         local gameName = "未知游戏"
         local success, info = pcall(function()
             return MarketplaceService:GetProductInfo(game.PlaceId)
@@ -412,14 +416,272 @@ do
         if success and info then
             gameName = info.Name
         end
+        Notify("shible", "当前服务器为: " .. gameName, 3)
 
-        task.delay(1.5, function()
-            Notify("shible", "当前服务器为: " .. gameName, 3)
+        -- 创建监狱生活横屏UI
+        local jailGui = Instance.new("ScreenGui")
+        jailGui.Name = "JailbreakUI"
+        jailGui.ResetOnSpawn = false
+        jailGui.Parent = PlayerGui
+
+        local mainFrame = Instance.new("Frame")
+        mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+        mainFrame.Position = UDim2.fromScale(0.5, 0.5)
+        mainFrame.Size = UDim2.new(0.9, 0, 0.7, 0) -- 横屏，宽高比自适应
+        mainFrame.BackgroundColor3 = Theme.Glass
+        mainFrame.BackgroundTransparency = 0.15
+        mainFrame.BorderSizePixel = 0
+        mainFrame.Parent = jailGui
+        corner(mainFrame, 20)
+
+        -- 标题
+        local titleLabel = Instance.new("TextLabel", mainFrame)
+        titleLabel.Size = UDim2.new(1, -40, 0, 40)
+        titleLabel.Position = UDim2.new(0, 20, 0, 10)
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.Text = "监狱生活 · 功能面板"
+        titleLabel.Font = Enum.Font.GothamBold
+        titleLabel.TextSize = 24
+        titleLabel.TextColor3 = Theme.TextPrimary
+        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+        -- 功能列表（使用 ScrollingFrame 容纳大量选项）
+        local funcScroll = Instance.new("ScrollingFrame", mainFrame)
+        funcScroll.Size = UDim2.new(1, -40, 1, -110)
+        funcScroll.Position = UDim2.new(0, 20, 0, 60)
+        funcScroll.BackgroundTransparency = 1
+        funcScroll.BorderSizePixel = 0
+        funcScroll.ScrollBarThickness = 6
+        funcScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        funcScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+        local layout = Instance.new("UIListLayout", funcScroll)
+        layout.Padding = UDim.new(0, 8)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+        -- 辅助函数：添加一个开关
+        local function addToggle(parent, label, getter, setter)
+            local row = Instance.new("Frame", parent)
+            row.Size = UDim2.new(1, 0, 0, 40)
+            row.BackgroundTransparency = 1
+
+            local lbl = Instance.new("TextLabel", row)
+            lbl.Size = UDim2.new(1, -80, 1, 0)
+            lbl.BackgroundTransparency = 1
+            lbl.Text = label
+            lbl.Font = Enum.Font.Gotham
+            lbl.TextSize = 16
+            lbl.TextColor3 = Theme.TextPrimary
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+
+            local track = Instance.new("Frame", row)
+            track.Size = UDim2.new(0, 60, 0, 30)
+            track.Position = UDim2.new(1, -70, 0.5, -15)
+            track.BackgroundColor3 = Color3.fromRGB(60,60,65)
+            track.BorderSizePixel = 0
+            corner(track, 15)
+            track.Selectable = false
+
+            local thumb = Instance.new("Frame", track)
+            thumb.Size = UDim2.new(0, 24, 0, 24)
+            thumb.Position = UDim2.new(0, 3, 0, 3)
+            thumb.BackgroundColor3 = Color3.fromRGB(255,255,255)
+            thumb.BorderSizePixel = 0
+            corner(thumb, 12)
+
+            local on = false
+            pcall(function() on = getter() end)
+            if on then
+                track.BackgroundColor3 = Color3.fromRGB(220,220,225)
+                thumb.Position = UDim2.new(1, -27, 0, 3)
+            end
+
+            track.Active = true
+            track.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    on = not on
+                    if on then
+                        makeTween(track, {BackgroundColor3 = Color3.fromRGB(220,220,225)}, 0.2)
+                        makeTween(thumb, {Position = UDim2.new(1, -27, 0, 3)}, 0.2)
+                    else
+                        makeTween(track, {BackgroundColor3 = Color3.fromRGB(60,60,65)}, 0.2)
+                        makeTween(thumb, {Position = UDim2.new(0, 3, 0, 3)}, 0.2)
+                    end
+                    safeCall(function() setter(on) end)
+                end
+            end)
+        end
+
+        -- 监狱生活功能开关（模拟常见内核功能）
+        local jailState = {
+            Aimbot = false,
+            ESP = false,
+            SpeedHack = false,
+            NoClip = false,
+            InfiniteStamina = false,
+            InstantArrest = false,
+            AutoFarm = false,
+        }
+
+        addToggle(funcScroll, "自动瞄准", function() return jailState.Aimbot end, function(v) jailState.Aimbot = v; Notify("监狱", "自瞄 " .. (v and "开启" or "关闭")) end)
+        addToggle(funcScroll, "透视", function() return jailState.ESP end, function(v) jailState.ESP = v; Notify("监狱", "透视 " .. (v and "开启" or "关闭")) end)
+        addToggle(funcScroll, "加速", function() return jailState.SpeedHack end, function(v) jailState.SpeedHack = v; Notify("监狱", "加速 " .. (v and "开启" or "关闭")) end)
+        addToggle(funcScroll, "穿墙", function() return jailState.NoClip end, function(v) jailState.NoClip = v; Notify("监狱", "穿墙 " .. (v and "开启" or "关闭")) end)
+        addToggle(funcScroll, "无限体力", function() return jailState.InfiniteStamina end, function(v) jailState.InfiniteStamina = v; Notify("监狱", "无限体力 " .. (v and "开启" or "关闭")) end)
+        addToggle(funcScroll, "立即逮捕", function() return jailState.InstantArrest end, function(v) jailState.InstantArrest = v; Notify("监狱", "立即逮捕 " .. (v and "开启" or "关闭")) end)
+        addToggle(funcScroll, "自动刷钱", function() return jailState.AutoFarm end, function(v) jailState.AutoFarm = v; Notify("监狱", "自动刷钱 " .. (v and "开启" or "关闭")) end)
+
+        -- 关闭按钮
+        local closeJailBtn = Instance.new("TextButton", mainFrame)
+        closeJailBtn.Size = UDim2.new(0, 100, 0, 36)
+        closeJailBtn.Position = UDim2.new(1, -120, 1, -50)
+        closeJailBtn.AnchorPoint = Vector2.new(1, 1)
+        closeJailBtn.Text = "关闭"
+        closeJailBtn.Font = Enum.Font.GothamSemibold
+        closeJailBtn.TextSize = 16
+        closeJailBtn.TextColor3 = Theme.Danger
+        closeJailBtn.BackgroundTransparency = 1
+        closeJailBtn.AutoButtonColor = false
+        pressEffect(closeJailBtn)
+        closeJailBtn.MouseButton1Click:Connect(function()
+            jailGui:Destroy()
         end)
+
+        -- 如果用户已经打开，先关闭旧的
+        for _, v in pairs(PlayerGui:GetChildren()) do
+            if v.Name == "JailbreakUI" then v:Destroy() end
+        end
     end)
 end
 
--- 防检测页面
+-- ==================== 娱乐页面 ====================
+do
+    local p = pgEntertainment
+    local y = 10
+    local hdr = Instance.new("TextLabel", p)
+    hdr.Text = "娱乐功能"
+    hdr.Font = Enum.Font.GothamSemibold
+    hdr.TextSize = 14
+    hdr.TextColor3 = Theme.TextPrimary
+    hdr.BackgroundTransparency = 1
+    hdr.Position = UDim2.new(0, 12, 0, y)
+    hdr.Size = UDim2.new(1, -24, 0, 20)
+    hdr.TextXAlignment = Enum.TextXAlignment.Left
+    y = y + 36
+
+    -- 无限子弹
+    createToggle(p, y, "无限子弹", function()
+        return FuncState.InfiniteAmmo
+    end, function(v)
+        FuncState.InfiniteAmmo = v
+        -- 实现：遍历玩家工具，设置弹药为巨大值
+        if v then
+            local char = LocalPlayer.Character
+            if char then
+                for _, tool in ipairs(char:GetChildren()) do
+                    if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then
+                        tool.Ammo.Value = 9999
+                    end
+                end
+            end
+            -- 连接事件，当新工具加入时设置
+            local function onChildAdded(child)
+                if child:IsA("Tool") and child:FindFirstChild("Ammo") then
+                    child.Ammo.Value = 9999
+                end
+            end
+            LocalPlayer.CharacterAdded:Connect(function(char)
+                char.ChildAdded:Connect(onChildAdded)
+            end)
+        end
+        Notify("娱乐", "无限子弹 " .. (v and "开启" : "关闭"))
+    end)
+
+    y = y + 46
+
+    -- 射速一秒999发
+    createToggle(p, y, "一秒999发", function()
+        return FuncState.RapidFire
+    end, function(v)
+        FuncState.RapidFire = v
+        -- 实现：修改武器的FireRate属性（如果存在）
+        if v then
+            local char = LocalPlayer.Character
+            if char then
+                for _, tool in ipairs(char:GetChildren()) do
+                    if tool:IsA("Tool") then
+                        for _, obj in ipairs(tool:GetDescendants()) do
+                            if obj:IsA("NumberValue") and obj.Name == "FireRate" then
+                                obj.Value = 0.001 -- 极快射速
+                            end
+                        end
+                    end
+                end
+            end
+            -- 可能需持续刷新
+            local conn
+            conn = RunService.Heartbeat:Connect(function()
+                if not FuncState.RapidFire then conn:Disconnect() return end
+                local char = LocalPlayer.Character
+                if char then
+                    for _, tool in ipairs(char:GetChildren()) do
+                        if tool:IsA("Tool") then
+                            for _, obj in ipairs(tool:GetDescendants()) do
+                                if obj:IsA("NumberValue") and obj.Name == "FireRate" then
+                                    obj.Value = 0.001
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+        Notify("娱乐", "射速一秒999发 " .. (v and "开启" : "关闭"))
+    end)
+
+    y = y + 46
+
+    -- 永久护盾（刚复活时的护盾）
+    createToggle(p, y, "永久护盾", function()
+        return FuncState.ShieldForever
+    end, function(v)
+        FuncState.ShieldForever = v
+        -- 实现：查找玩家身上的护盾效果（例如ForceField），将其TimeToDie设为极大
+        if v then
+            local char = LocalPlayer.Character
+            if char then
+                for _, child in ipairs(char:GetChildren()) do
+                    if child:IsA("ForceField") then
+                        child.TimeToDie = math.huge
+                    end
+                end
+            end
+            -- 监听新护盾出现
+            LocalPlayer.CharacterAdded:Connect(function(char)
+                char.ChildAdded:Connect(function(child)
+                    if child:IsA("ForceField") then
+                        child.TimeToDie = math.huge
+                    end
+                end)
+            end)
+        end
+        Notify("娱乐", "永久护盾 " .. (v and "开启" : "关闭"))
+    end)
+
+    y = y + 46
+    local info = Instance.new("TextLabel", p)
+    info.Text = "注意：部分功能需重新装备武器或重生生效。"
+    info.Font = Enum.Font.Gotham
+    info.TextSize = 12
+    info.TextColor3 = Theme.TextSecondary
+    info.BackgroundTransparency = 1
+    info.Position = UDim2.new(0, 16, 0, y)
+    info.Size = UDim2.new(1, -32, 0, 30)
+    info.TextXAlignment = Enum.TextXAlignment.Left
+    info.TextWrapped = true
+end
+
+-- ==================== 防检测页面（保持不变） ====================
 do
     local p = pgAnti
     local y = 10
@@ -541,6 +803,7 @@ do
     end)
 end
 
+-- ==================== 左侧栏项目 ====================
 local selectedItem = nil
 local function createFuncItem(name, key)
     local item = Instance.new("TextButton")
@@ -593,6 +856,7 @@ local function createFuncItem(name, key)
 end
 
 createFuncItem("服务器", "Server")
+createFuncItem("娱乐", "Entertainment")
 createFuncItem("防检测", "Anti")
 
 task.defer(function()
@@ -606,6 +870,7 @@ task.defer(function()
     end, "DefaultSelect")
 end)
 
+-- ==================== 其余UI组件（最小化、拖动等）保持不变 ====================
 local backBtn = Instance.new("TextButton", pageFunction)
 backBtn.Text = "返回"
 backBtn.Font = Enum.Font.GothamSemibold
@@ -806,6 +1071,7 @@ end)
 
 makeTween(blur, {Size = C.Blur}, 0.5)
 
+-- 防检测循环
 local bypassRunning = true
 local function doAntiDetect()
     pcall(function()
