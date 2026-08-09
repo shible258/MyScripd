@@ -405,7 +405,6 @@ do
     loadBtn.MouseButton1Click:Connect(function()
         Notify("shible", "服务器检测中...", 2)
 
-        -- 获取游戏名称（异步）
         local gameName = "未知游戏"
         local success, info = pcall(function()
             return MarketplaceService:GetProductInfo(game.PlaceId)
@@ -414,10 +413,8 @@ do
             gameName = info.Name
         end
 
-        local serverId = game.JobId or "未知ID"
-
         task.delay(1.5, function()
-            Notify("shible", "当前服务器为: " .. gameName .. "\n服务器ID: " .. serverId, 4)
+            Notify("shible", "当前服务器为: " .. gameName, 3)
         end)
     end)
 end
