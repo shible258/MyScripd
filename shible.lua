@@ -1,3 +1,4 @@
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
@@ -659,13 +660,13 @@ do
                 end)
             end
             pcall(function()
-                getgenv().AimbotEnabled = false
+                getfenv().AimbotEnabled = false
             end)
             pcall(function()
-                getgenv().SilentAim = false
+                getfenv().SilentAim = false
             end)
             pcall(function()
-                getgenv()._G.AimbotEnabled = false
+                getfenv()["_G"].AimbotEnabled = false
             end)
             scriptLoaded = false
         end
@@ -685,10 +686,10 @@ do
             end
         else
             pcall(function()
-                getgenv().BulletTrackEnabled = false
+                getfenv().BulletTrackEnabled = false
             end)
             pcall(function()
-                _G.BulletTrackEnabled = false
+                getfenv()["_G"].BulletTrackEnabled = false
             end)
             bulletTrackLoaded = false
         end
@@ -1634,10 +1635,10 @@ do
             end
         else
             pcall(function()
-                getgenv().FlingAllEnabled = false
+                getfenv().FlingAllEnabled = false
             end)
             pcall(function()
-                _G.FlingAllEnabled = false
+                getfenv()["_G"].FlingAllEnabled = false
             end)
             FuncState.FlingLoaded = false
         end
@@ -2398,9 +2399,9 @@ LocalPlayer.OnTeleport:Connect(function(state)
                 waterWalkConnection = nil
             end
             _G = {}
-            if getgenv then
-                for k, v in pairs(getgenv()) do
-                    getgenv()[k] = nil
+            if getfenv then
+                for k, v in pairs(getfenv()) do
+                    getfenv()[k] = nil
                 end
             end
             if shared then
