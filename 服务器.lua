@@ -4,6 +4,7 @@ local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
+local MarketplaceService = game:GetService("MarketplaceService")
 
 if not LocalPlayer then
     LocalPlayer = Players.PlayerAdded:Wait()
@@ -404,11 +405,19 @@ do
     loadBtn.MouseButton1Click:Connect(function()
         Notify("shible", "服务器检测中...", 2)
 
-        -- 获取服务器名称（使用 JobId 作为服务器标识）
-        local serverName = game.JobId or "未知服务器"
+        -- 获取游戏名称（异步）
+        local gameName = "未知游戏"
+        local success, info = pcall(function()
+            return MarketplaceService:GetProductInfo(game.PlaceId)
+        end)
+        if success and info then
+            gameName = info.Name
+        end
+
+        local serverId = game.JobId or "未知ID"
 
         task.delay(1.5, function()
-            Notify("shible", "当前服务器为: " .. serverName, 3)
+            Notify("shible", "当前服务器为: " .. gameName .. "\n服务器ID: " .. serverId, 4)
         end)
     end)
 end
