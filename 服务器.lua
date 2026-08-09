@@ -300,7 +300,6 @@ local FuncState = {
     AdminDetect = true,
     BypassGroup = true,
     BypassAC = true,
-    -- 娱乐功能状态（在监狱UI中使用）
     InfiniteAmmo = false,
     ShieldForever = false,
 }
@@ -406,6 +405,13 @@ do
     pressEffect(loadBtn)
 
     loadBtn.MouseButton1Click:Connect(function()
+        -- 先销毁旧UI（避免冲突）
+        for _, v in pairs(PlayerGui:GetChildren()) do
+            if v.Name == "JailbreakUI" then
+                v:Destroy()
+            end
+        end
+
         local gameName = "未知游戏"
         local success, info = pcall(function()
             return MarketplaceService:GetProductInfo(game.PlaceId)
@@ -415,10 +421,11 @@ do
         end
         Notify("shible", "当前服务器为: " .. gameName, 3)
 
-        -- 创建监狱生活UI（横屏自适应）
+        -- 创建监狱UI
         local jailGui = Instance.new("ScreenGui")
         jailGui.Name = "JailbreakUI"
         jailGui.ResetOnSpawn = false
+        jailGui.DisplayOrder = 999999  -- 确保在最上层
         jailGui.Parent = PlayerGui
 
         local mainFrame = Instance.new("Frame")
@@ -426,7 +433,7 @@ do
         mainFrame.Position = UDim2.fromScale(0.5, 0.5)
         mainFrame.Size = UDim2.new(0.9, 0, 0.7, 0)
         mainFrame.BackgroundColor3 = Theme.Glass
-        mainFrame.BackgroundTransparency = 0.15
+        mainFrame.BackgroundTransparency = 0.1   -- 稍微不透明
         mainFrame.BorderSizePixel = 0
         mainFrame.Parent = jailGui
         corner(mainFrame, 20)
@@ -516,7 +523,6 @@ do
             InstantArrest = false,
         }
 
-        -- 添加监狱功能
         addToggle(funcScroll, "自动瞄准", function() return jailState.Aimbot end, function(v) jailState.Aimbot = v; Notify("监狱", "自瞄 " .. (v and "开启" or "关闭")) end)
         addToggle(funcScroll, "透视", function() return jailState.ESP end, function(v) jailState.ESP = v; Notify("监狱", "透视 " .. (v and "开启" or "关闭")) end)
         addToggle(funcScroll, "加速", function() return jailState.SpeedHack end, function(v) jailState.SpeedHack = v; Notify("监狱", "加速 " .. (v and "开启" or "关闭")) end)
@@ -540,12 +546,10 @@ do
             if char then
                 for _, tool in ipairs(char:GetChildren()) do
                     if tool:IsA("Tool") then
-                        -- 无限弹药
                         local ammo = tool:FindFirstChild("Ammo") or tool:FindFirstChild("Ammunition")
                         if ammo and ammo:IsA("IntValue") then
                             ammo.Value = 9999
                         end
-                        -- 极速射速 (一秒999发 ≈ 0.001s 间隔)
                         for _, obj in ipairs(tool:GetDescendants()) do
                             if obj:IsA("NumberValue") and (obj.Name == "FireRate" or obj.Name == "RateOfFire" or obj.Name == "Cooldown") then
                                 obj.Value = 0.001
@@ -554,7 +558,6 @@ do
                     end
                 end
             end
-            -- 持续监听新工具
             if v then
                 local function onChildAdded(child)
                     if child:IsA("Tool") then
@@ -572,7 +575,6 @@ do
                 LocalPlayer.CharacterAdded:Connect(function(char)
                     char.ChildAdded:Connect(onChildAdded)
                 end)
-                -- 已有工具的持续刷新（防止重置）
                 local conn
                 conn = RunService.Heartbeat:Connect(function()
                     if not FuncState.InfiniteAmmo then conn:Disconnect() return end
@@ -635,11 +637,6 @@ do
         closeJailBtn.MouseButton1Click:Connect(function()
             jailGui:Destroy()
         end)
-
-        -- 防止重复打开
-        for _, v in pairs(PlayerGui:GetChildren()) do
-            if v.Name == "JailbreakUI" then v:Destroy() end
-        end
     end)
 end
 
@@ -765,7 +762,7 @@ do
     end)
 end
 
--- ==================== 左侧栏项目（仅服务器和防检测） ====================
+-- ==================== 左侧栏项目 ====================
 local selectedItem = nil
 local function createFuncItem(name, key)
     local item = Instance.new("TextButton")
