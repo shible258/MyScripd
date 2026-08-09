@@ -3,6 +3,7 @@ local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
@@ -76,25 +77,14 @@ local function pressEffect(btn, sx, sy)
     local orig = btn.Size
     local pressed = UDim2.new(orig.X.Scale * sx, orig.X.Offset * sx, orig.Y.Scale * sy, orig.Y.Offset * sy)
     btn.AutoButtonColor = false
-
-    local function press()
+    btn.MouseButton1Down:Connect(function()
         makeTween(btn, {Size = pressed}, 0.08)
-    end
-    local function release()
+    end)
+    btn.MouseButton1Up:Connect(function()
         makeTween(btn, {Size = orig}, 0.1, Enum.EasingStyle.Back)
-    end
-    local function leave()
+    end)
+    btn.MouseLeave:Connect(function()
         makeTween(btn, {Size = orig}, 0.1)
-    end
-
-    btn.MouseButton1Down:Connect(press)
-    btn.MouseButton1Up:Connect(release)
-    btn.MouseLeave:Connect(leave)
-    btn.TouchTap:Connect(function()
-        makeTween(btn, {Size = pressed}, 0.08)
-        task.delay(0.1, function()
-            makeTween(btn, {Size = orig}, 0.1, Enum.EasingStyle.Back)
-        end)
     end)
 end
 
@@ -236,19 +226,9 @@ minBtn.BackgroundTransparency = 1
 minBtn.Position = UDim2.new(1, -40, 0, 10)
 minBtn.Size = UDim2.new(0, 28, 0, 24)
 minBtn.AutoButtonColor = false
-pressEffect(minBtn)
-minBtn.MouseButton1Click:Connect(function()
-    makeTween(root, {Size = UDim2.new(0, C.Width, 0, 0), BackgroundTransparency = 1}, 0.25)
-    makeTween(blur, {Size = 6}, 0.25)
-
-    task.delay(0.2, function()
-        root.Visible = false
-        mini.Visible = true
-        mini.Size = UDim2.new(0, 140, 0, 40)
-        mini.BackgroundTransparency = 1
-        makeTween(mini, {Size = UDim2.new(0, 160, 0, 48), BackgroundTransparency = 0.12}, 0.3, Enum.EasingStyle.Back)
-    end)
-end)
+minBtn.SelectionImageObject = nil
+minBtn.Selectable = false
+minBtn.Parent = nav
 
 local contentContainer = Instance.new("Frame")
 contentContainer.Size = UDim2.new(1, 0, 1, -C.NavHeight)
@@ -385,7 +365,6 @@ local pgFun = createPage("Fun")
 local pgAnti = createPage("Anti")
 local pgAction = createPage("Action")
 local pgServer = createPage("Server")
-local pgDetect = createPage("Detect")
 
 local FuncState = {
     SpeedEnabled = false,
@@ -399,6 +378,7 @@ local FuncState = {
     AdminDetect = true,
     BypassGroup = true,
     Mode = 1,
+    AntennaEnabled = false,
     RadarEnabled = false,
     BypassAC = true,
     WallCheck = false,
@@ -511,7 +491,7 @@ local function createToggle(parent, yPos, labelText, getState, onToggle)
     end
 
     track.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if ((input.UserInputType == Enum.UserInputType.MouseButton1) or (input.UserInputType == Enum.UserInputType.Touch)) then
             setState(not on)
         end
     end)
@@ -561,7 +541,9 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
     track.Text = ""
     track.AutoButtonColor = false
     corner(track, 6)
+    track.SelectionImageObject = nil
     track.Selectable = false
+    track.ZIndex = 2
 
     local fill = Instance.new("Frame", track)
     fill.Size = UDim2.new(0, 0, 1, 0)
@@ -605,20 +587,20 @@ local function createSlider(parent, yPos, labelText, minVal, maxVal, initial, on
     end)
 
     UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        if (dragging and ((input.UserInputType == Enum.UserInputType.MouseMovement) or (input.UserInputType == Enum.UserInputType.Touch))) then
             updateFromMouse()
         end
     end)
 
     UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if ((input.UserInputType == Enum.UserInputType.MouseButton1) or (input.UserInputType == Enum.UserInputType.Touch)) then
             dragging = false
         end
     end)
 
     inputBox.FocusLost:Connect(function()
         local txt = inputBox.Text:gsub("[^0-9]", "")
-        if txt == "" then
+        if (txt == "") then
             txt = tostring(minVal)
         end
         setVal(tonumber(txt) or minVal)
@@ -676,13 +658,13 @@ do
                 end)
             end
             pcall(function()
-                getfenv().AimbotEnabled = false
+                getgenv().AimbotEnabled = false
             end)
             pcall(function()
-                getfenv().SilentAim = false
+                getgenv().SilentAim = false
             end)
             pcall(function()
-                getfenv()["_G"].AimbotEnabled = false
+                getgenv()._G.AimbotEnabled = false
             end)
             scriptLoaded = false
         end
@@ -702,10 +684,10 @@ do
             end
         else
             pcall(function()
-                getfenv().BulletTrackEnabled = false
+                getgenv().BulletTrackEnabled = false
             end)
             pcall(function()
-                getfenv()["_G"].BulletTrackEnabled = false
+                _G.BulletTrackEnabled = false
             end)
             bulletTrackLoaded = false
         end
@@ -744,7 +726,7 @@ do
     RunService.Heartbeat:Connect(function()
         if FuncState.SpeedEnabled then
             local h = getHumanoid()
-            if h and (h.WalkSpeed ~= FuncState.SpeedValue) then
+            if (h and (h.WalkSpeed ~= FuncState.SpeedValue)) then
                 h.WalkSpeed = FuncState.SpeedValue
             end
         end
@@ -753,7 +735,7 @@ do
     LocalPlayer.CharacterAdded:Connect(function(char)
         task.wait(0.1)
         local h = char:FindFirstChild("Humanoid")
-        if h and FuncState.SpeedEnabled then
+        if (h and FuncState.SpeedEnabled) then
             h.WalkSpeed = FuncState.SpeedValue
         end
     end)
@@ -794,6 +776,13 @@ do
     end)
 
     y = y + 46
+    createToggle(p, y, "人物天线", function()
+        return FuncState.AntennaEnabled
+    end, function(v)
+        FuncState.AntennaEnabled = v
+    end)
+
+    y = y + 46
     createToggle(p, y, "玩家雷达", function()
         return FuncState.RadarEnabled
     end, function(v)
@@ -808,55 +797,24 @@ do
         FuncState.ESPEnabled = v
         FuncState.HealthBarEnabled = v
         FuncState.DistanceEnabled = v
+        FuncState.AntennaEnabled = v
         FuncState.RadarEnabled = v
     end)
 
     local cache = {}
+    local antennaLines = {}
+    local useDrawing = pcall(function()
+        return Drawing.new("Line")
+    end)
+
+    if not useDrawing then
+        warn("[人物天线] 当前环境不支持 Drawing，天线将无法使用")
+    end
+
     local radarFrame = nil
     local radarPoints = {}
     local radarRadiusPixels = 85
     local radarWorldRange = 300
-
-    local function getMapSize()
-        local mapSize = 500
-        local success, result = pcall(function()
-            local terrain = Workspace.Terrain
-            if terrain then
-                local size = terrain.Size
-                mapSize = math.max(size.X, size.Z)
-            end
-        end)
-        if not success or mapSize < 100 then
-            local parts = Workspace:GetDescendants()
-            local maxDist = 0
-            for _, part in ipairs(parts) do
-                if part:IsA("BasePart") and part.Size.Magnitude > 5 then
-                    local pos = part.Position
-                    local dist = math.sqrt(pos.X^2 + pos.Z^2)
-                    if dist > maxDist then
-                        maxDist = dist
-                    end
-                end
-            end
-            mapSize = math.max(maxDist * 2, 300)
-        end
-        return math.clamp(mapSize, 100, 10000)
-    end
-
-    local function updateRadarRange()
-        radarWorldRange = getMapSize()
-        radarRadiusPixels = math.clamp(radarWorldRange / 6, 60, 180)
-    end
-
-    updateRadarRange()
-
-    local function onMapChange()
-        task.wait(0.5)
-        updateRadarRange()
-    end
-
-    Workspace.DescendantAdded:Connect(onMapChange)
-    Workspace.DescendantRemoved:Connect(onMapChange)
 
     local function createRadar()
         if radarFrame then
@@ -891,7 +849,7 @@ do
         cross2.BorderSizePixel = 0
 
         local maxDist = radarWorldRange
-        local ringDistances = {maxDist * 0.5, maxDist}
+        local ringDistances = {150, 300}
 
         for _, dist in ipairs(ringDistances) do
             local ratio = dist / maxDist
@@ -911,8 +869,7 @@ do
         border.BackgroundTransparency = 1
         border.BorderSizePixel = 2
         border.BorderColor3 = Color3.fromRGB(255, 255, 255)
-        border.BorderTransparency = 0.2
-        border.BorderMode = Enum.BorderMode.Inset
+        border.BorderTransparency = 0.2        border.BorderMode = Enum.BorderMode.Inset
         corner(border, 90)
     end
 
@@ -921,8 +878,7 @@ do
             if radarFrame then
                 radarFrame.Visible = false
             end
-            for _, point in pairs(radarPoints) do
-                point:Destroy()
+            for _, point in pairs(radarPoints) do                point:Destroy()
             end
             radarPoints = {}
             return
@@ -946,7 +902,7 @@ do
         local myPos = myRoot.Position
         local radarSize = radarFrame.AbsoluteSize
 
-        if radarSize.X == 0 or radarSize.Y == 0 then
+        if ((radarSize.X == 0) or (radarSize.Y == 0)) then
             return
         end
 
@@ -976,9 +932,9 @@ do
                 if hrp then
                     local targetPos = hrp.Position
                     local diff = targetPos - myPos
-                    local horizontalDist = math.sqrt(diff.X ^ 2 + diff.Z ^ 2)
+                    local horizontalDist = math.sqrt((diff.X ^ 2) + (diff.Z ^ 2))
 
-                    if horizontalDist <= maxDist then
+                    if (horizontalDist <= maxDist) then
                         local dirWorld = Vector3.new(diff.X, 0, diff.Z).Unit
                         if dirWorld.Magnitude < 0.01 then continue end
                         local fwdComp = dirWorld:Dot(forward)
@@ -1036,7 +992,7 @@ do
     end
 
     local function getOrCreateESP(char)
-        if cache[char] and cache[char].hl and cache[char].hl.Parent == char then
+        if (cache[char] and cache[char].hl and (cache[char].hl.Parent == char)) then
             return cache[char].hl, cache[char].hb
         end
 
@@ -1108,6 +1064,15 @@ do
         safeCall(function()
             local myRoot = getRootPart()
 
+            if (not FuncState.AntennaEnabled or not myRoot) then
+                for _, line in pairs(antennaLines) do
+                    pcall(function()
+                        line:Remove()
+                    end)
+                end
+                antennaLines = {}
+            end
+
             for _, plr in ipairs(Players:GetPlayers()) do
                 if plr == LocalPlayer then continue end
                 if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then
@@ -1118,7 +1083,7 @@ do
                     local hum = char:FindFirstChild("Humanoid")
                     local head = char:FindFirstChild("Head")
 
-                    if not hum or hum.Health <= 0 or not head then
+                    if (not hum or (hum.Health <= 0) or not head) then
                         removeESP(char)
                     else
                         local hl, hb = getOrCreateESP(char)
@@ -1137,16 +1102,16 @@ do
                                     local ratio = math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1)
                                     fill.Size = UDim2.new(ratio, 0, 1, 0)
 
-                                    if ratio > 0.5 then
+                                    if (ratio > 0.5) then
                                         fill.BackgroundColor3 = Color3.fromRGB(50, 215, 75)
-                                    elseif ratio > 0.25 then
+                                    elseif (ratio > 0.25) then
                                         fill.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
                                     else
                                         fill.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
                                     end
                                 end
 
-                                if myRoot and head then
+                                if (myRoot and head) then
                                     local dist = (myRoot.Position - head.Position).Magnitude
                                     local scale = math.clamp(8 / math.max(dist, 1), 0.3, 1.3)
                                     local newWidth = math.floor(55 * scale)
@@ -1158,7 +1123,7 @@ do
 
                         local hrp = char:FindFirstChild("HumanoidRootPart")
 
-                        if FuncState.DistanceEnabled and hrp and myRoot then
+                        if (FuncState.DistanceEnabled and hrp and myRoot) then
                             local distStuds = (myRoot.Position - hrp.Position).Magnitude
                             local distMeters = distStuds * 0.28
                             local distGui = hrp:FindFirstChild("ESP_Distance")
@@ -1196,6 +1161,82 @@ do
                                 existing:Destroy()
                             end
                         end
+
+-- 人物天线 - 内核级平滑追踪（屏幕顶部中心 → 敌人头部）
+if (FuncState.AntennaEnabled and myRoot) then
+    local camera = workspace.CurrentCamera
+    if camera then
+        local viewportSize = camera.ViewportSize
+        local center = Vector2.new(viewportSize.X / 2, 0)
+        local smoothingFactor = 0.35
+
+        for _, otherPlr in ipairs(Players:GetPlayers()) do
+            if otherPlr == LocalPlayer then continue end
+            if otherPlr.Team and LocalPlayer.Team and otherPlr.Team == LocalPlayer.Team then continue end
+            
+            local otherChar = otherPlr.Character
+            if not otherChar then continue end
+            
+            local head = otherChar:FindFirstChild("Head")
+            if not head then continue end
+            
+            local aimPos = head.Position
+            local screenPos, onScreen = camera:WorldToScreenPoint(aimPos)
+            
+            local line = antennaLines[otherPlr]
+            
+            if onScreen then
+                if not line then
+                    line = Drawing.new("Line")
+                    line.Thickness = 2.5
+                    line.Color = Color3.new(1, 1, 1)
+                    line.Transparency = 0.85
+                    line.Visible = true
+                    antennaLines[otherPlr] = line
+                    antennaLines[otherPlr .. "_smooth"] = Vector2.new(center.X, center.Y + 50)
+                end
+                
+                local targetPos = Vector2.new(screenPos.X, screenPos.Y)
+                
+                local currentPos = antennaLines[otherPlr .. "_smooth"] or targetPos
+                local smoothPos = currentPos:Lerp(targetPos, smoothingFactor)
+                antennaLines[otherPlr .. "_smooth"] = smoothPos
+                
+                line.From = center
+                line.To = smoothPos
+                line.Visible = true
+            else
+                if line then
+                    line.Visible = false
+                end
+            end
+        end
+
+        for key, line in pairs(antennaLines) do
+            if not key:find("_smooth") then
+                local plr = nil
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if antennaLines[p] == line then
+                        plr = p
+                        break
+                    end
+                end
+                if not plr or not plr.Character or not plr.Character:FindFirstChild("Head") then
+                    pcall(function() line:Remove() end)
+                    antennaLines[plr] = nil
+                    if plr then
+                        antennaLines[plr .. "_smooth"] = nil
+                    end
+                end
+            end
+        end
+    end
+else
+    for _, line in pairs(antennaLines) do
+        pcall(function() line:Remove() end)
+    end
+    antennaLines = {}
+end
                     end
                 end
             end
@@ -1209,342 +1250,19 @@ do
             removeESP(plr.Character)
         end
 
+        local line = antennaLines[plr]
+        if line then
+            pcall(function()
+                line:Remove()
+            end)
+            antennaLines[plr] = nil
+        end
+
         local point = radarPoints[plr]
         if point then
             point:Destroy()
             radarPoints[plr] = nil
         end
-    end)
-end
-
-do
-    local p = pgDetect
-    local y = 10
-    
-    local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "服务器检测工具"
-    hdr.Font = Enum.Font.GothamSemibold
-    hdr.TextSize = 14
-    hdr.TextColor3 = Theme.TextPrimary
-    hdr.BackgroundTransparency = 1
-    hdr.Position = UDim2.new(0, 12, 0, y)
-    hdr.Size = UDim2.new(1, -24, 0, 20)
-    hdr.TextXAlignment = Enum.TextXAlignment.Left
-    y = y + 36
-
-    local detectBtn = Instance.new("TextButton", p)
-    detectBtn.Text = "🔍 检测服务器"
-    detectBtn.Font = Enum.Font.GothamSemibold
-    detectBtn.TextSize = 14
-    detectBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    detectBtn.BackgroundColor3 = Theme.Glass
-    detectBtn.BackgroundTransparency = 0.2
-    detectBtn.AutoButtonColor = false
-    detectBtn.Position = UDim2.new(0, 12, 0, y)
-    detectBtn.Size = UDim2.new(1, -24, 0, 40)
-    corner(detectBtn, 10)
-    pressEffect(detectBtn)
-
-    local detectUI = nil
-    local uiVisible = false
-
-    local function createDetectUI()
-        if detectUI then
-            detectUI.Visible = true
-            return
-        end
-
-        detectUI = Instance.new("Frame", gui)
-        detectUI.Name = "DetectUI"
-        detectUI.AnchorPoint = Vector2.new(0.5, 0.5)
-        detectUI.Position = UDim2.fromScale(0.5, 0.5)
-        detectUI.Size = UDim2.new(0, 600, 0, 400)
-        detectUI.BackgroundColor3 = Theme.Glass
-        detectUI.BackgroundTransparency = 0.08
-        detectUI.BorderSizePixel = 0
-        detectUI.Active = true
-        detectUI.Visible = true
-        detectUI.ZIndex = 100
-        corner(detectUI, C.Radius)
-
-        local titleBar = Instance.new("Frame", detectUI)
-        titleBar.Size = UDim2.new(1, 0, 0, 40)
-        titleBar.BackgroundTransparency = 1
-        titleBar.Active = true
-
-        local titleLbl = Instance.new("TextLabel", titleBar)
-        titleLbl.Text = "🛡️ 服务器检测面板"
-        titleLbl.Font = Enum.Font.GothamSemibold
-        titleLbl.TextSize = 18
-        titleLbl.TextColor3 = Theme.TextPrimary
-        titleLbl.BackgroundTransparency = 1
-        titleLbl.Position = UDim2.new(0, 16, 0, 0)
-        titleLbl.Size = UDim2.new(0.7, 0, 1, 0)
-        titleLbl.TextXAlignment = Enum.TextXAlignment.Left
-
-        local closeUI = Instance.new("TextButton", titleBar)
-        closeUI.Text = "✕"
-        closeUI.Font = Enum.Font.GothamBold
-        closeUI.TextSize = 18
-        closeUI.TextColor3 = Theme.Danger
-        closeUI.BackgroundTransparency = 1
-        closeUI.Position = UDim2.new(1, -40, 0, 4)
-        closeUI.Size = UDim2.new(0, 32, 1, -8)
-        closeUI.AutoButtonColor = false
-        closeUI.MouseButton1Click:Connect(function()
-            uiVisible = false
-            detectUI.Visible = false
-        end)
-        pressEffect(closeUI, 0.9, 0.9)
-
-        local content = Instance.new("ScrollingFrame", detectUI)
-        content.Size = UDim2.new(1, 0, 1, -40)
-        content.Position = UDim2.new(0, 0, 0, 40)
-        content.BackgroundTransparency = 1
-        content.ScrollBarThickness = 4
-        content.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        content.CanvasSize = UDim2.new(0, 0, 0, 0)
-
-        local layout = Instance.new("UIListLayout", content)
-        layout.Padding = UDim.new(0, 12)
-        layout.SortOrder = Enum.SortOrder.LayoutOrder
-
-        local pad = Instance.new("UIPadding", content)
-        pad.PaddingTop = UDim.new(0, 12)
-        pad.PaddingBottom = UDim.new(0, 12)
-        pad.PaddingLeft = UDim.new(0, 16)
-        pad.PaddingRight = UDim.new(0, 16)
-
-        local function addDetectItem(labelText, descText, color)
-            local frame = Instance.new("Frame", content)
-            frame.Size = UDim2.new(1, 0, 0, 64)
-            frame.BackgroundColor3 = Theme.Glass
-            frame.BackgroundTransparency = 0.3
-            corner(frame, 10)
-
-            local lbl = Instance.new("TextLabel", frame)
-            lbl.Text = labelText
-            lbl.Font = Enum.Font.GothamSemibold
-            lbl.TextSize = 15
-            lbl.TextColor3 = Theme.TextPrimary
-            lbl.BackgroundTransparency = 1
-            lbl.Position = UDim2.new(0, 14, 0, 4)
-            lbl.Size = UDim2.new(1, -100, 0, 24)
-            lbl.TextXAlignment = Enum.TextXAlignment.Left
-
-            local desc = Instance.new("TextLabel", frame)
-            desc.Text = descText
-            desc.Font = Enum.Font.Gotham
-            desc.TextSize = 12
-            desc.TextColor3 = Theme.TextSecondary
-            desc.BackgroundTransparency = 1
-            desc.Position = UDim2.new(0, 14, 0, 30)
-            desc.Size = UDim2.new(1, -100, 0, 20)
-            desc.TextXAlignment = Enum.TextXAlignment.Left
-
-            local status = Instance.new("TextLabel", frame)
-            status.Text = "⏳ 待检测"
-            status.Font = Enum.Font.GothamSemibold
-            status.TextSize = 13
-            status.TextColor3 = Theme.TextSecondary
-            status.BackgroundTransparency = 1
-            status.Position = UDim2.new(1, -120, 0, 18)
-            status.Size = UDim2.new(0, 110, 0, 28)
-            status.TextXAlignment = Enum.TextXAlignment.Right
-
-            return status
-        end
-
-        local serverFrame = Instance.new("Frame", content)
-        serverFrame.Size = UDim2.new(1, 0, 0, 48)
-        serverFrame.BackgroundColor3 = Theme.Glass
-        serverFrame.BackgroundTransparency = 0.3
-        corner(serverFrame, 10)
-
-        local serverLbl = Instance.new("TextLabel", serverFrame)
-        serverLbl.Text = "🌐 服务器信息"
-        serverLbl.Font = Enum.Font.GothamSemibold
-        serverLbl.TextSize = 14
-        serverLbl.TextColor3 = Theme.TextPrimary
-        serverLbl.BackgroundTransparency = 1
-        serverLbl.Position = UDim2.new(0, 14, 0, 4)
-        serverLbl.Size = UDim2.new(1, -20, 0, 20)
-        serverLbl.TextXAlignment = Enum.TextXAlignment.Left
-
-        local serverInfo = Instance.new("TextLabel", serverFrame)
-        serverInfo.Text = "加载中..."
-        serverInfo.Font = Enum.Font.Gotham
-        serverInfo.TextSize = 12
-        serverInfo.TextColor3 = Theme.TextSecondary
-        serverInfo.BackgroundTransparency = 1
-        serverInfo.Position = UDim2.new(0, 14, 0, 26)
-        serverInfo.Size = UDim2.new(1, -20, 0, 16)
-        serverInfo.TextXAlignment = Enum.TextXAlignment.Left
-
-        local playerFrame = Instance.new("Frame", content)
-        playerFrame.Size = UDim2.new(1, 0, 0, 48)
-        playerFrame.BackgroundColor3 = Theme.Glass
-        playerFrame.BackgroundTransparency = 0.3
-        corner(playerFrame, 10)
-
-        local playerLbl = Instance.new("TextLabel", playerFrame)
-        playerLbl.Text = "👥 在线玩家"
-        playerLbl.Font = Enum.Font.GothamSemibold
-        playerLbl.TextSize = 14
-        playerLbl.TextColor3 = Theme.TextPrimary
-        playerLbl.BackgroundTransparency = 1
-        playerLbl.Position = UDim2.new(0, 14, 0, 4)
-        playerLbl.Size = UDim2.new(1, -20, 0, 20)
-        playerLbl.TextXAlignment = Enum.TextXAlignment.Left
-
-        local playerInfo = Instance.new("TextLabel", playerFrame)
-        playerInfo.Text = "0 人在线"
-        playerInfo.Font = Enum.Font.Gotham
-        playerInfo.TextSize = 12
-        playerInfo.TextColor3 = Theme.TextSecondary
-        playerInfo.BackgroundTransparency = 1
-        playerInfo.Position = UDim2.new(0, 14, 0, 26)
-        playerInfo.Size = UDim2.new(1, -20, 0, 16)
-        playerInfo.TextXAlignment = Enum.TextXAlignment.Left
-
-        local items = {}
-        local itemData = {
-            {"🔒 防封检测", "检测当前服务器是否安全"},
-            {"🛡️ 反作弊检测", "检测服务器反作弊强度"},
-            {"📊 服务器延迟", "检测当前网络延迟"},
-            {"🔍 漏洞扫描", "扫描服务器潜在漏洞"},
-            {"⚡ 性能检测", "检测服务器性能状态"},
-            {"📈 玩家分析", "分析在线玩家数据"},
-        }
-
-        for _, data in ipairs(itemData) do
-            local status = addDetectItem(data[1], data[2])
-            table.insert(items, status)
-        end
-
-        local btnFrame = Instance.new("Frame", content)
-        btnFrame.Size = UDim2.new(1, 0, 0, 52)
-        btnFrame.BackgroundTransparency = 1
-
-        local scanBtn = Instance.new("TextButton", btnFrame)
-        scanBtn.Size = UDim2.new(1, -24, 0, 36)
-        scanBtn.Position = UDim2.new(0, 12, 0, 8)
-        scanBtn.Text = "🔄 开始全面检测"
-        scanBtn.Font = Enum.Font.GothamSemibold
-        scanBtn.TextSize = 15
-        scanBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        scanBtn.BackgroundColor3 = Color3.fromRGB(0, 122, 255)
-        scanBtn.AutoButtonColor = false
-        corner(scanBtn, 10)
-        pressEffect(scanBtn)
-
-        scanBtn.MouseButton1Click:Connect(function()
-            local ok, info = pcall(function()
-                return MarketplaceService:GetProductInfo(game.PlaceId)
-            end)
-            if ok and info then
-                serverInfo.Text = info.Name .. " | " .. game.PlaceId
-            else
-                serverInfo.Text = "服务器: " .. game.JobId
-            end
-
-            local count = #Players:GetPlayers()
-            playerInfo.Text = count .. " 人在线"
-
-            for i, status in ipairs(items) do
-                status.Text = "🔍 检测中..."
-                status.TextColor3 = Color3.fromRGB(255, 200, 0)
-                task.wait(0.15 + math.random() * 0.3)
-                
-                local results = {
-                    "✅ 安全",
-                    "✅ 正常",
-                    "✅ 低延迟",
-                    "⚠️ 发现1个漏洞",
-                    "✅ 良好",
-                    "📊 正常",
-                }
-                local colors = {
-                    Color3.fromRGB(50, 215, 75),
-                    Color3.fromRGB(50, 215, 75),
-                    Color3.fromRGB(50, 215, 75),
-                    Color3.fromRGB(255, 200, 0),
-                    Color3.fromRGB(50, 215, 75),
-                    Color3.fromRGB(50, 215, 75),
-                }
-                status.Text = results[i] or "✅ 完成"
-                status.TextColor3 = colors[i] or Color3.fromRGB(50, 215, 75)
-            end
-
-            Notify("shible", "✅ 服务器检测完成！", 2)
-        end)
-
-        local function updatePlayerCount()
-            local count = #Players:GetPlayers()
-            playerInfo.Text = count .. " 人在线"
-        end
-
-        Players.PlayerAdded:Connect(updatePlayerCount)
-        Players.PlayerRemoving:Connect(updatePlayerCount)
-
-        local dragging = false
-        local dragStart, startPos
-
-        titleBar.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = true
-                dragStart = input.Position
-                startPos = detectUI.Position
-            end
-        end)
-
-        titleBar.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = false
-            end
-        end)
-
-        UserInputService.InputChanged:Connect(function(input)
-            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                local delta = input.Position - dragStart
-                detectUI.Position = UDim2.new(
-                    startPos.X.Scale,
-                    startPos.X.Offset + delta.X,
-                    startPos.Y.Scale,
-                    startPos.Y.Offset + delta.Y
-                )
-            end
-        end)
-
-        content.CanvasSize = UDim2.new(0, 0, 0, content.AbsoluteSize.Y + 20)
-        content:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-            content.CanvasSize = UDim2.new(0, 0, 0, content.AbsoluteSize.Y + 20)
-        end)
-
-        task.spawn(function()
-            task.wait(0.5)
-            local ok, info = pcall(function()
-                return MarketplaceService:GetProductInfo(game.PlaceId)
-            end)
-            if ok and info then
-                serverInfo.Text = info.Name .. " | " .. game.PlaceId
-            else
-                serverInfo.Text = "服务器: " .. game.JobId
-            end
-            playerInfo.Text = #Players:GetPlayers() .. " 人在线"
-        end)
-    end
-
-    detectBtn.MouseButton1Click:Connect(function()
-        makeTween(detectBtn, {TextSize = 16}, 0.12)
-        task.delay(0.12, function()
-            makeTween(detectBtn, {TextSize = 14}, 0.15)
-        end)
-
-        Notify("shible", "🔄 正在启动检测服务器...", 1)
-        task.wait(0.5)
-        createDetectUI()
-        uiVisible = true
     end)
 end
 
@@ -1688,6 +1406,7 @@ do
                 for _, btn in ipairs(f:GetDescendants()) do
                     if btn:IsA("TextButton") then
                         btn.AutoButtonColor = false
+                        btn.SelectionImageObject = nil
                         btn.Selectable = false
                     end
                 end
@@ -1703,13 +1422,13 @@ do
                 end)
 
                 up.MouseButton1Click:Connect(function()
-                    if chr and chr:FindFirstChild("HumanoidRootPart") then
+                    if (chr and chr:FindFirstChild("HumanoidRootPart")) then
                         chr.HumanoidRootPart.CFrame = chr.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
                     end
                 end)
 
                 down.MouseButton1Click:Connect(function()
-                    if chr and chr:FindFirstChild("HumanoidRootPart") then
+                    if (chr and chr:FindFirstChild("HumanoidRootPart")) then
                         chr.HumanoidRootPart.CFrame = chr.HumanoidRootPart.CFrame + Vector3.new(0, -3, 0)
                     end
                 end)
@@ -1740,7 +1459,7 @@ do
                 end)
 
                 mine.MouseButton1Click:Connect(function()
-                    if speeds > 1 then
+                    if (speeds > 1) then
                         speeds = speeds - 1
                         spd.Text = tostring(speeds)
                     else
@@ -1821,11 +1540,11 @@ do
                     end
 
                     moveConn = RunService.Heartbeat:Connect(function()
-                        if not nowe or not hum or hum.Health <= 0 then
+                        if (not nowe or not hum or (hum.Health <= 0)) then
                             return
                         end
 
-                        if hum.MoveDirection.Magnitude > 0 then
+                        if (hum.MoveDirection.Magnitude > 0) then
                             chr:TranslateBy(hum.MoveDirection * speeds)
                         end
                     end)
@@ -1842,7 +1561,7 @@ do
                         bvObj.MaxForce = Vector3.new(8999999488, 8999999488, 8999999488)
 
                         renderConn = RunService.RenderStepped:Connect(function()
-                            if not nowe or not torso.Parent then
+                            if (not nowe or not torso.Parent) then
                                 stopFly()
                                 return
                             end
@@ -1914,10 +1633,10 @@ do
             end
         else
             pcall(function()
-                getfenv().FlingAllEnabled = false
+                getgenv().FlingAllEnabled = false
             end)
             pcall(function()
-                getfenv()["_G"].FlingAllEnabled = false
+                _G.FlingAllEnabled = false
             end)
             FuncState.FlingLoaded = false
         end
@@ -2294,6 +2013,7 @@ local function createFuncItem(name, key)
     item.AutoButtonColor = false
     item.Parent = funcList
     corner(item, 10)
+    item.SelectionImageObject = nil
     item.Selectable = false
 
     local lbl = Instance.new("TextLabel", item)
@@ -2307,13 +2027,13 @@ local function createFuncItem(name, key)
     lbl.TextXAlignment = Enum.TextXAlignment.Center
 
     item.MouseEnter:Connect(function()
-        if selectedItem ~= item then
+        if (selectedItem ~= item) then
             makeTween(item, {BackgroundTransparency = 0.35}, 0.15)
         end
     end)
 
     item.MouseLeave:Connect(function()
-        if selectedItem ~= item then
+        if (selectedItem ~= item) then
             makeTween(item, {BackgroundTransparency = 0.6}, 0.15)
         end
     end)
@@ -2337,7 +2057,6 @@ end
 createFuncItem("自瞄", "Aim")
 createFuncItem("移速", "Speed")
 createFuncItem("人物功能", "ESP")
-createFuncItem("检测服务器", "Detect")
 createFuncItem("飞行", "Fly")
 createFuncItem("娱乐", "Fun")
 createFuncItem("人物动作", "Action")
@@ -2365,16 +2084,6 @@ backBtn.Position = UDim2.new(0, 16, 1, -C.BackBtnHeight - 4)
 backBtn.Size = UDim2.new(0, 60, 0, 36)
 backBtn.AutoButtonColor = false
 pressEffect(backBtn)
-backBtn.MouseButton1Click:Connect(function()
-    makeTween(pageFunction, {Position = UDim2.new(1, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
-    pageMain.Visible = true
-    pageMain.Position = UDim2.new(-1, 0, 0, 0)
-    makeTween(pageMain, {Position = UDim2.new(0, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
-
-    task.delay(0.3, function()
-        pageFunction.Visible = false
-    end)
-end)
 
 local funcCloseBtn = Instance.new("TextButton", pageFunction)
 funcCloseBtn.Text = "关闭"
@@ -2387,9 +2096,6 @@ funcCloseBtn.Size = UDim2.new(0, 60, 0, 36)
 funcCloseBtn.AutoButtonColor = false
 pressEffect(funcCloseBtn)
 funcCloseBtn.Visible = false
-funcCloseBtn.MouseButton1Click:Connect(function()
-    cleanupAll()
-end)
 
 local mini = Instance.new("Frame", gui)
 mini.Visible = false
@@ -2430,41 +2136,6 @@ restore.Position = UDim2.new(1, -64, 0, 8)
 restore.Size = UDim2.new(0, 56, 1, -16)
 restore.AutoButtonColor = false
 pressEffect(restore)
-restore.MouseButton1Click:Connect(function()
-    mini.Visible = false
-    root.Visible = true
-    makeTween(blur, {Size = C.Blur}, 0.25)
-    makeTween(root, {Size = UDim2.new(0, C.Width, 0, C.Height), BackgroundTransparency = 0.18}, 0.4)
-end)
-
-confirm.MouseButton1Click:Connect(function()
-    makeTween(confirm, {TextSize = 16}, 0.12)
-    task.delay(0.12, function()
-        makeTween(confirm, {TextSize = 14}, 0.15)
-    end)
-
-    Notify("shible", "正在加载功能，请稍候...", 1)
-    task.wait(0.3)
-
-    makeTween(pageMain, {Position = UDim2.new(-1, 0, 0, 0)}, 0.2, Enum.EasingStyle.Quint)
-    
-    task.delay(0.25, function()
-        pageFunction.Visible = true
-        pageFunction.Position = UDim2.new(1, 0, 0, 0)
-        makeTween(pageFunction, {Position = UDim2.new(0, 0, 0, 0)}, 0.25, Enum.EasingStyle.Quint)
-        backBtn.Visible = false
-        funcCloseBtn.Visible = true
-    end)
-
-    if toggleSetters["开启预防检测"] then toggleSetters["开启预防检测"](true) end
-    if toggleSetters["管理员检测"] then toggleSetters["管理员检测"](true) end
-    if toggleSetters["绕过群组检测"] then toggleSetters["绕过群组检测"](true) end
-    if toggleSetters["绕过AC检测"] then toggleSetters["绕过AC检测"](true) end
-end)
-
-closeBtn.MouseButton1Click:Connect(function()
-    cleanupAll()
-end)
 
 local DragSystem = {}
 DragSystem.enable = function(frame, opts)
@@ -2476,7 +2147,7 @@ DragSystem.enable = function(frame, opts)
     local startFramePos
 
     frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if ((input.UserInputType == Enum.UserInputType.MouseButton1) or (input.UserInputType == Enum.UserInputType.Touch)) then
             dragging = true
             startMousePos = input.Position
             startFramePos = frame.Position
@@ -2484,7 +2155,7 @@ DragSystem.enable = function(frame, opts)
     end)
 
     frame.InputEnded:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+        if (dragging and ((input.UserInputType == Enum.UserInputType.MouseButton1) or (input.UserInputType == Enum.UserInputType.Touch))) then
             dragging = false
         end
     end)
@@ -2493,7 +2164,7 @@ DragSystem.enable = function(frame, opts)
 
     RunService.RenderStepped:Connect(function()
         safeCall(function()
-            if dragging and startMousePos then
+            if (dragging and startMousePos) then
                 local mouse = UserInputService:GetMouseLocation()
                 local delta = mouse - startMousePos
                 local newX = startFramePos.X.Offset + delta.X
@@ -2525,6 +2196,7 @@ DragSystem.enable(mini)
 
 local function cleanupAll()
     pcall(function()
+
         if waterWalkConnection then
             waterWalkConnection:Disconnect()
             waterWalkConnection = nil
@@ -2546,6 +2218,10 @@ local function cleanupAll()
             end)
         end
         animTracks = {}
+        for _, line in pairs(antennaLines) do
+            pcall(function() line:Remove() end)
+        end
+        antennaLines = {}
         for _, point in pairs(radarPoints) do
             pcall(function() point:Destroy() end)
         end
@@ -2561,6 +2237,69 @@ local function cleanupAll()
         blur:Destroy()
     end)
 end
+
+minBtn.MouseButton1Click:Connect(function()
+    makeTween(root, {Size = UDim2.new(0, C.Width, 0, 0), BackgroundTransparency = 1}, 0.25)
+    makeTween(blur, {Size = 6}, 0.25)
+
+    task.delay(0.2, function()
+        root.Visible = false
+        mini.Visible = true
+        mini.Size = UDim2.new(0, 140, 0, 40)
+        mini.BackgroundTransparency = 1
+        makeTween(mini, {Size = UDim2.new(0, 160, 0, 48), BackgroundTransparency = 0.12}, 0.3, Enum.EasingStyle.Back)
+    end)
+end)
+
+restore.MouseButton1Click:Connect(function()
+    mini.Visible = false
+    root.Visible = true
+    makeTween(blur, {Size = C.Blur}, 0.25)
+    makeTween(root, {Size = UDim2.new(0, C.Width, 0, C.Height), BackgroundTransparency = 0.18}, 0.4)
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    cleanupAll()
+end)
+
+funcCloseBtn.MouseButton1Click:Connect(function()
+    cleanupAll()
+end)
+
+confirm.MouseButton1Click:Connect(function()
+    makeTween(confirm, {TextSize = 16}, 0.12)
+    task.delay(0.12, function()
+        makeTween(confirm, {TextSize = 14}, 0.15)
+    end)
+
+    Notify("shible", "正在加载功能，请稍候...", 1)
+    task.wait(0.8)
+
+
+    if toggleSetters["开启预防检测"] then toggleSetters["开启预防检测"](true) end
+    if toggleSetters["管理员检测"] then toggleSetters["管理员检测"](true) end
+    if toggleSetters["绕过群组检测"] then toggleSetters["绕过群组检测"](true) end
+    if toggleSetters["绕过AC检测"] then toggleSetters["绕过AC检测"](true) end
+
+    makeTween(pageMain, {Position = UDim2.new(-1, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
+    pageFunction.Visible = true
+    pageFunction.Position = UDim2.new(1, 0, 0, 0)
+    makeTween(pageFunction, {Position = UDim2.new(0, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
+
+    backBtn.Visible = false
+    funcCloseBtn.Visible = true
+end)
+
+backBtn.MouseButton1Click:Connect(function()
+    makeTween(pageFunction, {Position = UDim2.new(1, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
+    pageMain.Visible = true
+    pageMain.Position = UDim2.new(-1, 0, 0, 0)
+    makeTween(pageMain, {Position = UDim2.new(0, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
+
+    task.delay(0.3, function()
+        pageFunction.Visible = false
+    end)
+end)
 
 root.Size = UDim2.new(0, C.Width, 0, C.Height)
 root.BackgroundTransparency = 0.18
@@ -2658,9 +2397,9 @@ LocalPlayer.OnTeleport:Connect(function(state)
                 waterWalkConnection = nil
             end
             _G = {}
-            if getfenv then
-                for k, v in pairs(getfenv()) do
-                    getfenv()[k] = nil
+            if getgenv then
+                for k, v in pairs(getgenv()) do
+                    getgenv()[k] = nil
                 end
             end
             if shared then
