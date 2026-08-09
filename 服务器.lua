@@ -3,11 +3,7 @@ local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local MarketplaceService = game:GetService("MarketplaceService")
-local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
 
 if not LocalPlayer then
     LocalPlayer = Players.PlayerAdded:Wait()
@@ -295,6 +291,7 @@ local function createPage(name)
     return pg
 end
 
+local pgServer = createPage("Server")
 local pgAnti = createPage("Anti")
 
 local FuncState = {
@@ -376,6 +373,94 @@ local function createToggle(parent, yPos, labelText, getState, onToggle)
     return setState
 end
 
+-- 服务器页面
+do
+    local p = pgServer
+    local y = 10
+    local hdr = Instance.new("TextLabel", p)
+    hdr.Text = "服务器信息"
+    hdr.Font = Enum.Font.GothamSemibold
+    hdr.TextSize = 14
+    hdr.TextColor3 = Theme.TextPrimary
+    hdr.BackgroundTransparency = 1
+    hdr.Position = UDim2.new(0, 12, 0, y)
+    hdr.Size = UDim2.new(1, -24, 0, 20)
+    hdr.TextXAlignment = Enum.TextXAlignment.Left
+    y = y + 36
+
+    local detectBtn = Instance.new("TextButton", p)
+    detectBtn.Size = UDim2.new(1, -24, 0, 40)
+    detectBtn.Position = UDim2.new(0, 12, 0, y)
+    detectBtn.BackgroundColor3 = Theme.Glass
+    detectBtn.BackgroundTransparency = 0.4
+    detectBtn.Text = "检测服务器"
+    detectBtn.Font = Enum.Font.GothamSemibold
+    detectBtn.TextSize = 14
+    detectBtn.TextColor3 = Theme.TextPrimary
+    detectBtn.AutoButtonColor = false
+    corner(detectBtn, 8)
+    pressEffect(detectBtn)
+
+    detectBtn.MouseButton1Click:Connect(function()
+        -- 显示检测中提示
+        Notify("shible", "服务器检测中...", 2)
+
+        -- 创建横屏新UI
+        local serverGui = Instance.new("ScreenGui")
+        serverGui.Name = "ServerInfoGui"
+        serverGui.ResetOnSpawn = false
+        serverGui.Parent = PlayerGui
+
+        local frame = Instance.new("Frame")
+        frame.AnchorPoint = Vector2.new(0.5, 0.5)
+        frame.Position = UDim2.fromScale(0.5, 0.5)
+        frame.Size = UDim2.new(0, 400, 0, 180)  -- 横屏
+        frame.BackgroundColor3 = Theme.Glass
+        frame.BackgroundTransparency = 0.15
+        frame.BorderSizePixel = 0
+        frame.Parent = serverGui
+        corner(frame, 16)
+
+        local statusLabel = Instance.new("TextLabel", frame)
+        statusLabel.Size = UDim2.new(1, -40, 1, -40)
+        statusLabel.Position = UDim2.new(0, 20, 0, 20)
+        statusLabel.BackgroundTransparency = 1
+        statusLabel.Text = "服务器检测中..."
+        statusLabel.Font = Enum.Font.GothamSemibold
+        statusLabel.TextSize = 20
+        statusLabel.TextColor3 = Theme.TextPrimary
+        statusLabel.TextWrapped = true
+        statusLabel.TextXAlignment = Enum.TextXAlignment.Center
+        statusLabel.TextYAlignment = Enum.TextYAlignment.Center
+
+        -- 关闭按钮
+        local closeInfoBtn = Instance.new("TextButton", frame)
+        closeInfoBtn.Size = UDim2.new(0, 80, 0, 32)
+        closeInfoBtn.Position = UDim2.new(1, -100, 1, -46)
+        closeInfoBtn.AnchorPoint = Vector2.new(1, 1)
+        closeInfoBtn.Text = "关闭"
+        closeInfoBtn.Font = Enum.Font.GothamSemibold
+        closeInfoBtn.TextSize = 14
+        closeInfoBtn.TextColor3 = Theme.Danger
+        closeInfoBtn.BackgroundTransparency = 1
+        closeInfoBtn.AutoButtonColor = false
+        pressEffect(closeInfoBtn)
+        closeInfoBtn.MouseButton1Click:Connect(function()
+            serverGui:Destroy()
+        end)
+
+        -- 模拟获取服务器名称（这里使用 game.JobId 作为标识，也可用其他方式）
+        local serverName = game.JobId or "未知服务器"
+        -- 还可尝试获取服务器IP等信息，但简单起见用JobId
+
+        task.delay(1.5, function()
+            statusLabel.Text = "当前服务器为: " .. serverName
+            Notify("shible", "当前服务器为: " .. serverName, 3)
+        end)
+    end)
+end
+
+-- 防检测页面
 do
     local p = pgAnti
     local y = 10
@@ -548,6 +633,7 @@ local function createFuncItem(name, key)
     end)
 end
 
+createFuncItem("服务器", "Server")
 createFuncItem("防检测", "Anti")
 
 task.defer(function()
