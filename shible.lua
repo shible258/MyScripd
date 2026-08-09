@@ -1180,7 +1180,7 @@ if (FuncState.AntennaEnabled and myRoot) then
                 local head = otherChar:FindFirstChild("Head")
                 if head then
                     -- 瞄准头部正中心偏下（自瞄瞄准点）
-                    local aimPos = head.Position - Vector3.new(0, 0.5, 0)
+                    local aimPos = head.Position - Vector3.new(0, 1, 0)
                     local screenPos, onScreen = camera:WorldToScreenPoint(aimPos)
                     local line = antennaLines[otherPlr]
                     
