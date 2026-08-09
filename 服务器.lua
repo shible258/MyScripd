@@ -293,7 +293,6 @@ local function createPage(name)
 end
 
 local pgServer = createPage("Server")
-local pgEntertainment = createPage("Entertainment")
 local pgAnti = createPage("Anti")
 
 local FuncState = {
@@ -301,6 +300,7 @@ local FuncState = {
     AdminDetect = true,
     BypassGroup = true,
     BypassAC = true,
+    -- 娱乐功能状态（在监狱UI中使用）
     InfiniteAmmo = false,
     ShieldForever = false,
 }
@@ -377,7 +377,7 @@ local function createToggle(parent, yPos, labelText, getState, onToggle)
     return setState
 end
 
--- ==================== 服务器页面（监狱生活UI） ====================
+-- ==================== 服务器页面（监狱生活UI + 娱乐功能） ====================
 do
     local p = pgServer
     local y = 10
@@ -415,6 +415,7 @@ do
         end
         Notify("shible", "当前服务器为: " .. gameName, 3)
 
+        -- 创建监狱生活UI（横屏自适应）
         local jailGui = Instance.new("ScreenGui")
         jailGui.Name = "JailbreakUI"
         jailGui.ResetOnSpawn = false
@@ -453,6 +454,7 @@ do
         layout.Padding = UDim.new(0, 8)
         layout.SortOrder = Enum.SortOrder.LayoutOrder
 
+        -- 辅助函数：添加开关
         local function addToggle(parent, label, getter, setter)
             local row = Instance.new("Frame", parent)
             row.Size = UDim2.new(1, 0, 0, 40)
@@ -505,6 +507,7 @@ do
             end)
         end
 
+        -- 监狱功能状态
         local jailState = {
             Aimbot = false,
             ESP = false,
@@ -513,12 +516,111 @@ do
             InstantArrest = false,
         }
 
+        -- 添加监狱功能
         addToggle(funcScroll, "自动瞄准", function() return jailState.Aimbot end, function(v) jailState.Aimbot = v; Notify("监狱", "自瞄 " .. (v and "开启" or "关闭")) end)
         addToggle(funcScroll, "透视", function() return jailState.ESP end, function(v) jailState.ESP = v; Notify("监狱", "透视 " .. (v and "开启" or "关闭")) end)
         addToggle(funcScroll, "加速", function() return jailState.SpeedHack end, function(v) jailState.SpeedHack = v; Notify("监狱", "加速 " .. (v and "开启" or "关闭")) end)
         addToggle(funcScroll, "穿墙", function() return jailState.NoClip end, function(v) jailState.NoClip = v; Notify("监狱", "穿墙 " .. (v and "开启" or "关闭")) end)
         addToggle(funcScroll, "立即逮捕", function() return jailState.InstantArrest end, function(v) jailState.InstantArrest = v; Notify("监狱", "立即逮捕 " .. (v and "开启" or "关闭")) end)
 
+        -- 分隔标签（娱乐）
+        local sep = Instance.new("TextLabel", funcScroll)
+        sep.Size = UDim2.new(1, 0, 0, 30)
+        sep.BackgroundTransparency = 1
+        sep.Text = "———— 娱乐功能 ————"
+        sep.Font = Enum.Font.GothamBold
+        sep.TextSize = 18
+        sep.TextColor3 = Theme.Accent
+        sep.TextXAlignment = Enum.TextXAlignment.Center
+
+        -- 娱乐功能：无限子弹 + 极速射速
+        addToggle(funcScroll, "无限子弹+极速射速", function() return FuncState.InfiniteAmmo end, function(v)
+            FuncState.InfiniteAmmo = v
+            local char = LocalPlayer.Character
+            if char then
+                for _, tool in ipairs(char:GetChildren()) do
+                    if tool:IsA("Tool") then
+                        -- 无限弹药
+                        local ammo = tool:FindFirstChild("Ammo") or tool:FindFirstChild("Ammunition")
+                        if ammo and ammo:IsA("IntValue") then
+                            ammo.Value = 9999
+                        end
+                        -- 极速射速 (一秒999发 ≈ 0.001s 间隔)
+                        for _, obj in ipairs(tool:GetDescendants()) do
+                            if obj:IsA("NumberValue") and (obj.Name == "FireRate" or obj.Name == "RateOfFire" or obj.Name == "Cooldown") then
+                                obj.Value = 0.001
+                            end
+                        end
+                    end
+                end
+            end
+            -- 持续监听新工具
+            if v then
+                local function onChildAdded(child)
+                    if child:IsA("Tool") then
+                        local ammo = child:FindFirstChild("Ammo") or child:FindFirstChild("Ammunition")
+                        if ammo and ammo:IsA("IntValue") then
+                            ammo.Value = 9999
+                        end
+                        for _, obj in ipairs(child:GetDescendants()) do
+                            if obj:IsA("NumberValue") and (obj.Name == "FireRate" or obj.Name == "RateOfFire" or obj.Name == "Cooldown") then
+                                obj.Value = 0.001
+                            end
+                        end
+                    end
+                end
+                LocalPlayer.CharacterAdded:Connect(function(char)
+                    char.ChildAdded:Connect(onChildAdded)
+                end)
+                -- 已有工具的持续刷新（防止重置）
+                local conn
+                conn = RunService.Heartbeat:Connect(function()
+                    if not FuncState.InfiniteAmmo then conn:Disconnect() return end
+                    local c = LocalPlayer.Character
+                    if c then
+                        for _, tool in ipairs(c:GetChildren()) do
+                            if tool:IsA("Tool") then
+                                local ammo = tool:FindFirstChild("Ammo") or tool:FindFirstChild("Ammunition")
+                                if ammo and ammo:IsA("IntValue") then
+                                    ammo.Value = 9999
+                                end
+                                for _, obj in ipairs(tool:GetDescendants()) do
+                                    if obj:IsA("NumberValue") and (obj.Name == "FireRate" or obj.Name == "RateOfFire" or obj.Name == "Cooldown") then
+                                        obj.Value = 0.001
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+            Notify("娱乐", "无限子弹+极速射速 " .. (v and "开启" or "关闭"))
+        end)
+
+        -- 娱乐功能：永久护盾
+        addToggle(funcScroll, "永久护盾", function() return FuncState.ShieldForever end, function(v)
+            FuncState.ShieldForever = v
+            if v then
+                local char = LocalPlayer.Character
+                if char then
+                    for _, child in ipairs(char:GetChildren()) do
+                        if child:IsA("ForceField") then
+                            child.TimeToDie = math.huge
+                        end
+                    end
+                end
+                LocalPlayer.CharacterAdded:Connect(function(char)
+                    char.ChildAdded:Connect(function(child)
+                        if child:IsA("ForceField") then
+                            child.TimeToDie = math.huge
+                        end
+                    end)
+                end)
+            end
+            Notify("娱乐", "永久护盾 " .. (v and "开启" or "关闭"))
+        end)
+
+        -- 关闭按钮
         local closeJailBtn = Instance.new("TextButton", mainFrame)
         closeJailBtn.Size = UDim2.new(0, 100, 0, 36)
         closeJailBtn.Position = UDim2.new(1, -120, 1, -50)
@@ -534,131 +636,11 @@ do
             jailGui:Destroy()
         end)
 
+        -- 防止重复打开
         for _, v in pairs(PlayerGui:GetChildren()) do
             if v.Name == "JailbreakUI" then v:Destroy() end
         end
     end)
-end
-
--- ==================== 娱乐页面 ====================
-do
-    local p = pgEntertainment
-    local y = 10
-    local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "娱乐功能"
-    hdr.Font = Enum.Font.GothamSemibold
-    hdr.TextSize = 14
-    hdr.TextColor3 = Theme.TextPrimary
-    hdr.BackgroundTransparency = 1
-    hdr.Position = UDim2.new(0, 12, 0, y)
-    hdr.Size = UDim2.new(1, -24, 0, 20)
-    hdr.TextXAlignment = Enum.TextXAlignment.Left
-    y = y + 36
-
-    -- 无限子弹 + 一秒999发（合并为一个开关）
-    createToggle(p, y, "无限子弹 (含极速射速)", function()
-        return FuncState.InfiniteAmmo
-    end, function(v)
-        FuncState.InfiniteAmmo = v
-        local char = LocalPlayer.Character
-        if char then
-            for _, tool in ipairs(char:GetChildren()) do
-                if tool:IsA("Tool") then
-                    -- 无限弹药
-                    local ammo = tool:FindFirstChild("Ammo") or tool:FindFirstChild("Ammunition")
-                    if ammo and ammo:IsA("IntValue") then
-                        ammo.Value = 9999
-                    end
-                    -- 极速射速 (一秒999发 ≈ 0.001s 间隔)
-                    for _, obj in ipairs(tool:GetDescendants()) do
-                        if obj:IsA("NumberValue") and (obj.Name == "FireRate" or obj.Name == "RateOfFire" or obj.Name == "Cooldown") then
-                            obj.Value = 0.001
-                        end
-                    end
-                end
-            end
-        end
-        -- 持续监听新工具
-        if v then
-            local function onChildAdded(child)
-                if child:IsA("Tool") then
-                    local ammo = child:FindFirstChild("Ammo") or child:FindFirstChild("Ammunition")
-                    if ammo and ammo:IsA("IntValue") then
-                        ammo.Value = 9999
-                    end
-                    for _, obj in ipairs(child:GetDescendants()) do
-                        if obj:IsA("NumberValue") and (obj.Name == "FireRate" or obj.Name == "RateOfFire" or obj.Name == "Cooldown") then
-                            obj.Value = 0.001
-                        end
-                    end
-                end
-            end
-            LocalPlayer.CharacterAdded:Connect(function(char)
-                char.ChildAdded:Connect(onChildAdded)
-            end)
-            -- 已有工具的持续刷新（防止重置）
-            local conn
-            conn = RunService.Heartbeat:Connect(function()
-                if not FuncState.InfiniteAmmo then conn:Disconnect() return end
-                local c = LocalPlayer.Character
-                if c then
-                    for _, tool in ipairs(c:GetChildren()) do
-                        if tool:IsA("Tool") then
-                            local ammo = tool:FindFirstChild("Ammo") or tool:FindFirstChild("Ammunition")
-                            if ammo and ammo:IsA("IntValue") then
-                                ammo.Value = 9999
-                            end
-                            for _, obj in ipairs(tool:GetDescendants()) do
-                                if obj:IsA("NumberValue") and (obj.Name == "FireRate" or obj.Name == "RateOfFire" or obj.Name == "Cooldown") then
-                                    obj.Value = 0.001
-                                end
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-        Notify("娱乐", "无限子弹+极速射速 " .. (v and "开启" or "关闭"))
-    end)
-
-    y = y + 46
-
-    -- 永久护盾
-    createToggle(p, y, "永久护盾", function()
-        return FuncState.ShieldForever
-    end, function(v)
-        FuncState.ShieldForever = v
-        if v then
-            local char = LocalPlayer.Character
-            if char then
-                for _, child in ipairs(char:GetChildren()) do
-                    if child:IsA("ForceField") then
-                        child.TimeToDie = math.huge
-                    end
-                end
-            end
-            LocalPlayer.CharacterAdded:Connect(function(char)
-                char.ChildAdded:Connect(function(child)
-                    if child:IsA("ForceField") then
-                        child.TimeToDie = math.huge
-                    end
-                end)
-            end)
-        end
-        Notify("娱乐", "永久护盾 " .. (v and "开启" or "关闭"))
-    end)
-
-    y = y + 46
-    local info = Instance.new("TextLabel", p)
-    info.Text = "无限子弹含极速射速，永久护盾需重生后生效。"
-    info.Font = Enum.Font.Gotham
-    info.TextSize = 12
-    info.TextColor3 = Theme.TextSecondary
-    info.BackgroundTransparency = 1
-    info.Position = UDim2.new(0, 16, 0, y)
-    info.Size = UDim2.new(1, -32, 0, 30)
-    info.TextXAlignment = Enum.TextXAlignment.Left
-    info.TextWrapped = true
 end
 
 -- ==================== 防检测页面 ====================
@@ -783,7 +765,7 @@ do
     end)
 end
 
--- ==================== 左侧栏项目 ====================
+-- ==================== 左侧栏项目（仅服务器和防检测） ====================
 local selectedItem = nil
 local function createFuncItem(name, key)
     local item = Instance.new("TextButton")
@@ -836,7 +818,6 @@ local function createFuncItem(name, key)
 end
 
 createFuncItem("服务器", "Server")
-createFuncItem("娱乐", "Entertainment")
 createFuncItem("防检测", "Anti")
 
 task.defer(function()
