@@ -1,50 +1,3 @@
--- ========== 连接防封服务器 ==========
-local HttpService = game:GetService("HttpService")
-
--- ⚠️ 改成你的手机IP
-local SERVER_URL = "http://192.168.31.249:3000/api/verify"
-
-local function cloudVerify()
-    local userId = tostring(LocalPlayer.UserId)
-    local userName = LocalPlayer.Name
-    
-    local success, response = pcall(function()
-        return HttpService:PostAsync(SERVER_URL, HttpService:JSONEncode({
-            userId = userId,
-            userName = userName
-        }), Enum.HttpContentType.ApplicationJson)
-    end)
-    
-    if not success then
-        print("[防封] 连接服务器失败")
-        return false
-    end
-    
-    local data = HttpService:JSONDecode(response)
-    
-    if data.success then
-        print("[防封] ✅ 验证成功")
-        return true
-    else
-        if data.code == "BANNED" then
-            Notify("⚠️ 账号已被封禁", data.reason or "请联系管理员", 5)
-            cleanupAll()  -- 自动关闭脚本
-        end
-        return false
-    end
-end
-
--- 每30秒验证一次
-task.spawn(function()
-    task.wait(2)
-    while true do
-        cloudVerify()
-        task.wait(30)
-    end
-end)
-
-print("[防封] 已连接服务器")local TweenService = game:GetService("TweenService")
-
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
@@ -1211,48 +1164,71 @@ do
                             end
                         end
 
--- 人物天线 - 3D动态指向头部正中心（自瞄瞄准点）
 if (FuncState.AntennaEnabled and myRoot) then
     local camera = workspace.CurrentCamera
     if camera then
         local viewportSize = camera.ViewportSize
         local center = Vector2.new(viewportSize.X / 2, 0)
+        local smoothingFactor = 0.35
 
         for _, otherPlr in ipairs(Players:GetPlayers()) do
             if otherPlr == LocalPlayer then continue end
             if otherPlr.Team and LocalPlayer.Team and otherPlr.Team == LocalPlayer.Team then continue end
+            
             local otherChar = otherPlr.Character
-            if otherChar then
-                local head = otherChar:FindFirstChild("Head")
-                if head then
-                    -- 瞄准头部正中心偏下（自瞄瞄准点）
-                    local aimPos = head.Position - Vector3.new(0, 1, 0)
-                    local screenPos, onScreen = camera:WorldToScreenPoint(aimPos)
-                    local line = antennaLines[otherPlr]
-                    
-                    if onScreen then
-                        if not line then
-                            line = Drawing.new("Line")
-                            line.Thickness = 2
-                            line.Color = Color3.new(1, 1, 1)
-                            line.Transparency = 1
-                            line.Visible = true
-                            antennaLines[otherPlr] = line
-                        end
-                        line.From = center
-                        line.To = Vector2.new(screenPos.X, screenPos.Y)
-                        line.Visible = true
-                    elseif line then
-                        line.Visible = false
-                    end
+            if not otherChar then continue end
+            
+            local head = otherChar:FindFirstChild("Head")
+            if not head then continue end
+            
+            local aimPos = head.Position
+            local screenPos, onScreen = camera:WorldToScreenPoint(aimPos)
+            
+            local line = antennaLines[otherPlr]
+            
+            if onScreen then
+                if not line then
+                    line = Drawing.new("Line")
+                    line.Thickness = 2.5
+                    line.Color = Color3.new(1, 1, 1)
+                    line.Transparency = 0.85
+                    line.Visible = true
+                    antennaLines[otherPlr] = line
+                    antennaLines[otherPlr .. "_smooth"] = Vector2.new(center.X, center.Y + 50)
+                end
+                
+                local targetPos = Vector2.new(screenPos.X, screenPos.Y)
+                
+                local currentPos = antennaLines[otherPlr .. "_smooth"] or targetPos
+                local smoothPos = currentPos:Lerp(targetPos, smoothingFactor)
+                antennaLines[otherPlr .. "_smooth"] = smoothPos
+                
+                line.From = center
+                line.To = smoothPos
+                line.Visible = true
+            else
+                if line then
+                    line.Visible = false
                 end
             end
         end
 
-        for otherPlr, line in pairs(antennaLines) do
-            if not otherPlr.Character or not otherPlr.Character:FindFirstChild("Head") then
-                pcall(function() line:Remove() end)
-                antennaLines[otherPlr] = nil
+        for key, line in pairs(antennaLines) do
+            if not key:find("_smooth") then
+                local plr = nil
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if antennaLines[p] == line then
+                        plr = p
+                        break
+                    end
+                end
+                if not plr or not plr.Character or not plr.Character:FindFirstChild("Head") then
+                    pcall(function() line:Remove() end)
+                    antennaLines[plr] = nil
+                    if plr then
+                        antennaLines[plr .. "_smooth"] = nil
+                    end
+                end
             end
         end
     end
@@ -1772,7 +1748,6 @@ do
         y = y + 42
     end
 
-    -- 添加 r6道馆 和 r15道馆
     createButton(p, y, "r6道馆", function()
         SafeLoad("https://pastefy.app/wa3v2Vgm/raw", "r6道馆")
     end)
