@@ -388,79 +388,123 @@ do
     hdr.TextXAlignment = Enum.TextXAlignment.Left
     y = y + 36
 
-    local detectBtn = Instance.new("TextButton", p)
-    detectBtn.Size = UDim2.new(1, -24, 0, 40)
-    detectBtn.Position = UDim2.new(0, 12, 0, y)
-    detectBtn.BackgroundColor3 = Theme.Glass
-    detectBtn.BackgroundTransparency = 0.4
-    detectBtn.Text = "检测服务器"
-    detectBtn.Font = Enum.Font.GothamSemibold
-    detectBtn.TextSize = 14
-    detectBtn.TextColor3 = Theme.TextPrimary
-    detectBtn.AutoButtonColor = false
-    corner(detectBtn, 8)
-    pressEffect(detectBtn)
+    local loadBtn = Instance.new("TextButton", p)
+    loadBtn.Size = UDim2.new(1, -24, 0, 40)
+    loadBtn.Position = UDim2.new(0, 12, 0, y)
+    loadBtn.BackgroundColor3 = Theme.Glass
+    loadBtn.BackgroundTransparency = 0.4
+    loadBtn.Text = "加载服务器"
+    loadBtn.Font = Enum.Font.GothamSemibold
+    loadBtn.TextSize = 14
+    loadBtn.TextColor3 = Theme.TextPrimary
+    loadBtn.AutoButtonColor = false
+    corner(loadBtn, 8)
+    pressEffect(loadBtn)
 
-    detectBtn.MouseButton1Click:Connect(function()
-        -- 显示检测中提示
+    local serverUIContainer = nil  -- 用来保存UI的父级，便于销毁
+    local floatBtn = nil
+
+    loadBtn.MouseButton1Click:Connect(function()
         Notify("shible", "服务器检测中...", 2)
 
-        -- 创建横屏新UI
-        local serverGui = Instance.new("ScreenGui")
-        serverGui.Name = "ServerInfoGui"
-        serverGui.ResetOnSpawn = false
-        serverGui.Parent = PlayerGui
-
-        local frame = Instance.new("Frame")
-        frame.AnchorPoint = Vector2.new(0.5, 0.5)
-        frame.Position = UDim2.fromScale(0.5, 0.5)
-        frame.Size = UDim2.new(0, 400, 0, 180)  -- 横屏
-        frame.BackgroundColor3 = Theme.Glass
-        frame.BackgroundTransparency = 0.15
-        frame.BorderSizePixel = 0
-        frame.Parent = serverGui
-        corner(frame, 16)
-
-        local statusLabel = Instance.new("TextLabel", frame)
-        statusLabel.Size = UDim2.new(1, -40, 1, -40)
-        statusLabel.Position = UDim2.new(0, 20, 0, 20)
-        statusLabel.BackgroundTransparency = 1
-        statusLabel.Text = "服务器检测中..."
-        statusLabel.Font = Enum.Font.GothamSemibold
-        statusLabel.TextSize = 20
-        statusLabel.TextColor3 = Theme.TextPrimary
-        statusLabel.TextWrapped = true
-        statusLabel.TextXAlignment = Enum.TextXAlignment.Center
-        statusLabel.TextYAlignment = Enum.TextYAlignment.Center
-
-        -- 关闭按钮
-        local closeInfoBtn = Instance.new("TextButton", frame)
-        closeInfoBtn.Size = UDim2.new(0, 80, 0, 32)
-        closeInfoBtn.Position = UDim2.new(1, -100, 1, -46)
-        closeInfoBtn.AnchorPoint = Vector2.new(1, 1)
-        closeInfoBtn.Text = "关闭"
-        closeInfoBtn.Font = Enum.Font.GothamSemibold
-        closeInfoBtn.TextSize = 14
-        closeInfoBtn.TextColor3 = Theme.Danger
-        closeInfoBtn.BackgroundTransparency = 1
-        closeInfoBtn.AutoButtonColor = false
-        pressEffect(closeInfoBtn)
-        closeInfoBtn.MouseButton1Click:Connect(function()
-            serverGui:Destroy()
-        end)
-
-        -- 模拟获取服务器名称（这里使用 game.JobId 作为标识，也可用其他方式）
+        -- 获取服务器名称（这里用 JobId 作为标识）
         local serverName = game.JobId or "未知服务器"
-        -- 还可尝试获取服务器IP等信息，但简单起见用JobId
 
         task.delay(1.5, function()
-            statusLabel.Text = "当前服务器为: " .. serverName
             Notify("shible", "当前服务器为: " .. serverName, 3)
+
+            -- 如果已有UI则先销毁
+            if serverUIContainer then
+                serverUIContainer:Destroy()
+                serverUIContainer = nil
+            end
+            if floatBtn then
+                floatBtn:Destroy()
+                floatBtn = nil
+            end
+
+            -- 创建横屏自适应UI
+            local container = Instance.new("ScreenGui")
+            container.Name = "ServerUI"
+            container.ResetOnSpawn = false
+            container.Parent = PlayerGui
+
+            local mainFrame = Instance.new("Frame")
+            mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+            mainFrame.Position = UDim2.fromScale(0.5, 0.5)
+            -- 横屏：宽度占满，高度为屏幕高度的 45% 左右，保持比例
+            mainFrame.Size = UDim2.new(1, -40, 0, 0)  -- 先设宽度，高度后面自适应
+            mainFrame.Size = UDim2.new(1, -40, 0.45, 0)  -- 宽几乎满，高45%
+            mainFrame.BackgroundColor3 = Theme.Glass
+            mainFrame.BackgroundTransparency = 0.15
+            mainFrame.BorderSizePixel = 0
+            mainFrame.Parent = container
+            corner(mainFrame, 16)
+
+            -- 内容：服务器信息
+            local infoLabel = Instance.new("TextLabel", mainFrame)
+            infoLabel.Size = UDim2.new(1, -40, 1, -60)
+            infoLabel.Position = UDim2.new(0, 20, 0, 20)
+            infoLabel.BackgroundTransparency = 1
+            infoLabel.Text = "服务器名称: " .. serverName .. "\nJobId: " .. game.JobId .. "\n玩家数量: " .. #Players:GetPlayers()
+            infoLabel.Font = Enum.Font.GothamSemibold
+            infoLabel.TextSize = 20
+            infoLabel.TextColor3 = Theme.TextPrimary
+            infoLabel.TextWrapped = true
+            infoLabel.TextXAlignment = Enum.TextXAlignment.Center
+            infoLabel.TextYAlignment = Enum.TextYAlignment.Top
+
+            -- 关闭按钮（完全关闭UI和悬浮窗）
+            local closeServerBtn = Instance.new("TextButton", mainFrame)
+            closeServerBtn.Size = UDim2.new(0, 80, 0, 32)
+            closeServerBtn.Position = UDim2.new(1, -100, 1, -46)
+            closeServerBtn.AnchorPoint = Vector2.new(1, 1)
+            closeServerBtn.Text = "关闭"
+            closeServerBtn.Font = Enum.Font.GothamSemibold
+            closeServerBtn.TextSize = 14
+            closeServerBtn.TextColor3 = Theme.Danger
+            closeServerBtn.BackgroundTransparency = 1
+            closeServerBtn.AutoButtonColor = false
+            pressEffect(closeServerBtn)
+            closeServerBtn.MouseButton1Click:Connect(function()
+                container:Destroy()
+                if floatBtn then floatBtn:Destroy() end
+                serverUIContainer = nil
+                floatBtn = nil
+            end)
+
+            -- 创建悬浮窗（独立于UI，但只在UI显示时出现）
+            local float = Instance.new("TextButton")
+            float.Name = "FloatToggle"
+            float.Size = UDim2.new(0, 60, 0, 40)
+            float.Position = UDim2.new(1, -80, 0, 20)  -- 右上角
+            float.AnchorPoint = Vector2.new(1, 0)
+            float.Text = "开"
+            float.Font = Enum.Font.GothamBold
+            float.TextSize = 16
+            float.TextColor3 = Color3.fromRGB(255,255,255)
+            float.BackgroundColor3 = Theme.Accent
+            float.BackgroundTransparency = 0.2
+            float.BorderSizePixel = 0
+            float.AutoButtonColor = false
+            float.Parent = container  -- 放在同一个ScreenGui中
+            corner(float, 10)
+            pressEffect(float)
+
+            local uiVisible = true
+            float.MouseButton1Click:Connect(function()
+                uiVisible = not uiVisible
+                mainFrame.Visible = uiVisible
+                float.Text = uiVisible and "开" or "关"
+            end)
+
+            serverUIContainer = container
+            floatBtn = float
         end)
     end)
 end
 
--- 防检测页面
+-- 防检测页面（保持不变）
 do
     local p = pgAnti
     local y = 10
