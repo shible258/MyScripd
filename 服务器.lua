@@ -1,6 +1,6 @@
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local Lighting = game:GetService("Lighting")
+local Lighting = game:GetService("Lightning")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
@@ -291,6 +291,7 @@ local function createPage(name)
     return pg
 end
 
+local pgPrison = createPage("Prison")  -- 新增监狱人生页面
 local pgAnti = createPage("Anti")
 
 local FuncState = {
@@ -298,6 +299,7 @@ local FuncState = {
     AdminDetect = true,
     BypassGroup = true,
     BypassAC = true,
+    Aimbot = false,  -- 新增自瞄状态
 }
 
 local toggleSetters = {}
@@ -372,6 +374,53 @@ local function createToggle(parent, yPos, labelText, getState, onToggle)
     return setState
 end
 
+-- ========== 新增：监狱人生页面 ==========
+do
+    local p = pgPrison
+    local y = 10
+
+    local hdr = Instance.new("TextLabel", p)
+    hdr.Text = "监狱人生"
+    hdr.Font = Enum.Font.GothamSemibold
+    hdr.TextSize = 14
+    hdr.TextColor3 = Theme.TextPrimary
+    hdr.BackgroundTransparency = 1
+    hdr.Position = UDim2.new(0, 12, 0, y)
+    hdr.Size = UDim2.new(1, -24, 0, 20)
+    hdr.TextXAlignment = Enum.TextXAlignment.Left
+    y = y + 36
+
+    -- 自瞄开关
+    createToggle(p, y, "自瞄", function()
+        return FuncState.Aimbot
+    end, function(v)
+        FuncState.Aimbot = v
+        if v then
+            Notify("shible", "自瞄已开启", 1)
+            -- TODO: 在这里接入你提供的混淆自瞄代码
+            -- 例如: startAimbot()
+        else
+            Notify("shible", "自瞄已关闭", 1)
+            -- 停止自瞄
+            -- 例如: stopAimbot()
+        end
+    end)
+
+    y = y + 46
+    local info = Instance.new("TextLabel", p)
+    info.Text = "自瞄开关控制是否启用自瞄功能。"
+    info.Font = Enum.Font.Gotham
+    info.TextSize = 12
+    info.TextColor3 = Theme.TextSecondary
+    info.BackgroundTransparency = 1
+    info.Position = UDim2.new(0, 16, 0, y)
+    info.Size = UDim2.new(1, -32, 0, 30)
+    info.TextXAlignment = Enum.TextXAlignment.Left
+    info.TextYAlignment = Enum.TextYAlignment.Top
+    info.TextWrapped = true
+end
+
+-- ========== 原有：防系统检测页面 ==========
 do
     local p = pgAnti
     local y = 10
@@ -544,6 +593,7 @@ local function createFuncItem(name, key)
     end)
 end
 
+createFuncItem("监狱人生", "Prison")  -- 新增列表项
 createFuncItem("防检测", "Anti")
 
 task.defer(function()
