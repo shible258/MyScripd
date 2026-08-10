@@ -4,6 +4,7 @@ local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 if not LocalPlayer then
     LocalPlayer = Players.PlayerAdded:Wait()
@@ -287,6 +288,7 @@ local FuncState = {
     BypassAC = true,
     FogRemoved = false,
     NoCooldown = false,
+    ThirdPerson = false,
 }
 
 local toggleSetters = {}
@@ -361,7 +363,7 @@ local function createToggle(parent, yPos, labelText, getState, onToggle)
     return setState
 end
 
--- ========== “活了七天” 页面 ==========
+-- ========== "活了七天" 页面 ==========
 do
     local p = pgLive
     local y = 10
@@ -403,7 +405,6 @@ do
                 fogConn:Disconnect()
                 fogConn = nil
             end
-            -- 恢复原始值（可选：这里简单重置为默认）
             pcall(function()
                 Lighting.FogEnd = 100000
                 Lighting.FogStart = 0
@@ -423,7 +424,7 @@ do
 
     y = y + 46
 
-    -- 无冷却（持久循环）
+    -- 无冷却：移除动作后摇（砍树摆动等）
     local cooldownConn = nil
     local function toggleNoCooldown(enable)
         FuncState.NoCooldown = enable
@@ -438,33 +439,66 @@ do
                     pcall(function()
                         local char = LocalPlayer.Character
                         if not char then return end
-                        -- 遍历所有对象，清除包含冷却名称的数字值
-                        for _, obj in pairs(char:GetDescendants()) do
-                            if obj:IsA("NumberValue") then
-                                local name = obj.Name:lower()
-                                if name:find("cooldown") or name:find("cd") or name:find("cool") or name:find("冷") then
-                                    obj.Value = 0
-                                end
-                            end
-                            -- 如果是工具，尝试查找属性
-                            if obj:IsA("Tool") then
-                                for _, prop in pairs({"Cooldown", "CD", "CoolDown"}) do
+                        
+                        -- 移除动画后摇：强制停止所有动画并立即重置
+                        local hum = char:FindFirstChildOfClass("Humanoid")
+                        if hum then
+                            -- 重置人类状态，打断当前动作
+                            hum:ChangeState(Enum.HumanoidStateType.Running)
+                            hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+                            hum:ChangeState(Enum.HumanoidStateType.Running)
+                            
+                            -- 清除所有加载的动画轨道
+                            if hum.Animator then
+                                local animator = hum.Animator
+                                for _, track in pairs(animator:GetPlayingAnimationTracks()) do
                                     pcall(function()
-                                        if obj:GetAttribute(prop) ~= nil then
-                                            obj:SetAttribute(prop, 0)
-                                        end
+                                        track:Stop(0)
+                                        track:Destroy()
                                     end)
                                 end
                             end
+                            
+                            -- 强制重置平台站立状态
+                            hum.PlatformStand = false
                         end
-                        -- 修改 Humanoid 可能存在的冷却属性
-                        local hum = char:FindFirstChildOfClass("Humanoid")
-                        if hum then
+                        
+                        -- 查找并强制结束所有工具/武器的冷却和动画
+                        for _, tool in pairs(char:GetChildren()) do
+                            if tool:IsA("Tool") then
+                                -- 重置工具动画
+                                pcall(function()
+                                    if tool:FindFirstChild("Handle") then
+                                        local handle = tool.Handle
+                                        if handle:FindFirstChild("Weld") then
+                                            local weld = handle.Weld
+                                            weld.Part1 = char:FindFirstChild("HumanoidRootPart")
+                                        end
+                                    end
+                                end)
+                            end
+                        end
+                        
+                        -- 重置所有 NumberValue 中的冷却
+                        for _, obj in pairs(char:GetDescendants()) do
+                            if obj:IsA("NumberValue") then
+                                local name = obj.Name:lower()
+                                if name:find("cooldown") or name:find("cd") or name:find("cool") or name:find("冷") or name:find("swing") or name:find("后摇") then
+                                    obj.Value = 0
+                                end
+                            end
+                            -- 重置属性
                             pcall(function()
-                                hum:SetAttribute("Cooldown", 0)
-                                hum:SetAttribute("CD", 0)
+                                if obj:GetAttribute("Cooldown") then
+                                    obj:SetAttribute("Cooldown", 0)
+                                end
+                                if obj:GetAttribute("CD") then
+                                    obj:SetAttribute("CD", 0)
+                                end
+                                if obj:GetAttribute("SwingCooldown") then
+                                    obj:SetAttribute("SwingCooldown", 0)
+                                end
                             end)
-                            -- 某些游戏可能使用 NumberValue 存储冷却
                         end
                     end)
                 end)
@@ -484,8 +518,62 @@ do
     end)
 
     y = y + 46
+
+    -- 强制第三人称
+    local thirdPersonConn = nil
+    local function toggleThirdPerson(enable)
+        FuncState.ThirdPerson = enable
+        if enable then
+            if not thirdPersonConn then
+                thirdPersonConn = RunService.Heartbeat:Connect(function()
+                    if not FuncState.ThirdPerson then
+                        thirdPersonConn:Disconnect()
+                        thirdPersonConn = nil
+                        return
+                    end
+                    pcall(function()
+                        local cam = Workspace.CurrentCamera
+                        if cam then
+                            -- 强制设置为第三人称
+                            cam.CameraType = Enum.CameraType.Fixed
+                            cam.CameraType = Enum.CameraType.Custom
+                            
+                            local char = LocalPlayer.Character
+                            if char and char:FindFirstChild("HumanoidRootPart") then
+                                local root = char.HumanoidRootPart
+                                -- 计算第三人称视角位置
+                                local offset = cam.CFrame.LookVector * -10
+                                local targetPos = root.Position + Vector3.new(0, 2, 0) + offset
+                                cam.CFrame = CFrame.new(targetPos, root.Position + Vector3.new(0, 1.5, 0))
+                            end
+                        end
+                    end)
+                end)
+            end
+        else
+            if thirdPersonConn then
+                thirdPersonConn:Disconnect()
+                thirdPersonConn = nil
+            end
+            -- 恢复第一人称
+            pcall(function()
+                local cam = Workspace.CurrentCamera
+                if cam then
+                    cam.CameraType = Enum.CameraType.Custom
+                end
+            end)
+        end
+    end
+
+    createToggle(p, y, "强制第三人称", function()
+        return FuncState.ThirdPerson
+    end, function(v)
+        toggleThirdPerson(v)
+    end)
+
+    y = y + 46
     local info = Instance.new("TextLabel", p)
-    info.Text = "除雾持续清除雾效；无冷却可清除动作/技能冷却。"
+    info.Text = "除雾持续清除雾效；无冷却移除动作后摇；强制第三人称锁定视角。"
     info.Font = Enum.Font.Gotham
     info.TextSize = 12
     info.TextColor3 = Theme.TextSecondary
@@ -497,7 +585,7 @@ do
     info.TextWrapped = true
 end
 
--- ========== “防检测” 页面（不变） ==========
+-- ========== "防检测" 页面（不变） ==========
 do
     local p = pgAnti
     local y = 10
