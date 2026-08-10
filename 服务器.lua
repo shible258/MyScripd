@@ -477,7 +477,7 @@ do
 
     y = y + 46
 
-    -- 无冷却（只有斧子才能开启）
+    -- 无冷却（只有斧子才能开启，清除摆动后摇）
     local cooldownConn = nil
     local function toggleNoCooldown(enable)
         if enable then
@@ -501,9 +501,8 @@ do
                         cooldownConn = nil
                         return
                     end
-                    -- 检测是否还拿着斧子，如果没了就自动关闭
+                    -- 检测是否还拿着斧子
                     if not checkHasAxe() then
-                        Notify("shible", "未检测到斧子，无冷却已关闭", 2)
                         if toggleSetters["无冷却"] then
                             toggleSetters["无冷却"](false)
                         end
@@ -514,12 +513,10 @@ do
                         local char = LocalPlayer.Character
                         if not char then return end
                         
+                        -- 清除所有动画轨道（移除后摇）
                         local hum = char:FindFirstChildOfClass("Humanoid")
                         if hum then
-                            hum:ChangeState(Enum.HumanoidStateType.Running)
-                            hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-                            hum:ChangeState(Enum.HumanoidStateType.Running)
-                            
+                            -- 停止所有动画
                             if hum.Animator then
                                 local animator = hum.Animator
                                 for _, track in pairs(animator:GetPlayingAnimationTracks()) do
@@ -529,27 +526,58 @@ do
                                     end)
                                 end
                             end
+                            
+                            -- 强制重置状态
+                            hum:ChangeState(Enum.HumanoidStateType.Running)
                             hum.PlatformStand = false
                         end
                         
+                        -- 清除所有冷却相关值
                         for _, obj in pairs(char:GetDescendants()) do
                             if obj:IsA("NumberValue") then
                                 local name = obj.Name:lower()
-                                if name:find("cooldown") or name:find("cd") or name:find("cool") or name:find("冷") or name:find("swing") or name:find("后摇") then
-                                    obj.Value = 0
+                                if name:find("cooldown") or name:find("cd") or name:find("cool") or name:find("冷") or name:find("swing") or name:find("后摇") or name:find("delay") then
+                                    pcall(function()
+                                        obj.Value = 0
+                                    end)
                                 end
                             end
+                            -- 清除属性
                             pcall(function()
-                                if obj:GetAttribute("Cooldown") then
-                                    obj:SetAttribute("Cooldown", 0)
-                                end
-                                if obj:GetAttribute("CD") then
-                                    obj:SetAttribute("CD", 0)
-                                end
-                                if obj:GetAttribute("SwingCooldown") then
-                                    obj:SetAttribute("SwingCooldown", 0)
+                                local attrs = obj:GetAttributes()
+                                for attrName, _ in pairs(attrs) do
+                                    local lower = attrName:lower()
+                                    if lower:find("cooldown") or lower:find("cd") or lower:find("cool") or lower:find("swing") or lower:find("delay") then
+                                        obj:SetAttribute(attrName, 0)
+                                    end
                                 end
                             end)
+                        end
+                        
+                        -- 查找并清除工具中的冷却
+                        for _, tool in pairs(char:GetChildren()) do
+                            if tool:IsA("Tool") then
+                                for _, obj in pairs(tool:GetDescendants()) do
+                                    if obj:IsA("NumberValue") then
+                                        local name = obj.Name:lower()
+                                        if name:find("cooldown") or name:find("cd") or name:find("cool") or name:find("swing") or name:find("delay") then
+                                            pcall(function()
+                                                obj.Value = 0
+                                            end)
+                                        end
+                                    end
+                                end
+                                -- 清除工具属性
+                                pcall(function()
+                                    local attrs = tool:GetAttributes()
+                                    for attrName, _ in pairs(attrs) do
+                                        local lower = attrName:lower()
+                                        if lower:find("cooldown") or lower:find("cd") or lower:find("cool") or lower:find("swing") or lower:find("delay") then
+                                            tool:SetAttribute(attrName, 0)
+                                        end
+                                    end
+                                end)
+                            end
                         end
                     end)
                 end)
@@ -570,7 +598,7 @@ do
 
     y = y + 46
 
-    -- 强制第三人称（需要进入局内，使用RenderStepped平滑过渡防止闪屏）
+    -- 强制第三人称（不低头，视角水平）
     local thirdPersonConn = nil
     local function toggleThirdPerson(enable)
         if enable and not FuncState.IsInGame then
@@ -596,17 +624,25 @@ do
                         local char = LocalPlayer.Character
                         if cam and char and char:FindFirstChild("HumanoidRootPart") then
                             local root = char.HumanoidRootPart
+                            -- 角色位置（腰部高度）
                             local charPos = root.Position + Vector3.new(0, 1.5, 0)
                             
-                            -- 使用当前相机方向或角色朝向
-                            local lookDir = cam.CFrame.LookVector
-                            if lookDir.Magnitude < 0.1 then
-                                lookDir = char.HumanoidRootPart.CFrame.LookVector
+                            -- 获取角色朝向（水平方向，不包含上下俯仰）
+                            local lookDir = root.CFrame.LookVector
+                            -- 只取水平方向，去掉Y轴分量
+                            local horizontalDir = Vector3.new(lookDir.X, 0, lookDir.Z)
+                            if horizontalDir.Magnitude < 0.1 then
+                                horizontalDir = Vector3.new(1, 0, 0)
                             end
-                            local offset = lookDir * -10
+                            horizontalDir = horizontalDir.Unit
                             
-                            local targetPos = charPos + offset + Vector3.new(0, 2, 0)
+                            -- 相机位置：角色后方10单位，高度与角色平齐（不低头）
+                            local offset = horizontalDir * -10
+                            local targetPos = charPos + offset
+                            
+                            -- 相机看向角色（水平视角，不倾斜）
                             cam.CFrame = CFrame.new(targetPos, charPos)
+                            cam.CameraType = Enum.CameraType.Scriptable
                         end
                     end)
                 end)
@@ -1002,7 +1038,7 @@ confirm.MouseButton1Click:Connect(function()
     -- 检测服务器
     local serverName = checkServer()
     
-    -- 检测是否进入局内（判断角色是否在游戏中）
+    -- 检测是否进入局内
     task.wait(0.5)
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
