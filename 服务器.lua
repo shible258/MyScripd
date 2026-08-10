@@ -173,7 +173,7 @@ introContainer.ClipsDescendants = false
 introContainer.Parent = pageMain
 
 local subtitle = Instance.new("TextLabel")
-subtitle.Text = "欢迎使用 shible\n防检测专用版"
+subtitle.Text = "欢迎使用 shible\n请进QQ群:434448780"
 subtitle.Font = Enum.Font.Gotham
 subtitle.TextSize = 14
 subtitle.TextColor3 = Theme.TextSecondary
@@ -199,7 +199,7 @@ end)
 
 local btnY = C.Height - 96
 local confirm = Instance.new("TextButton")
-confirm.Text = "进入"
+confirm.Text = "启动"
 confirm.Font = Enum.Font.GothamSemibold
 confirm.TextSize = 14
 confirm.TextColor3 = Theme.Accent
@@ -289,9 +289,13 @@ local FuncState = {
     FogRemoved = false,
     NoCooldown = false,
     ThirdPerson = false,
+    ServerChecked = false,
+    CurrentServer = "",
+    IsInGame = false,
 }
 
 local toggleSetters = {}
+local toggleStates = {}
 
 local function createToggle(parent, yPos, labelText, getState, onToggle)
     local row = Instance.new("Frame", parent)
@@ -355,12 +359,36 @@ local function createToggle(parent, yPos, labelText, getState, onToggle)
 
     track.InputBegan:Connect(function(input)
         if ((input.UserInputType == Enum.UserInputType.MouseButton1) or (input.UserInputType == Enum.UserInputType.Touch)) then
+            if not FuncState.ServerChecked then
+                Notify("shible", "请先点击「启动」检测服务器", 2)
+                return
+            end
             setState(not on)
         end
     end)
 
     toggleSetters[labelText] = setState
+    toggleStates[labelText] = false
     return setState
+end
+
+-- ========== 检测服务器 ==========
+local function checkServer()
+    Notify("shible", "正在检测服务器...", 1)
+    task.wait(0.5)
+    
+    local serverName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+    if serverName == "" or not serverName then
+        serverName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Title
+    end
+    if serverName == "" or not serverName then
+        serverName = "未知服务器"
+    end
+    
+    FuncState.CurrentServer = serverName
+    FuncState.ServerChecked = true
+    Notify("shible", "当前服务器为: " .. serverName, 3)
+    return serverName
 end
 
 -- ========== "活了七天" 页面 ==========
@@ -378,9 +406,18 @@ do
     hdr.TextXAlignment = Enum.TextXAlignment.Left
     y = y + 36
 
-    -- 除雾（持久循环）
+    -- 除雾（需要进入局内）
     local fogConn = nil
     local function toggleFog(enable)
+        if enable and not FuncState.IsInGame then
+            Notify("shible", "请进入局内再开启除雾", 2)
+            task.wait(0.1)
+            if toggleSetters["除雾"] then
+                toggleSetters["除雾"](false)
+            end
+            return
+        end
+        
         FuncState.FogRemoved = enable
         if enable then
             if not fogConn then
@@ -424,9 +461,30 @@ do
 
     y = y + 46
 
-    -- 无冷却：移除动作后摇（砍树摆动等）
+    -- 无冷却（检测手上是否有物品）
     local cooldownConn = nil
     local function toggleNoCooldown(enable)
+        if enable then
+            local char = LocalPlayer.Character
+            local hasTool = false
+            if char then
+                for _, child in pairs(char:GetChildren()) do
+                    if child:IsA("Tool") then
+                        hasTool = true
+                        break
+                    end
+                end
+            end
+            if not hasTool then
+                Notify("shible", "请先手持物品再开启无冷却", 2)
+                task.wait(0.1)
+                if toggleSetters["无冷却"] then
+                    toggleSetters["无冷却"](false)
+                end
+                return
+            end
+        end
+        
         FuncState.NoCooldown = enable
         if enable then
             if not cooldownConn then
@@ -440,15 +498,12 @@ do
                         local char = LocalPlayer.Character
                         if not char then return end
                         
-                        -- 移除动画后摇：强制停止所有动画并立即重置
                         local hum = char:FindFirstChildOfClass("Humanoid")
                         if hum then
-                            -- 重置人类状态，打断当前动作
                             hum:ChangeState(Enum.HumanoidStateType.Running)
                             hum:ChangeState(Enum.HumanoidStateType.GettingUp)
                             hum:ChangeState(Enum.HumanoidStateType.Running)
                             
-                            -- 清除所有加载的动画轨道
                             if hum.Animator then
                                 local animator = hum.Animator
                                 for _, track in pairs(animator:GetPlayingAnimationTracks()) do
@@ -458,28 +513,9 @@ do
                                     end)
                                 end
                             end
-                            
-                            -- 强制重置平台站立状态
                             hum.PlatformStand = false
                         end
                         
-                        -- 查找并强制结束所有工具/武器的冷却和动画
-                        for _, tool in pairs(char:GetChildren()) do
-                            if tool:IsA("Tool") then
-                                -- 重置工具动画
-                                pcall(function()
-                                    if tool:FindFirstChild("Handle") then
-                                        local handle = tool.Handle
-                                        if handle:FindFirstChild("Weld") then
-                                            local weld = handle.Weld
-                                            weld.Part1 = char:FindFirstChild("HumanoidRootPart")
-                                        end
-                                    end
-                                end)
-                            end
-                        end
-                        
-                        -- 重置所有 NumberValue 中的冷却
                         for _, obj in pairs(char:GetDescendants()) do
                             if obj:IsA("NumberValue") then
                                 local name = obj.Name:lower()
@@ -487,7 +523,6 @@ do
                                     obj.Value = 0
                                 end
                             end
-                            -- 重置属性
                             pcall(function()
                                 if obj:GetAttribute("Cooldown") then
                                     obj:SetAttribute("Cooldown", 0)
@@ -519,9 +554,18 @@ do
 
     y = y + 46
 
-    -- 强制第三人称
+    -- 强制第三人称（需要进入局内）
     local thirdPersonConn = nil
     local function toggleThirdPerson(enable)
+        if enable and not FuncState.IsInGame then
+            Notify("shible", "请进入局内再开启第三人称", 2)
+            task.wait(0.1)
+            if toggleSetters["强制第三人称"] then
+                toggleSetters["强制第三人称"](false)
+            end
+            return
+        end
+        
         FuncState.ThirdPerson = enable
         if enable then
             if not thirdPersonConn then
@@ -533,19 +577,13 @@ do
                     end
                     pcall(function()
                         local cam = Workspace.CurrentCamera
-                        if cam then
-                            -- 强制设置为第三人称
-                            cam.CameraType = Enum.CameraType.Fixed
-                            cam.CameraType = Enum.CameraType.Custom
-                            
-                            local char = LocalPlayer.Character
-                            if char and char:FindFirstChild("HumanoidRootPart") then
-                                local root = char.HumanoidRootPart
-                                -- 计算第三人称视角位置
-                                local offset = cam.CFrame.LookVector * -10
-                                local targetPos = root.Position + Vector3.new(0, 2, 0) + offset
-                                cam.CFrame = CFrame.new(targetPos, root.Position + Vector3.new(0, 1.5, 0))
-                            end
+                        local char = LocalPlayer.Character
+                        if cam and char and char:FindFirstChild("HumanoidRootPart") then
+                            local root = char.HumanoidRootPart
+                            local lookDir = cam.CFrame.LookVector
+                            local offset = Vector3.new(0, 0, 12)
+                            local targetPos = root.Position + Vector3.new(0, 2, 0) + lookDir * offset.Z
+                            cam.CFrame = CFrame.new(targetPos, root.Position + Vector3.new(0, 1, 0))
                         end
                     end)
                 end)
@@ -555,7 +593,6 @@ do
                 thirdPersonConn:Disconnect()
                 thirdPersonConn = nil
             end
-            -- 恢复第一人称
             pcall(function()
                 local cam = Workspace.CurrentCamera
                 if cam then
@@ -573,7 +610,7 @@ do
 
     y = y + 46
     local info = Instance.new("TextLabel", p)
-    info.Text = "除雾持续清除雾效；无冷却移除动作后摇；强制第三人称锁定视角。"
+    info.Text = "除雾需进入局内；无冷却需手持物品；第三人称需进入局内"
     info.Font = Enum.Font.Gotham
     info.TextSize = 12
     info.TextColor3 = Theme.TextSecondary
@@ -585,7 +622,7 @@ do
     info.TextWrapped = true
 end
 
--- ========== "防检测" 页面（不变） ==========
+-- ========== "防检测" 页面 ==========
 do
     local p = pgAnti
     local y = 10
@@ -932,11 +969,25 @@ funcCloseBtn.MouseButton1Click:Connect(function()
     cleanupAll()
 end)
 
+-- ========== 启动按钮 ==========
 confirm.MouseButton1Click:Connect(function()
     makeTween(confirm, {TextSize = 16}, 0.12)
     task.delay(0.12, function()
         makeTween(confirm, {TextSize = 14}, 0.15)
     end)
+
+    -- 检测服务器
+    local serverName = checkServer()
+    
+    -- 检测是否进入局内（判断角色是否在游戏中）
+    task.wait(0.5)
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        FuncState.IsInGame = true
+    else
+        FuncState.IsInGame = false
+        Notify("shible", "未检测到角色进入局内", 2)
+    end
 
     if toggleSetters["开启预防检测"] then toggleSetters["开启预防检测"](true) end
     if toggleSetters["管理员检测"] then toggleSetters["管理员检测"](true) end
