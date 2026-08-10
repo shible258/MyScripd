@@ -292,11 +292,9 @@ local FuncState = {
     ServerChecked = false,
     CurrentServer = "",
     IsInGame = false,
-    HasAxe = false,
 }
 
 local toggleSetters = {}
-local toggleStates = {}
 
 local function createToggle(parent, yPos, labelText, getState, onToggle)
     local row = Instance.new("Frame", parent)
@@ -369,7 +367,6 @@ local function createToggle(parent, yPos, labelText, getState, onToggle)
     end)
 
     toggleSetters[labelText] = setState
-    toggleStates[labelText] = false
     return setState
 end
 
@@ -422,7 +419,7 @@ do
     hdr.TextXAlignment = Enum.TextXAlignment.Left
     y = y + 36
 
-    -- 除雾（需要进入局内）
+    -- 除雾
     local fogConn = nil
     local function toggleFog(enable)
         if enable and not FuncState.IsInGame then
@@ -477,7 +474,7 @@ do
 
     y = y + 46
 
-    -- 无冷却（只有斧子才能开启，清除摆动后摇）
+    -- 无冷却（只有斧子才能开启，直接移除后摇）
     local cooldownConn = nil
     local function toggleNoCooldown(enable)
         if enable then
@@ -501,7 +498,7 @@ do
                         cooldownConn = nil
                         return
                     end
-                    -- 检测是否还拿着斧子
+                    
                     if not checkHasAxe() then
                         if toggleSetters["无冷却"] then
                             toggleSetters["无冷却"](false)
@@ -513,70 +510,58 @@ do
                         local char = LocalPlayer.Character
                         if not char then return end
                         
-                        -- 清除所有动画轨道（移除后摇）
                         local hum = char:FindFirstChildOfClass("Humanoid")
                         if hum then
-                            -- 停止所有动画
+                            -- 直接重置所有动画
                             if hum.Animator then
                                 local animator = hum.Animator
                                 for _, track in pairs(animator:GetPlayingAnimationTracks()) do
                                     pcall(function()
                                         track:Stop(0)
-                                        track:Destroy()
                                     end)
                                 end
                             end
                             
-                            -- 强制重置状态
+                            -- 重置状态
                             hum:ChangeState(Enum.HumanoidStateType.Running)
                             hum.PlatformStand = false
-                        end
-                        
-                        -- 清除所有冷却相关值
-                        for _, obj in pairs(char:GetDescendants()) do
-                            if obj:IsA("NumberValue") then
-                                local name = obj.Name:lower()
-                                if name:find("cooldown") or name:find("cd") or name:find("cool") or name:find("冷") or name:find("swing") or name:find("后摇") or name:find("delay") then
-                                    pcall(function()
-                                        obj.Value = 0
-                                    end)
+                            
+                            -- 强制清除冷却数值
+                            for _, obj in pairs(char:GetDescendants()) do
+                                if obj:IsA("NumberValue") then
+                                    local name = obj.Name:lower()
+                                    if name:find("cooldown") or name:find("cd") or name:find("cool") or name:find("冷") or name:find("swing") or name:find("后摇") or name:find("delay") or name:find("wait") then
+                                        pcall(function()
+                                            obj.Value = 0
+                                        end)
+                                    end
                                 end
                             end
-                            -- 清除属性
-                            pcall(function()
-                                local attrs = obj:GetAttributes()
-                                for attrName, _ in pairs(attrs) do
-                                    local lower = attrName:lower()
-                                    if lower:find("cooldown") or lower:find("cd") or lower:find("cool") or lower:find("swing") or lower:find("delay") then
-                                        obj:SetAttribute(attrName, 0)
-                                    end
-                                end
-                            end)
-                        end
-                        
-                        -- 查找并清除工具中的冷却
-                        for _, tool in pairs(char:GetChildren()) do
-                            if tool:IsA("Tool") then
-                                for _, obj in pairs(tool:GetDescendants()) do
-                                    if obj:IsA("NumberValue") then
-                                        local name = obj.Name:lower()
-                                        if name:find("cooldown") or name:find("cd") or name:find("cool") or name:find("swing") or name:find("delay") then
-                                            pcall(function()
-                                                obj.Value = 0
-                                            end)
+                            
+                            -- 清除所有工具中的冷却
+                            for _, tool in pairs(char:GetChildren()) do
+                                if tool:IsA("Tool") then
+                                    for _, obj in pairs(tool:GetDescendants()) do
+                                        if obj:IsA("NumberValue") then
+                                            local name = obj.Name:lower()
+                                            if name:find("cooldown") or name:find("cd") or name:find("cool") or name:find("swing") or name:find("delay") or name:find("wait") then
+                                                pcall(function()
+                                                    obj.Value = 0
+                                                end)
+                                            end
                                         end
                                     end
-                                end
-                                -- 清除工具属性
-                                pcall(function()
-                                    local attrs = tool:GetAttributes()
-                                    for attrName, _ in pairs(attrs) do
-                                        local lower = attrName:lower()
-                                        if lower:find("cooldown") or lower:find("cd") or lower:find("cool") or lower:find("swing") or lower:find("delay") then
-                                            tool:SetAttribute(attrName, 0)
+                                    -- 清除工具属性
+                                    pcall(function()
+                                        local attrs = tool:GetAttributes()
+                                        for attrName, _ in pairs(attrs) do
+                                            local lower = attrName:lower()
+                                            if lower:find("cooldown") or lower:find("cd") or lower:find("cool") or lower:find("swing") or lower:find("delay") or lower:find("wait") then
+                                                tool:SetAttribute(attrName, 0)
+                                            end
                                         end
-                                    end
-                                end)
+                                    end)
+                                end
                             end
                         end
                     end)
@@ -598,8 +583,24 @@ do
 
     y = y + 46
 
-    -- 强制第三人称（不低头，视角水平）
+    -- 强制第三人称（可转动视角，不低头）
     local thirdPersonConn = nil
+    local mouseDelta = Vector2.new(0, 0)
+    local yaw = 0
+    local pitch = 0
+    local distance = 10
+    
+    -- 鼠标移动监听
+    UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement and FuncState.ThirdPerson then
+            local delta = input.Delta
+            mouseDelta = mouseDelta + delta
+            yaw = yaw - delta.X * 0.005
+            pitch = pitch - delta.Y * 0.005
+            pitch = math.clamp(pitch, -1.2, 1.2) -- 限制俯仰角度，防止低头过度
+        end
+    end)
+    
     local function toggleThirdPerson(enable)
         if enable and not FuncState.IsInGame then
             Notify("shible", "请进入局内再开启第三人称", 2)
@@ -612,6 +613,11 @@ do
         
         FuncState.ThirdPerson = enable
         if enable then
+            -- 重置视角角度
+            yaw = 0
+            pitch = 0.3
+            distance = 10
+            
             if not thirdPersonConn then
                 thirdPersonConn = RunService.RenderStepped:Connect(function()
                     if not FuncState.ThirdPerson then
@@ -624,23 +630,19 @@ do
                         local char = LocalPlayer.Character
                         if cam and char and char:FindFirstChild("HumanoidRootPart") then
                             local root = char.HumanoidRootPart
-                            -- 角色位置（腰部高度）
                             local charPos = root.Position + Vector3.new(0, 1.5, 0)
                             
-                            -- 获取角色朝向（水平方向，不包含上下俯仰）
-                            local lookDir = root.CFrame.LookVector
-                            -- 只取水平方向，去掉Y轴分量
-                            local horizontalDir = Vector3.new(lookDir.X, 0, lookDir.Z)
-                            if horizontalDir.Magnitude < 0.1 then
-                                horizontalDir = Vector3.new(1, 0, 0)
-                            end
-                            horizontalDir = horizontalDir.Unit
+                            -- 计算球面坐标
+                            local theta = yaw
+                            local phi = pitch
                             
-                            -- 相机位置：角色后方10单位，高度与角色平齐（不低头）
-                            local offset = horizontalDir * -10
+                            local offsetX = distance * math.cos(phi) * math.sin(theta)
+                            local offsetY = distance * math.sin(phi)
+                            local offsetZ = distance * math.cos(phi) * math.cos(theta)
+                            
+                            local offset = Vector3.new(offsetX, offsetY, offsetZ)
                             local targetPos = charPos + offset
                             
-                            -- 相机看向角色（水平视角，不倾斜）
                             cam.CFrame = CFrame.new(targetPos, charPos)
                             cam.CameraType = Enum.CameraType.Scriptable
                         end
@@ -669,7 +671,7 @@ do
 
     y = y + 46
     local info = Instance.new("TextLabel", p)
-    info.Text = "除雾需进入局内；无冷却需手持斧子；第三人称需进入局内"
+    info.Text = "除雾需进入局内；无冷却需手持斧子；第三人称鼠标拖动视角"
     info.Font = Enum.Font.Gotham
     info.TextSize = 12
     info.TextColor3 = Theme.TextSecondary
@@ -1035,10 +1037,8 @@ confirm.MouseButton1Click:Connect(function()
         makeTween(confirm, {TextSize = 14}, 0.15)
     end)
 
-    -- 检测服务器
     local serverName = checkServer()
     
-    -- 检测是否进入局内
     task.wait(0.5)
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
