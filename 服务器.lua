@@ -173,7 +173,7 @@ introContainer.ClipsDescendants = false
 introContainer.Parent = pageMain
 
 local subtitle = Instance.new("TextLabel")
-subtitle.Text = "欢迎使用 shible\n请进QQ群:434448780"
+subtitle.Text = "欢迎使用 shible\n防检测专业版"
 subtitle.Font = Enum.Font.Gotham
 subtitle.TextSize = 14
 subtitle.TextColor3 = Theme.TextSecondary
@@ -292,6 +292,7 @@ local FuncState = {
     ServerChecked = false,
     CurrentServer = "",
     IsInGame = false,
+    HasAxe = false,
 }
 
 local toggleSetters = {}
@@ -391,6 +392,21 @@ local function checkServer()
     return serverName
 end
 
+-- ========== 检测是否有斧子 ==========
+local function checkHasAxe()
+    local char = LocalPlayer.Character
+    if not char then return false end
+    for _, child in pairs(char:GetChildren()) do
+        if child:IsA("Tool") then
+            local name = child.Name:lower()
+            if name:find("斧") or name:find("axe") then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 -- ========== "活了七天" 页面 ==========
 do
     local p = pgLive
@@ -461,22 +477,13 @@ do
 
     y = y + 46
 
-    -- 无冷却（检测手上是否有物品）
+    -- 无冷却（只有斧子才能开启）
     local cooldownConn = nil
     local function toggleNoCooldown(enable)
         if enable then
-            local char = LocalPlayer.Character
-            local hasTool = false
-            if char then
-                for _, child in pairs(char:GetChildren()) do
-                    if child:IsA("Tool") then
-                        hasTool = true
-                        break
-                    end
-                end
-            end
-            if not hasTool then
-                Notify("shible", "请先手持物品再开启无冷却", 2)
+            local hasAxe = checkHasAxe()
+            if not hasAxe then
+                Notify("shible", "请先手持斧子再开启无冷却", 2)
                 task.wait(0.1)
                 if toggleSetters["无冷却"] then
                     toggleSetters["无冷却"](false)
@@ -494,6 +501,15 @@ do
                         cooldownConn = nil
                         return
                     end
+                    -- 检测是否还拿着斧子，如果没了就自动关闭
+                    if not checkHasAxe() then
+                        Notify("shible", "未检测到斧子，无冷却已关闭", 2)
+                        if toggleSetters["无冷却"] then
+                            toggleSetters["无冷却"](false)
+                        end
+                        return
+                    end
+                    
                     pcall(function()
                         local char = LocalPlayer.Character
                         if not char then return end
@@ -554,7 +570,7 @@ do
 
     y = y + 46
 
-    -- 强制第三人称（需要进入局内）
+    -- 强制第三人称（需要进入局内，使用RenderStepped平滑过渡防止闪屏）
     local thirdPersonConn = nil
     local function toggleThirdPerson(enable)
         if enable and not FuncState.IsInGame then
@@ -569,7 +585,7 @@ do
         FuncState.ThirdPerson = enable
         if enable then
             if not thirdPersonConn then
-                thirdPersonConn = RunService.Heartbeat:Connect(function()
+                thirdPersonConn = RunService.RenderStepped:Connect(function()
                     if not FuncState.ThirdPerson then
                         thirdPersonConn:Disconnect()
                         thirdPersonConn = nil
@@ -580,10 +596,17 @@ do
                         local char = LocalPlayer.Character
                         if cam and char and char:FindFirstChild("HumanoidRootPart") then
                             local root = char.HumanoidRootPart
+                            local charPos = root.Position + Vector3.new(0, 1.5, 0)
+                            
+                            -- 使用当前相机方向或角色朝向
                             local lookDir = cam.CFrame.LookVector
-                            local offset = Vector3.new(0, 0, 12)
-                            local targetPos = root.Position + Vector3.new(0, 2, 0) + lookDir * offset.Z
-                            cam.CFrame = CFrame.new(targetPos, root.Position + Vector3.new(0, 1, 0))
+                            if lookDir.Magnitude < 0.1 then
+                                lookDir = char.HumanoidRootPart.CFrame.LookVector
+                            end
+                            local offset = lookDir * -10
+                            
+                            local targetPos = charPos + offset + Vector3.new(0, 2, 0)
+                            cam.CFrame = CFrame.new(targetPos, charPos)
                         end
                     end)
                 end)
@@ -610,7 +633,7 @@ do
 
     y = y + 46
     local info = Instance.new("TextLabel", p)
-    info.Text = "除雾需进入局内；无冷却需手持物品；第三人称需进入局内"
+    info.Text = "除雾需进入局内；无冷却需手持斧子；第三人称需进入局内"
     info.Font = Enum.Font.Gotham
     info.TextSize = 12
     info.TextColor3 = Theme.TextSecondary
