@@ -277,6 +277,9 @@ local function createPage(name)
     return pg
 end
 
+-- 新增“活了七天”页面
+local pgLive = createPage("Live")
+-- 防检测页面
 local pgAnti = createPage("Anti")
 
 local FuncState = {
@@ -284,6 +287,7 @@ local FuncState = {
     AdminDetect = true,
     BypassGroup = true,
     BypassAC = true,
+    FogRemoved = false,  -- 除雾开关状态
 }
 
 local toggleSetters = {}
@@ -358,6 +362,82 @@ local function createToggle(parent, yPos, labelText, getState, onToggle)
     return setState
 end
 
+-- ========== 填充“活了七天”页面 ==========
+do
+    local p = pgLive
+    local y = 10
+    local hdr = Instance.new("TextLabel", p)
+    hdr.Text = "活了七天"
+    hdr.Font = Enum.Font.GothamSemibold
+    hdr.TextSize = 14
+    hdr.TextColor3 = Theme.TextPrimary
+    hdr.BackgroundTransparency = 1
+    hdr.Position = UDim2.new(0, 12, 0, y)
+    hdr.Size = UDim2.new(1, -24, 0, 20)
+    hdr.TextXAlignment = Enum.TextXAlignment.Left
+    y = y + 36
+
+    -- 除雾开关
+    local fogOriginal = {
+        FogEnd = nil,
+        FogStart = nil,
+        AtmosphereDensity = nil
+    }
+
+    local function toggleFog(enable)
+        local lighting = Lighting
+        if enable then
+            -- 保存原始值（仅第一次）
+            if fogOriginal.FogEnd == nil then
+                fogOriginal.FogEnd = lighting.FogEnd
+                fogOriginal.FogStart = lighting.FogStart
+                local atmos = lighting:FindFirstChildOfClass("Atmosphere")
+                if atmos then
+                    fogOriginal.AtmosphereDensity = atmos.Density
+                end
+            end
+            -- 除雾
+            lighting.FogEnd = 999999
+            lighting.FogStart = 999999
+            local atmos = lighting:FindFirstChildOfClass("Atmosphere")
+            if atmos then
+                atmos.Density = 0
+            end
+        else
+            -- 恢复
+            if fogOriginal.FogEnd ~= nil then
+                lighting.FogEnd = fogOriginal.FogEnd
+                lighting.FogStart = fogOriginal.FogStart
+                local atmos = lighting:FindFirstChildOfClass("Atmosphere")
+                if atmos and fogOriginal.AtmosphereDensity ~= nil then
+                    atmos.Density = fogOriginal.AtmosphereDensity
+                end
+            end
+        end
+    end
+
+    createToggle(p, y, "除雾", function()
+        return FuncState.FogRemoved
+    end, function(v)
+        FuncState.FogRemoved = v
+        toggleFog(v)
+    end)
+
+    y = y + 46
+    local info = Instance.new("TextLabel", p)
+    info.Text = "开启后移除游戏内所有雾效，视野更清晰。"
+    info.Font = Enum.Font.Gotham
+    info.TextSize = 12
+    info.TextColor3 = Theme.TextSecondary
+    info.BackgroundTransparency = 1
+    info.Position = UDim2.new(0, 16, 0, y)
+    info.Size = UDim2.new(1, -32, 0, 30)
+    info.TextXAlignment = Enum.TextXAlignment.Left
+    info.TextYAlignment = Enum.TextYAlignment.Top
+    info.TextWrapped = true
+end
+
+-- ========== 填充“防检测”页面（原代码） ==========
 do
     local p = pgAnti
     local y = 10
@@ -479,6 +559,7 @@ do
     end)
 end
 
+-- ========== 左侧列表按钮 ==========
 local selectedItem = nil
 local function createFuncItem(name, key)
     local item = Instance.new("TextButton")
@@ -530,6 +611,8 @@ local function createFuncItem(name, key)
     end)
 end
 
+-- 先创建“活了七天”，再创建“防检测”（顺序决定左侧从上到下）
+createFuncItem("活了七天", "Live")
 createFuncItem("防检测", "Anti")
 
 task.defer(function()
