@@ -277,9 +277,7 @@ local function createPage(name)
     return pg
 end
 
--- 新增“活了七天”页面
 local pgLive = createPage("Live")
--- 防检测页面
 local pgAnti = createPage("Anti")
 
 local FuncState = {
@@ -287,7 +285,8 @@ local FuncState = {
     AdminDetect = true,
     BypassGroup = true,
     BypassAC = true,
-    FogRemoved = false,  -- 除雾开关状态
+    FogRemoved = false,
+    NoCooldown = false,
 }
 
 local toggleSetters = {}
@@ -362,7 +361,7 @@ local function createToggle(parent, yPos, labelText, getState, onToggle)
     return setState
 end
 
--- ========== 填充“活了七天”页面 ==========
+-- ========== “活了七天” 页面 ==========
 do
     local p = pgLive
     local y = 10
@@ -377,55 +376,116 @@ do
     hdr.TextXAlignment = Enum.TextXAlignment.Left
     y = y + 36
 
-    -- 除雾开关
-    local fogOriginal = {
-        FogEnd = nil,
-        FogStart = nil,
-        AtmosphereDensity = nil
-    }
-
+    -- 除雾（持久循环）
+    local fogConn = nil
     local function toggleFog(enable)
-        local lighting = Lighting
+        FuncState.FogRemoved = enable
         if enable then
-            -- 保存原始值（仅第一次）
-            if fogOriginal.FogEnd == nil then
-                fogOriginal.FogEnd = lighting.FogEnd
-                fogOriginal.FogStart = lighting.FogStart
-                local atmos = lighting:FindFirstChildOfClass("Atmosphere")
-                if atmos then
-                    fogOriginal.AtmosphereDensity = atmos.Density
-                end
-            end
-            -- 除雾
-            lighting.FogEnd = 999999
-            lighting.FogStart = 999999
-            local atmos = lighting:FindFirstChildOfClass("Atmosphere")
-            if atmos then
-                atmos.Density = 0
+            if not fogConn then
+                fogConn = RunService.Heartbeat:Connect(function()
+                    if not FuncState.FogRemoved then 
+                        fogConn:Disconnect()
+                        fogConn = nil
+                        return 
+                    end
+                    pcall(function()
+                        Lighting.FogEnd = 999999
+                        Lighting.FogStart = 999999
+                        local atmos = Lighting:FindFirstChildOfClass("Atmosphere")
+                        if atmos then
+                            atmos.Density = 0
+                        end
+                    end)
+                end)
             end
         else
-            -- 恢复
-            if fogOriginal.FogEnd ~= nil then
-                lighting.FogEnd = fogOriginal.FogEnd
-                lighting.FogStart = fogOriginal.FogStart
-                local atmos = lighting:FindFirstChildOfClass("Atmosphere")
-                if atmos and fogOriginal.AtmosphereDensity ~= nil then
-                    atmos.Density = fogOriginal.AtmosphereDensity
-                end
+            if fogConn then
+                fogConn:Disconnect()
+                fogConn = nil
             end
+            -- 恢复原始值（可选：这里简单重置为默认）
+            pcall(function()
+                Lighting.FogEnd = 100000
+                Lighting.FogStart = 0
+                local atmos = Lighting:FindFirstChildOfClass("Atmosphere")
+                if atmos then
+                    atmos.Density = 0.4
+                end
+            end)
         end
     end
 
     createToggle(p, y, "除雾", function()
         return FuncState.FogRemoved
     end, function(v)
-        FuncState.FogRemoved = v
         toggleFog(v)
     end)
 
     y = y + 46
+
+    -- 无冷却（持久循环）
+    local cooldownConn = nil
+    local function toggleNoCooldown(enable)
+        FuncState.NoCooldown = enable
+        if enable then
+            if not cooldownConn then
+                cooldownConn = RunService.Heartbeat:Connect(function()
+                    if not FuncState.NoCooldown then
+                        cooldownConn:Disconnect()
+                        cooldownConn = nil
+                        return
+                    end
+                    pcall(function()
+                        local char = LocalPlayer.Character
+                        if not char then return end
+                        -- 遍历所有对象，清除包含冷却名称的数字值
+                        for _, obj in pairs(char:GetDescendants()) do
+                            if obj:IsA("NumberValue") then
+                                local name = obj.Name:lower()
+                                if name:find("cooldown") or name:find("cd") or name:find("cool") or name:find("冷") then
+                                    obj.Value = 0
+                                end
+                            end
+                            -- 如果是工具，尝试查找属性
+                            if obj:IsA("Tool") then
+                                for _, prop in pairs({"Cooldown", "CD", "CoolDown"}) do
+                                    pcall(function()
+                                        if obj:GetAttribute(prop) ~= nil then
+                                            obj:SetAttribute(prop, 0)
+                                        end
+                                    end)
+                                end
+                            end
+                        end
+                        -- 修改 Humanoid 可能存在的冷却属性
+                        local hum = char:FindFirstChildOfClass("Humanoid")
+                        if hum then
+                            pcall(function()
+                                hum:SetAttribute("Cooldown", 0)
+                                hum:SetAttribute("CD", 0)
+                            end)
+                            -- 某些游戏可能使用 NumberValue 存储冷却
+                        end
+                    end)
+                end)
+            end
+        else
+            if cooldownConn then
+                cooldownConn:Disconnect()
+                cooldownConn = nil
+            end
+        end
+    end
+
+    createToggle(p, y, "无冷却", function()
+        return FuncState.NoCooldown
+    end, function(v)
+        toggleNoCooldown(v)
+    end)
+
+    y = y + 46
     local info = Instance.new("TextLabel", p)
-    info.Text = "开启后移除游戏内所有雾效，视野更清晰。"
+    info.Text = "除雾持续清除雾效；无冷却可清除动作/技能冷却。"
     info.Font = Enum.Font.Gotham
     info.TextSize = 12
     info.TextColor3 = Theme.TextSecondary
@@ -437,7 +497,7 @@ do
     info.TextWrapped = true
 end
 
--- ========== 填充“防检测”页面（原代码） ==========
+-- ========== “防检测” 页面（不变） ==========
 do
     local p = pgAnti
     local y = 10
@@ -559,7 +619,7 @@ do
     end)
 end
 
--- ========== 左侧列表按钮 ==========
+-- ========== 左侧列表 ==========
 local selectedItem = nil
 local function createFuncItem(name, key)
     local item = Instance.new("TextButton")
@@ -611,7 +671,6 @@ local function createFuncItem(name, key)
     end)
 end
 
--- 先创建“活了七天”，再创建“防检测”（顺序决定左侧从上到下）
 createFuncItem("活了七天", "Live")
 createFuncItem("防检测", "Anti")
 
