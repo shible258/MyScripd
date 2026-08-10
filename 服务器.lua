@@ -474,7 +474,7 @@ do
 
     y = y + 46
 
-    -- 无冷却（只有斧子才能开启）
+    -- 无冷却
     local cooldownConn = nil
     local function toggleNoCooldown(enable)
         if enable then
@@ -548,19 +548,41 @@ do
 
     y = y + 46
 
-    -- 强制第三人称（完整第三人称，鼠标可转动视角）
+    -- 强制第三人称（使用 GetMouseLocation 追踪鼠标移动）
     local thirdPersonConn = nil
     local yaw = 0
     local pitch = 0.3
     local distance = 10
+    local isDragging = false
+    local lastMousePos = nil
     
-    -- 鼠标移动监听 - 控制视角旋转
+    -- 鼠标按下开始拖动视角
+    UserInputService.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton2 and FuncState.ThirdPerson then
+            isDragging = true
+            lastMousePos = UserInputService:GetMouseLocation()
+        end
+    end)
+    
+    -- 鼠标松开停止拖动
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton2 then
+            isDragging = false
+            lastMousePos = nil
+        end
+    end)
+    
+    -- 鼠标移动时更新视角（需要按住右键）
     UserInputService.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement and FuncState.ThirdPerson then
-            local delta = input.Delta
-            yaw = yaw - delta.X * 0.005
-            pitch = pitch - delta.Y * 0.005
-            pitch = math.clamp(pitch, -0.8, 0.8)
+        if input.UserInputType == Enum.UserInputType.MouseMovement and isDragging and FuncState.ThirdPerson then
+            local currentPos = UserInputService:GetMouseLocation()
+            if lastMousePos then
+                local delta = currentPos - lastMousePos
+                yaw = yaw - delta.X * 0.005
+                pitch = pitch - delta.Y * 0.005
+                pitch = math.clamp(pitch, -0.8, 0.8)
+            end
+            lastMousePos = currentPos
         end
     end)
     
@@ -579,6 +601,8 @@ do
             yaw = 0
             pitch = 0.3
             distance = 10
+            isDragging = false
+            lastMousePos = nil
             
             if not thirdPersonConn then
                 thirdPersonConn = RunService.RenderStepped:Connect(function()
@@ -594,7 +618,6 @@ do
                             local root = char.HumanoidRootPart
                             local charPos = root.Position + Vector3.new(0, 1.5, 0)
                             
-                            -- 使用鼠标控制的 yaw 和 pitch 计算相机位置
                             local theta = yaw
                             local phi = pitch
                             
@@ -605,7 +628,6 @@ do
                             local offset = Vector3.new(offsetX, offsetY, offsetZ)
                             local targetPos = charPos + offset
                             
-                            -- 设置相机为第三人称
                             cam.CameraType = Enum.CameraType.Scriptable
                             cam.CFrame = CFrame.new(targetPos, charPos)
                         end
@@ -634,7 +656,7 @@ do
 
     y = y + 46
     local info = Instance.new("TextLabel", p)
-    info.Text = "除雾需进入局内；无冷却需手持斧子；第三人称鼠标拖动视角"
+    info.Text = "除雾需进入局内；无冷却需手持斧子；第三人称需按住右键拖动"
     info.Font = Enum.Font.Gotham
     info.TextSize = 12
     info.TextColor3 = Theme.TextSecondary
