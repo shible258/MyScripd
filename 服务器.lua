@@ -5,7 +5,6 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 if not LocalPlayer then
     LocalPlayer = Players.PlayerAdded:Wait()
@@ -405,58 +404,6 @@ local function checkHasAxe()
     return false
 end
 
--- ========== 重置角色状态（清除后摇） ==========
-local function resetHumanoid(char)
-    if not char then return end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum then
-        if hum.Animator then
-            for _, track in pairs(hum.Animator:GetPlayingAnimationTracks()) do
-                pcall(function() track:Stop(0) end)
-            end
-        end
-        hum:ChangeState(Enum.HumanoidStateType.Running)
-        hum.PlatformStand = false
-        -- 重置跳跃/行走速度等属性
-        pcall(function()
-            if hum:GetAttribute("Cooldown") then hum:SetAttribute("Cooldown", 0) end
-            if hum:GetAttribute("CD") then hum:SetAttribute("CD", 0) end
-            if hum:GetAttribute("SwingCooldown") then hum:SetAttribute("SwingCooldown", 0) end
-        end)
-    end
-    -- 清除所有冷却数值
-    for _, obj in pairs(char:GetDescendants()) do
-        if obj:IsA("NumberValue") then
-            local name = obj.Name:lower()
-            if name:find("cooldown") or name:find("cd") or name:find("cool") or name:find("冷") or name:find("swing") or name:find("后摇") or name:find("delay") or name:find("wait") then
-                pcall(function() obj.Value = 0 end)
-            end
-        end
-    end
-    -- 清除工具冷却
-    for _, tool in pairs(char:GetChildren()) do
-        if tool:IsA("Tool") then
-            for _, obj in pairs(tool:GetDescendants()) do
-                if obj:IsA("NumberValue") then
-                    local name = obj.Name:lower()
-                    if name:find("cooldown") or name:find("cd") or name:find("cool") or name:find("swing") or name:find("delay") or name:find("wait") then
-                        pcall(function() obj.Value = 0 end)
-                    end
-                end
-            end
-            pcall(function()
-                local attrs = tool:GetAttributes()
-                for attrName, _ in pairs(attrs) do
-                    local lower = attrName:lower()
-                    if lower:find("cooldown") or lower:find("cd") or lower:find("cool") or lower:find("swing") or lower:find("delay") or lower:find("wait") then
-                        tool:SetAttribute(attrName, 0)
-                    end
-                end
-            end)
-        end
-    end
-end
-
 -- ========== "活了七天" 页面 ==========
 do
     local p = pgLive
@@ -527,7 +474,7 @@ do
 
     y = y + 46
 
-    -- 无冷却（针对斧子摆动后摇）
+    -- 无冷却（只有斧子才能开启）
     local cooldownConn = nil
     local function toggleNoCooldown(enable)
         if enable then
@@ -561,8 +508,26 @@ do
                     
                     pcall(function()
                         local char = LocalPlayer.Character
-                        if char then
-                            resetHumanoid(char)
+                        if not char then return end
+                        
+                        local hum = char:FindFirstChildOfClass("Humanoid")
+                        if hum then
+                            if hum.Animator then
+                                for _, track in pairs(hum.Animator:GetPlayingAnimationTracks()) do
+                                    pcall(function() track:Stop(0) end)
+                                end
+                            end
+                            hum:ChangeState(Enum.HumanoidStateType.Running)
+                            hum.PlatformStand = false
+                        end
+                        
+                        for _, obj in pairs(char:GetDescendants()) do
+                            if obj:IsA("NumberValue") then
+                                local name = obj.Name:lower()
+                                if name:find("cooldown") or name:find("cd") or name:find("cool") or name:find("冷") or name:find("swing") or name:find("后摇") or name:find("delay") or name:find("wait") then
+                                    pcall(function() obj.Value = 0 end)
+                                end
+                            end
                         end
                     end)
                 end)
@@ -583,20 +548,19 @@ do
 
     y = y + 46
 
-    -- 强制第三人称（可转动视角，不低头）
+    -- 强制第三人称（完整第三人称，鼠标可转动视角）
     local thirdPersonConn = nil
     local yaw = 0
     local pitch = 0.3
     local distance = 10
-    local sensitivity = 0.005
     
-    -- 鼠标移动监听
+    -- 鼠标移动监听 - 控制视角旋转
     UserInputService.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement and FuncState.ThirdPerson then
             local delta = input.Delta
-            yaw = yaw - delta.X * sensitivity
-            pitch = pitch - delta.Y * sensitivity
-            pitch = math.clamp(pitch, -0.8, 0.8) -- 限制俯仰，避免低头到地
+            yaw = yaw - delta.X * 0.005
+            pitch = pitch - delta.Y * 0.005
+            pitch = math.clamp(pitch, -0.8, 0.8)
         end
     end)
     
@@ -630,7 +594,7 @@ do
                             local root = char.HumanoidRootPart
                             local charPos = root.Position + Vector3.new(0, 1.5, 0)
                             
-                            -- 球面坐标计算
+                            -- 使用鼠标控制的 yaw 和 pitch 计算相机位置
                             local theta = yaw
                             local phi = pitch
                             
@@ -641,8 +605,9 @@ do
                             local offset = Vector3.new(offsetX, offsetY, offsetZ)
                             local targetPos = charPos + offset
                             
-                            cam.CFrame = CFrame.new(targetPos, charPos)
+                            -- 设置相机为第三人称
                             cam.CameraType = Enum.CameraType.Scriptable
+                            cam.CFrame = CFrame.new(targetPos, charPos)
                         end
                     end)
                 end)
