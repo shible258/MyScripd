@@ -173,7 +173,7 @@ introContainer.ClipsDescendants = false
 introContainer.Parent = pageMain
 
 local subtitle = Instance.new("TextLabel")
-subtitle.Text = "欢迎使用 shible\n防检测专业版"
+subtitle.Text = "欢迎使用\n进QQ群:434448780"
 subtitle.Font = Enum.Font.Gotham
 subtitle.TextSize = 14
 subtitle.TextColor3 = Theme.TextSecondary
@@ -288,7 +288,6 @@ local FuncState = {
     BypassAC = true,
     FogRemoved = false,
     NoCooldown = false,
-    ThirdPerson = false,
     ServerChecked = false,
     CurrentServer = "",
     IsInGame = false,
@@ -547,116 +546,8 @@ do
     end)
 
     y = y + 46
-
-    -- 强制第三人称（使用 GetMouseLocation 追踪鼠标移动）
-    local thirdPersonConn = nil
-    local yaw = 0
-    local pitch = 0.3
-    local distance = 10
-    local isDragging = false
-    local lastMousePos = nil
-    
-    -- 鼠标按下开始拖动视角
-    UserInputService.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton2 and FuncState.ThirdPerson then
-            isDragging = true
-            lastMousePos = UserInputService:GetMouseLocation()
-        end
-    end)
-    
-    -- 鼠标松开停止拖动
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton2 then
-            isDragging = false
-            lastMousePos = nil
-        end
-    end)
-    
-    -- 鼠标移动时更新视角（需要按住右键）
-    UserInputService.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement and isDragging and FuncState.ThirdPerson then
-            local currentPos = UserInputService:GetMouseLocation()
-            if lastMousePos then
-                local delta = currentPos - lastMousePos
-                yaw = yaw - delta.X * 0.005
-                pitch = pitch - delta.Y * 0.005
-                pitch = math.clamp(pitch, -0.8, 0.8)
-            end
-            lastMousePos = currentPos
-        end
-    end)
-    
-    local function toggleThirdPerson(enable)
-        if enable and not FuncState.IsInGame then
-            Notify("shible", "请进入局内再开启第三人称", 2)
-            task.wait(0.1)
-            if toggleSetters["强制第三人称"] then
-                toggleSetters["强制第三人称"](false)
-            end
-            return
-        end
-        
-        FuncState.ThirdPerson = enable
-        if enable then
-            yaw = 0
-            pitch = 0.3
-            distance = 10
-            isDragging = false
-            lastMousePos = nil
-            
-            if not thirdPersonConn then
-                thirdPersonConn = RunService.RenderStepped:Connect(function()
-                    if not FuncState.ThirdPerson then
-                        thirdPersonConn:Disconnect()
-                        thirdPersonConn = nil
-                        return
-                    end
-                    pcall(function()
-                        local cam = Workspace.CurrentCamera
-                        local char = LocalPlayer.Character
-                        if cam and char and char:FindFirstChild("HumanoidRootPart") then
-                            local root = char.HumanoidRootPart
-                            local charPos = root.Position + Vector3.new(0, 1.5, 0)
-                            
-                            local theta = yaw
-                            local phi = pitch
-                            
-                            local offsetX = distance * math.cos(phi) * math.sin(theta)
-                            local offsetY = distance * math.sin(phi)
-                            local offsetZ = distance * math.cos(phi) * math.cos(theta)
-                            
-                            local offset = Vector3.new(offsetX, offsetY, offsetZ)
-                            local targetPos = charPos + offset
-                            
-                            cam.CameraType = Enum.CameraType.Scriptable
-                            cam.CFrame = CFrame.new(targetPos, charPos)
-                        end
-                    end)
-                end)
-            end
-        else
-            if thirdPersonConn then
-                thirdPersonConn:Disconnect()
-                thirdPersonConn = nil
-            end
-            pcall(function()
-                local cam = Workspace.CurrentCamera
-                if cam then
-                    cam.CameraType = Enum.CameraType.Custom
-                end
-            end)
-        end
-    end
-
-    createToggle(p, y, "强制第三人称", function()
-        return FuncState.ThirdPerson
-    end, function(v)
-        toggleThirdPerson(v)
-    end)
-
-    y = y + 46
     local info = Instance.new("TextLabel", p)
-    info.Text = "除雾需进入局内；无冷却需手持斧子；第三人称需按住右键拖动"
+    info.Text = "除雾需进入局内；无冷却需手持斧子"
     info.Font = Enum.Font.Gotham
     info.TextSize = 12
     info.TextColor3 = Theme.TextSecondary
