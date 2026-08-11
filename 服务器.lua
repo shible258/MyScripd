@@ -5,6 +5,7 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 if not LocalPlayer then
     LocalPlayer = Players.PlayerAdded:Wait()
@@ -403,6 +404,29 @@ local function checkHasAxe()
     return false
 end
 
+-- ========== 拦截 swing_axe 远程事件 ==========
+local function hookSwingAxe()
+    pcall(function()
+        local remotes = ReplicatedStorage:FindFirstChild("remotes")
+        if remotes then
+            local swingAxe = remotes:FindFirstChild("swing_axe")
+            if swingAxe then
+                -- 保存原始方法
+                local oldFireServer = swingAxe.FireServer
+                swingAxe.FireServer = function(self, ...)
+                    if FuncState.NoCooldown and checkHasAxe() then
+                        -- 无冷却开启时，不执行原始调用，直接返回
+                        return
+                    end
+                    -- 否则正常执行
+                    return oldFireServer(self, ...)
+                end
+                print("[shible] swing_axe 已拦截")
+            end
+        end
+    end)
+end
+
 -- ========== "活了七天" 页面 ==========
 do
     local p = pgLive
@@ -473,8 +497,7 @@ do
 
     y = y + 46
 
-    -- 无冷却
-    local cooldownConn = nil
+    -- 无冷却（拦截 swing_axe）
     local function toggleNoCooldown(enable)
         if enable then
             local hasAxe = checkHasAxe()
@@ -490,52 +513,10 @@ do
         
         FuncState.NoCooldown = enable
         if enable then
-            if not cooldownConn then
-                cooldownConn = RunService.Heartbeat:Connect(function()
-                    if not FuncState.NoCooldown then
-                        cooldownConn:Disconnect()
-                        cooldownConn = nil
-                        return
-                    end
-                    
-                    if not checkHasAxe() then
-                        if toggleSetters["无冷却"] then
-                            toggleSetters["无冷却"](false)
-                        end
-                        return
-                    end
-                    
-                    pcall(function()
-                        local char = LocalPlayer.Character
-                        if not char then return end
-                        
-                        local hum = char:FindFirstChildOfClass("Humanoid")
-                        if hum then
-                            if hum.Animator then
-                                for _, track in pairs(hum.Animator:GetPlayingAnimationTracks()) do
-                                    pcall(function() track:Stop(0) end)
-                                end
-                            end
-                            hum:ChangeState(Enum.HumanoidStateType.Running)
-                            hum.PlatformStand = false
-                        end
-                        
-                        for _, obj in pairs(char:GetDescendants()) do
-                            if obj:IsA("NumberValue") then
-                                local name = obj.Name:lower()
-                                if name:find("cooldown") or name:find("cd") or name:find("cool") or name:find("冷") or name:find("swing") or name:find("后摇") or name:find("delay") or name:find("wait") then
-                                    pcall(function() obj.Value = 0 end)
-                                end
-                            end
-                        end
-                    end)
-                end)
-            end
+            Notify("shible", "无冷却已开启，斧子无后摇", 2)
+            hookSwingAxe()
         else
-            if cooldownConn then
-                cooldownConn:Disconnect()
-                cooldownConn = nil
-            end
+            Notify("shible", "无冷却已关闭", 2)
         end
     end
 
@@ -547,7 +528,7 @@ do
 
     y = y + 46
     local info = Instance.new("TextLabel", p)
-    info.Text = "除雾需进入局内；无冷却需手持斧子"
+    info.Text = "除雾需进入局内；无冷却需手持斧子，开启后砍树无后摇"
     info.Font = Enum.Font.Gotham
     info.TextSize = 12
     info.TextColor3 = Theme.TextSecondary
@@ -884,171 +865,3 @@ minBtn.MouseButton1Click:Connect(function()
 
     task.delay(0.2, function()
         root.Visible = false
-        mini.Visible = true
-        mini.Size = UDim2.new(0, 140, 0, 40)
-        mini.BackgroundTransparency = 1
-        makeTween(mini, {Size = UDim2.new(0, 160, 0, 48), BackgroundTransparency = 0.12}, 0.3, Enum.EasingStyle.Back)
-    end)
-end)
-
-restore.MouseButton1Click:Connect(function()
-    mini.Visible = false
-    root.Visible = true
-    makeTween(blur, {Size = C.Blur}, 0.25)
-    makeTween(root, {Size = UDim2.new(0, C.Width, 0, C.Height), BackgroundTransparency = 0.18}, 0.4)
-end)
-
-closeBtn.MouseButton1Click:Connect(function()
-    cleanupAll()
-end)
-
-funcCloseBtn.MouseButton1Click:Connect(function()
-    cleanupAll()
-end)
-
--- ========== 启动按钮 ==========
-confirm.MouseButton1Click:Connect(function()
-    makeTween(confirm, {TextSize = 16}, 0.12)
-    task.delay(0.12, function()
-        makeTween(confirm, {TextSize = 14}, 0.15)
-    end)
-
-    local serverName = checkServer()
-    
-    task.wait(0.5)
-    local char = LocalPlayer.Character
-    if char and char:FindFirstChild("HumanoidRootPart") then
-        FuncState.IsInGame = true
-    else
-        FuncState.IsInGame = false
-        Notify("shible", "未检测到角色进入局内", 2)
-    end
-
-    if toggleSetters["开启预防检测"] then toggleSetters["开启预防检测"](true) end
-    if toggleSetters["管理员检测"] then toggleSetters["管理员检测"](true) end
-    if toggleSetters["绕过群组检测"] then toggleSetters["绕过群组检测"](true) end
-    if toggleSetters["绕过AC检测"] then toggleSetters["绕过AC检测"](true) end
-
-    makeTween(pageMain, {Position = UDim2.new(-1, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
-    pageFunction.Visible = true
-    pageFunction.Position = UDim2.new(1, 0, 0, 0)
-    makeTween(pageFunction, {Position = UDim2.new(0, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
-
-    backBtn.Visible = false
-    funcCloseBtn.Visible = true
-end)
-
-backBtn.MouseButton1Click:Connect(function()
-    makeTween(pageFunction, {Position = UDim2.new(1, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
-    pageMain.Visible = true
-    pageMain.Position = UDim2.new(-1, 0, 0, 0)
-    makeTween(pageMain, {Position = UDim2.new(0, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
-
-    task.delay(0.3, function()
-        pageFunction.Visible = false
-    end)
-end)
-
-root.Size = UDim2.new(0, C.Width, 0, C.Height)
-root.BackgroundTransparency = 0.18
-root.Visible = true
-gui.Enabled = true
-
-pcall(function()
-    local t = TweenService:Create(root, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Size = UDim2.new(0, C.Width, 0, C.Height),
-        BackgroundTransparency = 0.18
-    })
-    t:Play()
-end)
-
-makeTween(blur, {Size = C.Blur}, 0.5)
-
-local bypassRunning = true
-local function doAntiDetect()
-    pcall(function()
-        for _, v in pairs(getgc(true)) do
-            if type(v) == "table" then
-                if v._G then v._G = nil end
-                if v.antiCheat then v.antiCheat = nil end
-                if v.AntiCheat then v.AntiCheat = nil end
-            end
-        end
-    end)
-    pcall(function()
-        for _, item in pairs(game:GetDescendants()) do
-            if item:IsA("RemoteEvent") and (item.Name:lower():find("detect") or item.Name:lower():find("check")) then
-                item.OnServerEvent:Connect(function() end)
-            end
-        end
-    end)
-end
-
-local function doAdminDetect()
-    local admins = {}
-    for _, plr in ipairs(Players:GetPlayers()) do
-        local name = plr.Name:lower()
-        if name:find("admin") or name:find("owner") or name:find("creator") or name:find("dev") then
-            table.insert(admins, plr.Name)
-        end
-    end
-    if #admins > 0 then
-        Notify("shible", "检测到疑似管理员: " .. table.concat(admins, ", "), 4)
-    end
-end
-
-local function doBypassGroup()
-    pcall(function()
-        for _, v in pairs(getgc(true)) do
-            if type(v) == "table" then
-                if v.GroupCheck then v.GroupCheck = nil end
-                if v.RequireGroup then v.RequireGroup = nil end
-            end
-        end
-        if _G.GroupVerified then _G.GroupVerified = true end
-    end)
-end
-
-local function doBypassAC()
-    pcall(function()
-        for _, v in pairs(getgc(true)) do
-            if type(v) == "table" then
-                if v.AC_Enabled then v.AC_Enabled = false end
-                if v.AntiCheatEnabled then v.AntiCheatEnabled = false end
-                if v.BanDetect then v.BanDetect = nil end
-            end
-        end
-        if _G.AC_Enabled then _G.AC_Enabled = false end
-        if _G.AntiCheat then _G.AntiCheat = nil end
-    end)
-end
-
-task.spawn(function()
-    while bypassRunning do
-        task.wait(60)
-        pcall(function()
-            if FuncState.AntiDetect then doAntiDetect() end
-            if FuncState.AdminDetect then doAdminDetect() end
-            if FuncState.BypassGroup then doBypassGroup() end
-            if FuncState.BypassAC then doBypassAC() end
-        end)
-    end
-end)
-
-local oldCleanup = cleanupAll
-cleanupAll = function()
-    bypassRunning = false
-    oldCleanup()
-end
-
-LocalPlayer.OnTeleport:Connect(function(state)
-    if state == Enum.TeleportState.InProgress then
-        pcall(function()
-            for _, guiObj in pairs(PlayerGui:GetChildren()) do
-                if guiObj:IsA("ScreenGui") and guiObj ~= gui then
-                    guiObj:Destroy()
-                end
-            end
-        end)
-    end
-end)
