@@ -1115,11 +1115,12 @@ do
                             end
                         end
 
-                        -- 从头到脚完整包裹
-                        local headPos = head.Position + Vector3.new(0, 0.2, 0)  -- 略微抬高头顶
-                        local footPos = hrp.Position - Vector3.new(0, 4.0, 0)    -- 延伸至脚底以下
-                        local topScreen, topOn = camera:WorldToScreenPoint(headPos)
-                        local bottomScreen, bottomOn = camera:WorldToScreenPoint(footPos)
+                        -- 以 HumanoidRootPart 为中心，固定上下范围，避免偏移
+                        local centerPos = hrp.Position
+                        local topPos = centerPos + Vector3.new(0, 2.5, 0)   -- 向上2.5格
+                        local bottomPos = centerPos - Vector3.new(0, 2.5, 0) -- 向下2.5格
+                        local topScreen, topOn = camera:WorldToScreenPoint(topPos)
+                        local bottomScreen, bottomOn = camera:WorldToScreenPoint(bottomPos)
 
                         if topOn and bottomOn then
                             local top = topScreen.Y
