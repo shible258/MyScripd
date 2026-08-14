@@ -344,6 +344,7 @@ local FuncState = {
     FlingLoaded = false,
     HideTraces = false,
     ESPMaster = false,
+    InfoPanelEnabled = false,
 }
 
 local animTracks = {}
@@ -706,6 +707,23 @@ do
     hdr.TextXAlignment = Enum.TextXAlignment.Left
     y = y + 30
 
+    -- 一键启动放在最上面
+    createToggle(p, y, "一键启动", function()
+        return FuncState.ESPMaster
+    end, function(v)
+        FuncState.ESPMaster = v
+        FuncState.ESPEnabled = v
+        FuncState.HealthBarEnabled = v
+        FuncState.DistanceEnabled = v
+        FuncState.RadarEnabled = v
+        if toggleSetters["全身透视"] then toggleSetters["全身透视"](v) end
+        if toggleSetters["人物血量"] then toggleSetters["人物血量"](v) end
+        if toggleSetters["距离显示"] then toggleSetters["距离显示"](v) end
+        if toggleSetters["玩家雷达"] then toggleSetters["玩家雷达"](v) end
+        if toggleSetters["人物信息面板"] then toggleSetters["人物信息面板"](v) end
+    end)
+
+    y = y + 48
     createToggle(p, y, "全身透视", function()
         return FuncState.ESPEnabled
     end, function(v)
@@ -713,7 +731,8 @@ do
     end)
 
     y = y + 48
-    createToggle(p, y, "头顶血条", function()
+    -- 头顶血条改为左侧边，名字改为“人物血量”
+    createToggle(p, y, "人物血量", function()
         return FuncState.HealthBarEnabled
     end, function(v)
         FuncState.HealthBarEnabled = v
@@ -734,18 +753,13 @@ do
     end)
 
     y = y + 48
-    createToggle(p, y, "一键启动", function()
-        return FuncState.ESPMaster
+    createToggle(p, y, "人物信息面板", function()
+        return FuncState.InfoPanelEnabled
     end, function(v)
-        FuncState.ESPMaster = v
-        FuncState.ESPEnabled = v
-        FuncState.HealthBarEnabled = v
-        FuncState.DistanceEnabled = v
-        FuncState.RadarEnabled = v
-        if toggleSetters["全身透视"] then toggleSetters["全身透视"](v) end
-        if toggleSetters["头顶血条"] then toggleSetters["头顶血条"](v) end
-        if toggleSetters["距离显示"] then toggleSetters["距离显示"](v) end
-        if toggleSetters["玩家雷达"] then toggleSetters["玩家雷达"](v) end
+        FuncState.InfoPanelEnabled = v
+        if not v then
+            infoPanel.Visible = false
+        end
     end)
 
     local cache = {}
@@ -868,11 +882,12 @@ do
         end
     end
 
+    -- 左侧血条（原头顶血条改为左侧）
     local function createHealthBar(head)
         local bb = Instance.new("BillboardGui")
         bb.Name = "ESP_HB"
-        bb.Size = UDim2.new(0, 55, 0, 5)
-        bb.StudsOffset = Vector3.new(0, 1.3, 0)
+        bb.Size = UDim2.new(0, 60, 0, 6)
+        bb.StudsOffset = Vector3.new(-1.5, 0.5, 0)  -- 左侧偏移
         bb.Adornee = head
         bb.AlwaysOnTop = true
         bb.MaxDistance = 500
@@ -881,16 +896,16 @@ do
         local bg = Instance.new("Frame", bb)
         bg.Size = UDim2.new(1, 0, 1, 0)
         bg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-        bg.BackgroundTransparency = 0.15
+        bg.BackgroundTransparency = 0.3
         bg.BorderSizePixel = 0
-        corner(bg, 2)
+        corner(bg, 3)
         local fill = Instance.new("Frame", bb)
         fill.Name = "Fill"
         fill.Size = UDim2.new(1, 0, 1, 0)
         fill.BackgroundColor3 = Color3.fromRGB(0, 255, 60)
         fill.BorderSizePixel = 0
         fill.ZIndex = 2
-        corner(fill, 2)
+        corner(fill, 3)
         return bb
     end
 
@@ -953,9 +968,7 @@ do
                     if not hum or hum.Health <= 0 or not head then
                         removeESP(char)
                     else
-                        -- 跳过本地玩家自己
                         if char == LocalPlayer.Character then
-                            -- 可以跳过，但也可以透视自己，这里选择跳过
                             continue
                         end
                         local hl, hb = getOrCreateESP(char)
@@ -994,7 +1007,7 @@ do
                                 distGui.StudsOffset = Vector3.new(0, -3, 0)
                                 distGui.Adornee = hrp
                                 distGui.AlwaysOnTop = true
-                                distGui.MaxDistance = 500
+                                distGui.MaxDistance = 0  -- 无限距离
                                 distGui.Enabled = true
                                 distGui.Parent = hrp
                                 local textLabel = Instance.new("TextLabel", distGui)
@@ -1029,6 +1042,95 @@ do
         radarPoints[plr] = nil
     end)
 end
+
+-- 人物信息面板
+local infoPanel = Instance.new("Frame", gui)
+infoPanel.Name = "InfoPanel"
+infoPanel.Size = UDim2.new(0, 260, 0, 85)
+infoPanel.Position = UDim2.new(0.5, -130, 0, 20)
+infoPanel.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+infoPanel.BackgroundTransparency = 0.2
+infoPanel.BorderSizePixel = 0
+infoPanel.Visible = false
+corner(infoPanel, 12)
+
+local infoName = Instance.new("TextLabel", infoPanel)
+infoName.Size = UDim2.new(1, -10, 0, 25)
+infoName.Position = UDim2.new(0, 10, 0, 5)
+infoName.BackgroundTransparency = 1
+infoName.Text = "名字: 无"
+infoName.Font = Enum.Font.GothamBold
+infoName.TextSize = 16
+infoName.TextColor3 = Color3.fromRGB(255, 255, 255)
+infoName.TextXAlignment = Enum.TextXAlignment.Left
+
+local infoHealth = Instance.new("TextLabel", infoPanel)
+infoHealth.Size = UDim2.new(1, -10, 0, 25)
+infoHealth.Position = UDim2.new(0, 10, 0, 30)
+infoHealth.BackgroundTransparency = 1
+infoHealth.Text = "血量: 100/100"
+infoHealth.Font = Enum.Font.Gotham
+infoHealth.TextSize = 14
+infoHealth.TextColor3 = Color3.fromRGB(200, 200, 200)
+infoHealth.TextXAlignment = Enum.TextXAlignment.Left
+
+local infoDist = Instance.new("TextLabel", infoPanel)
+infoDist.Size = UDim2.new(1, -10, 0, 25)
+infoDist.Position = UDim2.new(0, 10, 0, 55)
+infoDist.BackgroundTransparency = 1
+infoDist.Text = "距离: 0m"
+infoDist.Font = Enum.Font.Gotham
+infoDist.TextSize = 14
+infoDist.TextColor3 = Color3.fromRGB(200, 200, 200)
+infoDist.TextXAlignment = Enum.TextXAlignment.Left
+
+-- 检测准心下的角色，更新信息面板
+RunService.RenderStepped:Connect(function()
+    safeCall(function()
+        if not FuncState.InfoPanelEnabled then
+            infoPanel.Visible = false
+            return
+        end
+
+        local camera = workspace.CurrentCamera
+        local mousePos = UserInputService:GetMouseLocation()
+        local ray = camera:ViewportPointToRay(mousePos.X, mousePos.Y)
+        local params = RaycastParams.new()
+        params.FilterType = Enum.RaycastFilterType.Blacklist
+        params.FilterDescendantsInstances = {LocalPlayer.Character}
+        local hit = workspace:Raycast(ray.Origin, ray.Direction * 500, params)
+
+        if hit then
+            local model = hit.Instance
+            while model and model.Parent and not model:IsA("Model") do
+                model = model.Parent
+            end
+            if model and model:IsA("Model") and model:FindFirstChildOfClass("Humanoid") then
+                local hum = model:FindFirstChildOfClass("Humanoid")
+                local hrp = model:FindFirstChild("HumanoidRootPart")
+                if hum and hrp then
+                    local name = model.Name
+                    -- 如果是玩家，显示玩家名
+                    for _, plr in ipairs(Players:GetPlayers()) do
+                        if plr.Character == model then
+                            name = plr.Name
+                            break
+                        end
+                    end
+                    local health = hum.Health
+                    local maxHealth = hum.MaxHealth
+                    local dist = (hrp.Position - camera.CFrame.Position).Magnitude
+                    infoName.Text = "名字: " .. name
+                    infoHealth.Text = "血量: " .. math.floor(health) .. "/" .. math.floor(maxHealth)
+                    infoDist.Text = "距离: " .. string.format("%.1f", dist * 0.28) .. "m"
+                    infoPanel.Visible = true
+                    return
+                end
+            end
+        end
+        infoPanel.Visible = false
+    end)
+end)
 
 do
     local p = pgFly
