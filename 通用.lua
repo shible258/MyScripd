@@ -143,8 +143,9 @@ root.Name = "MainFrame"
 root.AnchorPoint = Vector2.new(0.5, 0.5)
 root.Position = UDim2.fromScale(0.5, 0.45)
 root.Size = UDim2.new(0, C.Width, 0, C.Height)
-root.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
-root.BackgroundTransparency = 0.25
+-- 恢复原始深色玻璃效果
+root.BackgroundColor3 = Theme.Glass
+root.BackgroundTransparency = 0.18
 root.BorderSizePixel = 0
 root.Active = true
 root.Visible = true
@@ -1066,6 +1067,7 @@ do
         RunService.RenderStepped:Connect(function()
             safeCall(function()
                 if FuncState.BoxESPEnabled then
+                    -- 清理无效缓存
                     for char, entry in pairs(cache) do
                         if not char.Parent or not char:IsDescendantOf(workspace) then
                             if entry.boxLines then
@@ -1115,10 +1117,10 @@ do
                             end
                         end
 
-                        -- 修改点：将方框下移，使用躯干位置作为基准
-                        local torsoPos = hrp.Position + Vector3.new(0, 1.5, 0)  -- 胸部位置
-                        local footPos = hrp.Position - Vector3.new(0, 2, 0)     -- 膝盖附近
-                        local topScreen, topOn = camera:WorldToScreenPoint(torsoPos)
+                        -- 从头到脚全身包裹
+                        local headPos = head.Position
+                        local footPos = hrp.Position - Vector3.new(0, 2.5, 0)  -- 脚部位置（可微调）
+                        local topScreen, topOn = camera:WorldToScreenPoint(headPos)
                         local bottomScreen, bottomOn = camera:WorldToScreenPoint(footPos)
 
                         if topOn and bottomOn then
@@ -1127,24 +1129,28 @@ do
                             local height = bottom - top
                             if height > 1 then
                                 local centerX = (topScreen.X + bottomScreen.X) / 2
-                                local width = height * 0.4
+                                local width = height * 0.4   -- 宽度为高度的0.4倍，适应人体比例
                                 local left = centerX - width / 2
                                 local right = centerX + width / 2
                                 local cornerSize = math.min(height, width) * 0.2
 
                                 local lines = entry.boxLines
+                                -- 左上角
                                 lines[1].From = Vector2.new(left, top)
                                 lines[1].To   = Vector2.new(left + cornerSize, top)
                                 lines[2].From = Vector2.new(left, top)
                                 lines[2].To   = Vector2.new(left, top + cornerSize)
+                                -- 右上角
                                 lines[3].From = Vector2.new(right, top)
                                 lines[3].To   = Vector2.new(right - cornerSize, top)
                                 lines[4].From = Vector2.new(right, top)
                                 lines[4].To   = Vector2.new(right, top + cornerSize)
+                                -- 左下角
                                 lines[5].From = Vector2.new(left, bottom)
                                 lines[5].To   = Vector2.new(left + cornerSize, bottom)
                                 lines[6].From = Vector2.new(left, bottom)
                                 lines[6].To   = Vector2.new(left, bottom - cornerSize)
+                                -- 右下角
                                 lines[7].From = Vector2.new(right, bottom)
                                 lines[7].To   = Vector2.new(right - cornerSize, bottom)
                                 lines[8].From = Vector2.new(right, bottom)
@@ -1165,6 +1171,7 @@ do
                         end
                     end
                 else
+                    -- 关闭时清除所有线条
                     for char, entry in pairs(cache) do
                         if entry.boxLines then
                             for _, line in ipairs(entry.boxLines) do
@@ -2326,7 +2333,7 @@ backBtn.MouseButton1Click:Connect(function()
 end)
 
 root.Size = UDim2.new(0, C.Width, 0, C.Height)
-root.BackgroundTransparency = 0.25
+root.BackgroundTransparency = 0.18
 root.Visible = true
 gui.Enabled = true
 makeTween(blur, {Size = C.Blur}, 0.5)
