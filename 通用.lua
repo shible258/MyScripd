@@ -138,8 +138,9 @@ root.Name = "MainFrame"
 root.AnchorPoint = Vector2.new(0.5, 0.5)
 root.Position = UDim2.fromScale(0.5, 0.45)
 root.Size = UDim2.new(0, C.Width, 0, C.Height)
-root.BackgroundColor3 = Theme.Glass
-root.BackgroundTransparency = 0.18
+-- 调整透明度与背景色，使其明显可见
+root.BackgroundColor3 = Color3.fromRGB(55, 55, 60)   -- 亮灰色
+root.BackgroundTransparency = 0.25                  -- 降低透明度
 root.BorderSizePixel = 0
 root.Active = true
 root.Visible = true
@@ -344,7 +345,7 @@ local FuncState = {
     FlingLoaded = false,
     HideTraces = false,
     ESPMaster = false,
-    BoxESPEnabled = false,  -- 新增：人物方框开关
+    BoxESPEnabled = false,
 }
 
 local animTracks = {}
@@ -734,12 +735,10 @@ do
         FuncState.RadarEnabled = v
     end)
 
-    -- 新增：人物方框开关（在一键启动上方）
     createToggle(p, y, "人物方框", function()
         return FuncState.BoxESPEnabled
     end, function(v)
         FuncState.BoxESPEnabled = v
-        -- 关闭时立即清除所有方框线条
         if not v then
             for char, entry in pairs(cache) do
                 if entry.boxLines then
@@ -761,7 +760,7 @@ do
         FuncState.HealthBarEnabled = v
         FuncState.DistanceEnabled = v
         FuncState.RadarEnabled = v
-        FuncState.BoxESPEnabled = v  -- 同步方框开关
+        FuncState.BoxESPEnabled = v
     end)
 
     local cache = {}
@@ -1040,11 +1039,9 @@ do
         end)
     end)
 
-    -- 新增：方框绘制（独立循环，每帧更新）
     RunService.RenderStepped:Connect(function()
         safeCall(function()
             if FuncState.BoxESPEnabled then
-                -- 清理无效缓存
                 for char, entry in pairs(cache) do
                     if not char.Parent or not char:IsDescendantOf(workspace) then
                         if entry.boxLines then
@@ -1111,22 +1108,18 @@ do
                             local cornerSize = math.min(height, width) * 0.2
 
                             local lines = entry.boxLines
-                            -- 左上角
                             lines[1].From = Vector2.new(left, top)
                             lines[1].To   = Vector2.new(left + cornerSize, top)
                             lines[2].From = Vector2.new(left, top)
                             lines[2].To   = Vector2.new(left, top + cornerSize)
-                            -- 右上角
                             lines[3].From = Vector2.new(right, top)
                             lines[3].To   = Vector2.new(right - cornerSize, top)
                             lines[4].From = Vector2.new(right, top)
                             lines[4].To   = Vector2.new(right, top + cornerSize)
-                            -- 左下角
                             lines[5].From = Vector2.new(left, bottom)
                             lines[5].To   = Vector2.new(left + cornerSize, bottom)
                             lines[6].From = Vector2.new(left, bottom)
                             lines[6].To   = Vector2.new(left, bottom - cornerSize)
-                            -- 右下角
                             lines[7].From = Vector2.new(right, bottom)
                             lines[7].To   = Vector2.new(right - cornerSize, bottom)
                             lines[8].From = Vector2.new(right, bottom)
@@ -1147,7 +1140,6 @@ do
                     end
                 end
             else
-                -- 如果关闭，清理所有线条
                 for char, entry in pairs(cache) do
                     if entry.boxLines then
                         for _, line in ipairs(entry.boxLines) do
@@ -2308,7 +2300,7 @@ backBtn.MouseButton1Click:Connect(function()
 end)
 
 root.Size = UDim2.new(0, C.Width, 0, C.Height)
-root.BackgroundTransparency = 0.18
+root.BackgroundTransparency = 0.25   -- 确保透明度合适
 root.Visible = true
 gui.Enabled = true
 makeTween(blur, {Size = C.Blur}, 0.5)
