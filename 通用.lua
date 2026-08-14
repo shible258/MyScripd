@@ -25,7 +25,6 @@ local function Notify(title, text, duration)
     end)
 end
 
--- 检测 Drawing 库是否可用
 local DrawingSupported = pcall(function() Drawing.new("Line") end)
 if not DrawingSupported then
     Notify("shible", "当前环境不支持 Drawing 库，人物方框功能将不可用", 3)
@@ -719,7 +718,7 @@ do
         FuncState.ESPEnabled = v
     end)
 
-    y = y + 48  -- 增加间距避免重叠
+    y = y + 48
     createToggle(p, y, "头顶血条", function()
         return FuncState.HealthBarEnabled
     end, function(v)
@@ -741,7 +740,6 @@ do
     end)
 
     y = y + 48
-    -- 人物方框开关（若 Drawing 不支持则禁用）
     local boxToggle = createToggle(p, y, "人物方框", function()
         return FuncState.BoxESPEnabled
     end, function(v)
@@ -781,7 +779,6 @@ do
         else
             FuncState.BoxESPEnabled = false
         end
-        -- 同步开关状态
         if toggleSetters["全身透视"] then toggleSetters["全身透视"](v) end
         if toggleSetters["头顶血条"] then toggleSetters["头顶血条"](v) end
         if toggleSetters["距离显示"] then toggleSetters["距离显示"](v) end
@@ -1065,7 +1062,6 @@ do
         end)
     end)
 
-    -- 人物方框绘制（仅在 Drawing 支持时运行）
     if DrawingSupported then
         RunService.RenderStepped:Connect(function()
             safeCall(function()
@@ -1119,17 +1115,18 @@ do
                             end
                         end
 
-                        local headPos = head.Position
-                        local footPos = hrp.Position - Vector3.new(0, 3, 0)
-                        local headScreen, headOnScreen = camera:WorldToScreenPoint(headPos)
-                        local footScreen, footOnScreen = camera:WorldToScreenPoint(footPos)
+                        -- 修改点：将方框下移，使用躯干位置作为基准
+                        local torsoPos = hrp.Position + Vector3.new(0, 1.5, 0)  -- 胸部位置
+                        local footPos = hrp.Position - Vector3.new(0, 2, 0)     -- 膝盖附近
+                        local topScreen, topOn = camera:WorldToScreenPoint(torsoPos)
+                        local bottomScreen, bottomOn = camera:WorldToScreenPoint(footPos)
 
-                        if headOnScreen and footOnScreen then
-                            local top = headScreen.Y
-                            local bottom = footScreen.Y
+                        if topOn and bottomOn then
+                            local top = topScreen.Y
+                            local bottom = bottomScreen.Y
                             local height = bottom - top
                             if height > 1 then
-                                local centerX = (headScreen.X + footScreen.X) / 2
+                                local centerX = (topScreen.X + bottomScreen.X) / 2
                                 local width = height * 0.4
                                 local left = centerX - width / 2
                                 local right = centerX + width / 2
