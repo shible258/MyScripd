@@ -706,7 +706,6 @@ do
     hdr.TextXAlignment = Enum.TextXAlignment.Left
     y = y + 30
 
-    -- 一键启动放在最上面
     createToggle(p, y, "一键启动", function()
         return FuncState.ESPMaster
     end, function(v)
@@ -835,7 +834,6 @@ do
         local right = Vector3.new(forward.Z, 0, -forward.X)
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr == LocalPlayer then continue end
-            -- 只显示敌人（不同队伍），如果玩家没有队伍则视为敌人
             if LocalPlayer.Team and plr.Team and plr.Team == LocalPlayer.Team then
                 continue
             end
@@ -872,12 +870,11 @@ do
         end
     end
 
-    -- 左侧血条（原头顶血条改为左侧）
     local function createHealthBar(head)
         local bb = Instance.new("BillboardGui")
         bb.Name = "ESP_HB"
         bb.Size = UDim2.new(0, 60, 0, 6)
-        bb.StudsOffset = Vector3.new(-1.5, 0.5, 0)  -- 左侧偏移
+        bb.StudsOffset = Vector3.new(-1.5, 0.5, 0)
         bb.Adornee = head
         bb.AlwaysOnTop = true
         bb.MaxDistance = 500
@@ -949,7 +946,6 @@ do
         if espFrameCounter % 2 ~= 0 then return end
         safeCall(function()
             local myRoot = getRootPart()
-            -- 遍历所有带有 Humanoid 的模型（包括玩家和 NPC）
             for _, model in ipairs(workspace:GetChildren()) do
                 if model:IsA("Model") and model:FindFirstChildOfClass("Humanoid") then
                     local char = model
@@ -997,7 +993,7 @@ do
                                 distGui.StudsOffset = Vector3.new(0, -3, 0)
                                 distGui.Adornee = hrp
                                 distGui.AlwaysOnTop = true
-                                distGui.MaxDistance = 0  -- 无限距离
+                                distGui.MaxDistance = 0
                                 distGui.Enabled = true
                                 distGui.Parent = hrp
                                 local textLabel = Instance.new("TextLabel", distGui)
@@ -1911,5 +1907,297 @@ task.spawn(function()
     task.wait(0.5)
     if FuncState.AntiDetect then
         startAntiDetect()
+    end
+end)
+
+local selectedItem = nil
+local function createFuncItem(name, key)
+    local item = Instance.new("TextButton")
+    item.Size = UDim2.new(1, 0, 0, 36)
+    item.BackgroundColor3 = Theme.Glass
+    item.BackgroundTransparency = 0.6
+    item.Text = ""
+    item.AutoButtonColor = false
+    item.Parent = funcList
+    corner(item, 10)
+    item.SelectionImageObject = nil
+    item.Selectable = false
+    local lbl = Instance.new("TextLabel", item)
+    lbl.Text = name
+    lbl.Font = Enum.Font.GothamSemibold
+    lbl.TextSize = 13
+    lbl.TextColor3 = Theme.TextPrimary
+    lbl.BackgroundTransparency = 1
+    lbl.Size = UDim2.new(1, -12, 1, 0)
+    lbl.Position = UDim2.new(0, 0, 0, 0)
+    lbl.TextXAlignment = Enum.TextXAlignment.Center
+    item.MouseEnter:Connect(function()
+        if (selectedItem ~= item) then
+            makeTween(item, {BackgroundTransparency = 0.35}, 0.15)
+        end
+    end)
+    item.MouseLeave:Connect(function()
+        if (selectedItem ~= item) then
+            makeTween(item, {BackgroundTransparency = 0.6}, 0.15)
+        end
+    end)
+    item.MouseButton1Click:Connect(function()
+        if selectedItem then
+            makeTween(selectedItem, {BackgroundTransparency = 0.6}, 0.2)
+        end
+        selectedItem = item
+        makeTween(item, {BackgroundTransparency = 0.2}, 0.2)
+        for _, pg in pairs(pages) do
+            pg.Visible = false
+        end
+        pages[key].Visible = true
+    end)
+end
+
+createFuncItem("自瞄", "Aim")
+createFuncItem("移速", "Speed")
+createFuncItem("人物功能", "ESP")
+createFuncItem("飞行", "Fly")
+createFuncItem("娱乐", "Fun")
+createFuncItem("人物动作", "Action")
+createFuncItem("防检测", "Anti")
+
+task.defer(function()
+    safeCall(function()
+        for _, btn in ipairs(funcList:GetChildren()) do
+            if btn:IsA("TextButton") then
+                btn.MouseButton1Click:Fire()
+                break
+            end
+        end
+    end)
+end)
+
+local backBtn = Instance.new("TextButton", pageFunction)
+backBtn.Text = "返回"
+backBtn.Font = Enum.Font.GothamSemibold
+backBtn.TextSize = 14
+backBtn.TextColor3 = Theme.Accent
+backBtn.BackgroundTransparency = 1
+backBtn.Position = UDim2.new(0, 16, 1, -C.BackBtnHeight - 4)
+backBtn.Size = UDim2.new(0, 60, 0, 36)
+backBtn.AutoButtonColor = false
+pressEffect(backBtn)
+
+local funcCloseBtn = Instance.new("TextButton", pageFunction)
+funcCloseBtn.Text = "关闭"
+funcCloseBtn.Font = Enum.Font.GothamSemibold
+funcCloseBtn.TextSize = 14
+funcCloseBtn.TextColor3 = Theme.Danger
+funcCloseBtn.BackgroundTransparency = 1
+funcCloseBtn.Position = UDim2.new(1, -72, 1, -C.BackBtnHeight - 4)
+funcCloseBtn.Size = UDim2.new(0, 60, 0, 36)
+funcCloseBtn.AutoButtonColor = false
+pressEffect(funcCloseBtn)
+funcCloseBtn.Visible = false
+
+local mini = Instance.new("Frame", gui)
+mini.Visible = false
+mini.AnchorPoint = Vector2.new(0.5, 0.5)
+mini.Position = UDim2.fromScale(0.5, 0.08)
+mini.Size = UDim2.new(0, 160, 0, 48)
+mini.BackgroundColor3 = Theme.Glass
+mini.BackgroundTransparency = 0.12
+mini.BorderSizePixel = 0
+mini.Active = true
+corner(mini, 16)
+
+local miniGrab = Instance.new("Frame", mini)
+miniGrab.AnchorPoint = Vector2.new(0.5, 0)
+miniGrab.Size = UDim2.new(0, 28, 0, 3)
+miniGrab.Position = UDim2.new(0.5, 0, 0, 5)
+miniGrab.BackgroundColor3 = Theme.Grabber
+miniGrab.BackgroundTransparency = 0.35
+miniGrab.BorderSizePixel = 0
+corner(miniGrab, 999)
+
+local miniLbl = Instance.new("TextLabel", mini)
+miniLbl.Text = "已最小化"
+miniLbl.Font = Enum.Font.Gotham
+miniLbl.TextSize = 12
+miniLbl.TextColor3 = Theme.TextPrimary
+miniLbl.BackgroundTransparency = 1
+miniLbl.Position = UDim2.new(0, 12, 0, 12)
+miniLbl.Size = UDim2.new(1, -70, 1, -24)
+
+local restore = Instance.new("TextButton", mini)
+restore.Text = "恢复"
+restore.Font = Enum.Font.GothamSemibold
+restore.TextSize = 12
+restore.TextColor3 = Theme.Accent
+restore.BackgroundTransparency = 1
+restore.Position = UDim2.new(1, -64, 0, 8)
+restore.Size = UDim2.new(0, 56, 1, -16)
+restore.AutoButtonColor = false
+pressEffect(restore)
+
+local DragSystem = {}
+DragSystem.enable = function(frame, opts)
+    opts = opts or {}
+    local smoothness = opts.smoothness or C.DragSmoothness
+    local clampY = opts.clampY ~= false
+    local dragging = false
+    local startMousePos
+    local startFramePos
+    frame.InputBegan:Connect(function(input)
+        if ((input.UserInputType == Enum.UserInputType.MouseButton1) or (input.UserInputType == Enum.UserInputType.Touch)) then
+            dragging = true
+            startMousePos = input.Position
+            startFramePos = frame.Position
+        end
+    end)
+    frame.InputEnded:Connect(function(input)
+        if (dragging and ((input.UserInputType == Enum.UserInputType.MouseButton1) or (input.UserInputType == Enum.UserInputType.Touch))) then
+            dragging = false
+        end
+    end)
+    local lastPos = frame.Position
+    RunService.RenderStepped:Connect(function()
+        safeCall(function()
+            if (dragging and startMousePos) then
+                local mouse = UserInputService:GetMouseLocation()
+                local delta = mouse - startMousePos
+                local newX = startFramePos.X.Offset + delta.X
+                local newY = startFramePos.Y.Offset + delta.Y
+                if clampY then newY = math.max(0, newY) end
+                local ss = gui.AbsoluteSize
+                local fs = frame.AbsoluteSize
+                newX = math.clamp(newX, -fs.X / 2, ss.X - (fs.X / 2))
+                local target = UDim2.new(0, newX, 0, newY)
+                lastPos = UDim2.new(
+                    lastPos.X.Scale + ((target.X.Scale - lastPos.X.Scale) * smoothness),
+                    lastPos.X.Offset + ((target.X.Offset - lastPos.X.Offset) * smoothness),
+                    lastPos.Y.Scale + ((target.Y.Scale - lastPos.Y.Scale) * smoothness),
+                    lastPos.Y.Offset + ((target.Y.Offset - lastPos.Y.Offset) * smoothness)
+                )
+                frame.Position = lastPos
+            end
+        end)
+    end)
+end
+
+DragSystem.enable(root)
+DragSystem.enable(mini)
+
+local function cleanupAll()
+    pcall(function()
+        stopAntiDetect()
+        if pgFun._antiFallConn then
+            for _, conn in pairs(pgFun._antiFallConn) do
+                if conn then conn:Disconnect() end
+            end
+            pgFun._antiFallConn = {}
+        end
+        local h = getHumanoid()
+        if h then h.WalkSpeed = 16 end
+        for _, track in ipairs(animTracks) do
+            pcall(function() track:Stop() track:Destroy() end)
+        end
+        animTracks = {}
+        for _, point in pairs(radarPoints) do
+            pcall(function() point:Destroy() end)
+        end
+        radarPoints = {}
+        for char, entry in pairs(cache) do
+            pcall(function()
+                if entry.hl then entry.hl:Destroy() end
+                if entry.hb then entry.hb:Destroy() end
+            end)
+        end
+        cache = {}
+        gui:Destroy()
+        blur:Destroy()
+    end)
+end
+
+minBtn.MouseButton1Click:Connect(function()
+    root.Visible = false
+    mini.Visible = true
+    makeTween(blur, {Size = 6}, 0.25)
+    mini.Size = UDim2.new(0, 140, 0, 40)
+    mini.BackgroundTransparency = 1
+    makeTween(mini, {Size = UDim2.new(0, 160, 0, 48), BackgroundTransparency = 0.12}, 0.3, Enum.EasingStyle.Back)
+end)
+
+restore.MouseButton1Click:Connect(function()
+    mini.Visible = false
+    root.Visible = true
+    makeTween(blur, {Size = C.Blur}, 0.25)
+    makeTween(root, {Size = UDim2.new(0, C.Width, 0, C.Height), BackgroundTransparency = 0.18}, 0.4)
+end)
+
+closeBtn.MouseButton1Click:Connect(function() cleanupAll() end)
+funcCloseBtn.MouseButton1Click:Connect(function() cleanupAll() end)
+
+confirm.MouseButton1Click:Connect(function()
+    makeTween(confirm, {TextSize = 16}, 0.12)
+    task.delay(0.12, function()
+        makeTween(confirm, {TextSize = 14}, 0.15)
+    end)
+    Notify("shible", "正在加载功能，请稍候...", 1)
+    task.wait(0.8)
+    if toggleSetters["开启预防检测"] then toggleSetters["开启预防检测"](true) end
+    if toggleSetters["管理员检测"] then toggleSetters["管理员检测"](true) end
+    if toggleSetters["绕过群组检测"] then toggleSetters["绕过群组检测"](true) end
+    if toggleSetters["绕过AC检测"] then toggleSetters["绕过AC检测"](true) end
+    makeTween(pageMain, {Position = UDim2.new(-1, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
+    pageFunction.Visible = true
+    pageFunction.Position = UDim2.new(1, 0, 0, 0)
+    makeTween(pageFunction, {Position = UDim2.new(0, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
+    backBtn.Visible = false
+    funcCloseBtn.Visible = true
+end)
+
+backBtn.MouseButton1Click:Connect(function()
+    makeTween(pageFunction, {Position = UDim2.new(1, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
+    pageMain.Visible = true
+    pageMain.Position = UDim2.new(-1, 0, 0, 0)
+    makeTween(pageMain, {Position = UDim2.new(0, 0, 0, 0)}, 0.3, Enum.EasingStyle.Quint)
+    task.delay(0.3, function()
+        pageFunction.Visible = false
+    end)
+end)
+
+root.Size = UDim2.new(0, C.Width, 0, C.Height)
+root.BackgroundTransparency = 0.18
+root.Visible = true
+gui.Enabled = true
+makeTween(blur, {Size = C.Blur}, 0.5)
+
+Notify("shible", "加载成功", 2)
+
+LocalPlayer.OnTeleport:Connect(function(state)
+    if state == Enum.TeleportState.InProgress then
+        pcall(function()
+            _G = {}
+            if getgenv then
+                for k, v in pairs(getgenv()) do
+                    getgenv()[k] = nil
+                end
+            end
+            if shared then
+                for k, v in pairs(shared) do
+                    shared[k] = nil
+                end
+            end
+            for _, guiObj in pairs(PlayerGui:GetChildren()) do
+                if guiObj:IsA("ScreenGui") and guiObj ~= gui then
+                    guiObj:Destroy()
+                end
+            end
+            local char = getChar()
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum.WalkSpeed = 16
+                    hum.JumpPower = 50
+                end
+            end
+        end)
     end
 end)
