@@ -25,6 +25,12 @@ local function Notify(title, text, duration)
     end)
 end
 
+-- 检测 Drawing 库是否可用
+local DrawingSupported = pcall(function() Drawing.new("Line") end)
+if not DrawingSupported then
+    Notify("shible", "当前环境不支持 Drawing 库，人物方框功能将不可用", 3)
+end
+
 local C = {
     Width = 280,
     Height = 280,
@@ -138,9 +144,8 @@ root.Name = "MainFrame"
 root.AnchorPoint = Vector2.new(0.5, 0.5)
 root.Position = UDim2.fromScale(0.5, 0.45)
 root.Size = UDim2.new(0, C.Width, 0, C.Height)
--- 调整透明度与背景色，使其明显可见
-root.BackgroundColor3 = Color3.fromRGB(55, 55, 60)   -- 亮灰色
-root.BackgroundTransparency = 0.25                  -- 降低透明度
+root.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
+root.BackgroundTransparency = 0.25
 root.BorderSizePixel = 0
 root.Active = true
 root.Visible = true
@@ -714,30 +719,37 @@ do
         FuncState.ESPEnabled = v
     end)
 
-    y = y + 46
+    y = y + 48  -- 增加间距避免重叠
     createToggle(p, y, "头顶血条", function()
         return FuncState.HealthBarEnabled
     end, function(v)
         FuncState.HealthBarEnabled = v
     end)
 
-    y = y + 46
+    y = y + 48
     createToggle(p, y, "距离显示", function()
         return FuncState.DistanceEnabled
     end, function(v)
         FuncState.DistanceEnabled = v
     end)
 
-    y = y + 46
+    y = y + 48
     createToggle(p, y, "玩家雷达", function()
         return FuncState.RadarEnabled
     end, function(v)
         FuncState.RadarEnabled = v
     end)
 
-    createToggle(p, y, "人物方框", function()
+    y = y + 48
+    -- 人物方框开关（若 Drawing 不支持则禁用）
+    local boxToggle = createToggle(p, y, "人物方框", function()
         return FuncState.BoxESPEnabled
     end, function(v)
+        if v and not DrawingSupported then
+            Notify("shible", "当前环境不支持人物方框", 2)
+            toggleSetters["人物方框"](false)
+            return
+        end
         FuncState.BoxESPEnabled = v
         if not v then
             for char, entry in pairs(cache) do
@@ -750,8 +762,12 @@ do
             end
         end
     end)
+    if not DrawingSupported then
+        boxToggle(false)
+        FuncState.BoxESPEnabled = false
+    end
 
-    y = y + 46
+    y = y + 48
     createToggle(p, y, "一键启动", function()
         return FuncState.ESPMaster
     end, function(v)
@@ -760,7 +776,17 @@ do
         FuncState.HealthBarEnabled = v
         FuncState.DistanceEnabled = v
         FuncState.RadarEnabled = v
-        FuncState.BoxESPEnabled = v
+        if DrawingSupported then
+            FuncState.BoxESPEnabled = v
+        else
+            FuncState.BoxESPEnabled = false
+        end
+        -- 同步开关状态
+        if toggleSetters["全身透视"] then toggleSetters["全身透视"](v) end
+        if toggleSetters["头顶血条"] then toggleSetters["头顶血条"](v) end
+        if toggleSetters["距离显示"] then toggleSetters["距离显示"](v) end
+        if toggleSetters["玩家雷达"] then toggleSetters["玩家雷达"](v) end
+        if toggleSetters["人物方框"] then toggleSetters["人物方框"](v and DrawingSupported) end
     end)
 
     local cache = {}
@@ -1039,118 +1065,121 @@ do
         end)
     end)
 
-    RunService.RenderStepped:Connect(function()
-        safeCall(function()
-            if FuncState.BoxESPEnabled then
-                for char, entry in pairs(cache) do
-                    if not char.Parent or not char:IsDescendantOf(workspace) then
-                        if entry.boxLines then
-                            for _, line in ipairs(entry.boxLines) do
-                                pcall(function() line:Remove() end)
+    -- 人物方框绘制（仅在 Drawing 支持时运行）
+    if DrawingSupported then
+        RunService.RenderStepped:Connect(function()
+            safeCall(function()
+                if FuncState.BoxESPEnabled then
+                    for char, entry in pairs(cache) do
+                        if not char.Parent or not char:IsDescendantOf(workspace) then
+                            if entry.boxLines then
+                                for _, line in ipairs(entry.boxLines) do
+                                    pcall(function() line:Remove() end)
+                                end
+                                entry.boxLines = nil
                             end
-                            entry.boxLines = nil
+                            cache[char] = nil
                         end
-                        cache[char] = nil
                     end
-                end
 
-                local camera = workspace.CurrentCamera
-                for _, plr in ipairs(Players:GetPlayers()) do
-                    if plr == LocalPlayer then continue end
-                    if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then continue end
-                    local char = plr.Character
-                    if not char then continue end
-                    local hum = char:FindFirstChild("Humanoid")
-                    local head = char:FindFirstChild("Head")
-                    local hrp = char:FindFirstChild("HumanoidRootPart")
-                    if not hum or hum.Health <= 0 or not head or not hrp then
+                    local camera = workspace.CurrentCamera
+                    for _, plr in ipairs(Players:GetPlayers()) do
+                        if plr == LocalPlayer then continue end
+                        if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then continue end
+                        local char = plr.Character
+                        if not char then continue end
+                        local hum = char:FindFirstChild("Humanoid")
+                        local head = char:FindFirstChild("Head")
+                        local hrp = char:FindFirstChild("HumanoidRootPart")
+                        if not hum or hum.Health <= 0 or not head or not hrp then
+                            local entry = cache[char]
+                            if entry and entry.boxLines then
+                                for _, line in ipairs(entry.boxLines) do
+                                    pcall(function() line:Remove() end)
+                                end
+                                entry.boxLines = nil
+                            end
+                            continue
+                        end
+
                         local entry = cache[char]
-                        if entry and entry.boxLines then
-                            for _, line in ipairs(entry.boxLines) do
-                                pcall(function() line:Remove() end)
+                        if not entry then
+                            entry = {}
+                            cache[char] = entry
+                        end
+                        if not entry.boxLines then
+                            entry.boxLines = {}
+                            for i = 1, 8 do
+                                local line = Drawing.new("Line")
+                                line.Color = Color3.fromRGB(255, 0, 0)
+                                line.Thickness = 2
+                                line.Transparency = 0.6
+                                line.Visible = false
+                                table.insert(entry.boxLines, line)
                             end
-                            entry.boxLines = nil
                         end
-                        continue
-                    end
 
-                    local entry = cache[char]
-                    if not entry then
-                        entry = {}
-                        cache[char] = entry
-                    end
-                    if not entry.boxLines then
-                        entry.boxLines = {}
-                        for i = 1, 8 do
-                            local line = Drawing.new("Line")
-                            line.Color = Color3.fromRGB(255, 0, 0)
-                            line.Thickness = 2
-                            line.Transparency = 0.6
-                            line.Visible = false
-                            table.insert(entry.boxLines, line)
-                        end
-                    end
+                        local headPos = head.Position
+                        local footPos = hrp.Position - Vector3.new(0, 3, 0)
+                        local headScreen, headOnScreen = camera:WorldToScreenPoint(headPos)
+                        local footScreen, footOnScreen = camera:WorldToScreenPoint(footPos)
 
-                    local headPos = head.Position
-                    local footPos = hrp.Position - Vector3.new(0, 3, 0)
-                    local headScreen, headOnScreen = camera:WorldToScreenPoint(headPos)
-                    local footScreen, footOnScreen = camera:WorldToScreenPoint(footPos)
+                        if headOnScreen and footOnScreen then
+                            local top = headScreen.Y
+                            local bottom = footScreen.Y
+                            local height = bottom - top
+                            if height > 1 then
+                                local centerX = (headScreen.X + footScreen.X) / 2
+                                local width = height * 0.4
+                                local left = centerX - width / 2
+                                local right = centerX + width / 2
+                                local cornerSize = math.min(height, width) * 0.2
 
-                    if headOnScreen and footOnScreen then
-                        local top = headScreen.Y
-                        local bottom = footScreen.Y
-                        local height = bottom - top
-                        if height > 1 then
-                            local centerX = (headScreen.X + footScreen.X) / 2
-                            local width = height * 0.4
-                            local left = centerX - width / 2
-                            local right = centerX + width / 2
-                            local cornerSize = math.min(height, width) * 0.2
+                                local lines = entry.boxLines
+                                lines[1].From = Vector2.new(left, top)
+                                lines[1].To   = Vector2.new(left + cornerSize, top)
+                                lines[2].From = Vector2.new(left, top)
+                                lines[2].To   = Vector2.new(left, top + cornerSize)
+                                lines[3].From = Vector2.new(right, top)
+                                lines[3].To   = Vector2.new(right - cornerSize, top)
+                                lines[4].From = Vector2.new(right, top)
+                                lines[4].To   = Vector2.new(right, top + cornerSize)
+                                lines[5].From = Vector2.new(left, bottom)
+                                lines[5].To   = Vector2.new(left + cornerSize, bottom)
+                                lines[6].From = Vector2.new(left, bottom)
+                                lines[6].To   = Vector2.new(left, bottom - cornerSize)
+                                lines[7].From = Vector2.new(right, bottom)
+                                lines[7].To   = Vector2.new(right - cornerSize, bottom)
+                                lines[8].From = Vector2.new(right, bottom)
+                                lines[8].To   = Vector2.new(right, bottom - cornerSize)
 
-                            local lines = entry.boxLines
-                            lines[1].From = Vector2.new(left, top)
-                            lines[1].To   = Vector2.new(left + cornerSize, top)
-                            lines[2].From = Vector2.new(left, top)
-                            lines[2].To   = Vector2.new(left, top + cornerSize)
-                            lines[3].From = Vector2.new(right, top)
-                            lines[3].To   = Vector2.new(right - cornerSize, top)
-                            lines[4].From = Vector2.new(right, top)
-                            lines[4].To   = Vector2.new(right, top + cornerSize)
-                            lines[5].From = Vector2.new(left, bottom)
-                            lines[5].To   = Vector2.new(left + cornerSize, bottom)
-                            lines[6].From = Vector2.new(left, bottom)
-                            lines[6].To   = Vector2.new(left, bottom - cornerSize)
-                            lines[7].From = Vector2.new(right, bottom)
-                            lines[7].To   = Vector2.new(right - cornerSize, bottom)
-                            lines[8].From = Vector2.new(right, bottom)
-                            lines[8].To   = Vector2.new(right, bottom - cornerSize)
-
-                            for _, line in ipairs(lines) do
-                                line.Visible = true
+                                for _, line in ipairs(lines) do
+                                    line.Visible = true
+                                end
+                            else
+                                for _, line in ipairs(entry.boxLines) do
+                                    line.Visible = false
+                                end
                             end
                         else
                             for _, line in ipairs(entry.boxLines) do
                                 line.Visible = false
                             end
                         end
-                    else
-                        for _, line in ipairs(entry.boxLines) do
-                            line.Visible = false
+                    end
+                else
+                    for char, entry in pairs(cache) do
+                        if entry.boxLines then
+                            for _, line in ipairs(entry.boxLines) do
+                                pcall(function() line:Remove() end)
+                            end
+                            entry.boxLines = nil
                         end
                     end
                 end
-            else
-                for char, entry in pairs(cache) do
-                    if entry.boxLines then
-                        for _, line in ipairs(entry.boxLines) do
-                            pcall(function() line:Remove() end)
-                        end
-                        entry.boxLines = nil
-                    end
-                end
-            end
+            end)
         end)
-    end)
+    end
 
     Players.PlayerRemoving:Connect(function(plr)
         if plr.Character then removeESP(plr.Character) end
@@ -2300,7 +2329,7 @@ backBtn.MouseButton1Click:Connect(function()
 end)
 
 root.Size = UDim2.new(0, C.Width, 0, C.Height)
-root.BackgroundTransparency = 0.25   -- 确保透明度合适
+root.BackgroundTransparency = 0.25
 root.Visible = true
 gui.Enabled = true
 makeTween(blur, {Size = C.Blur}, 0.5)
