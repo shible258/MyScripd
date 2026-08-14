@@ -25,11 +25,6 @@ local function Notify(title, text, duration)
     end)
 end
 
-local DrawingSupported = pcall(function() Drawing.new("Line") end)
-if not DrawingSupported then
-    Notify("shible", "当前环境不支持 Drawing 库，人物方框功能将不可用", 3)
-end
-
 local C = {
     Width = 280,
     Height = 280,
@@ -349,7 +344,6 @@ local FuncState = {
     FlingLoaded = false,
     HideTraces = false,
     ESPMaster = false,
-    BoxESPEnabled = false,
 }
 
 local animTracks = {}
@@ -740,32 +734,6 @@ do
     end)
 
     y = y + 48
-    local boxToggle = createToggle(p, y, "人物方框", function()
-        return FuncState.BoxESPEnabled
-    end, function(v)
-        if v and not DrawingSupported then
-            Notify("shible", "当前环境不支持人物方框", 2)
-            toggleSetters["人物方框"](false)
-            return
-        end
-        FuncState.BoxESPEnabled = v
-        if not v then
-            for char, entry in pairs(cache) do
-                if entry.boxLines then
-                    for _, line in ipairs(entry.boxLines) do
-                        pcall(function() line:Remove() end)
-                    end
-                    entry.boxLines = nil
-                end
-            end
-        end
-    end)
-    if not DrawingSupported then
-        boxToggle(false)
-        FuncState.BoxESPEnabled = false
-    end
-
-    y = y + 48
     createToggle(p, y, "一键启动", function()
         return FuncState.ESPMaster
     end, function(v)
@@ -774,16 +742,10 @@ do
         FuncState.HealthBarEnabled = v
         FuncState.DistanceEnabled = v
         FuncState.RadarEnabled = v
-        if DrawingSupported then
-            FuncState.BoxESPEnabled = v
-        else
-            FuncState.BoxESPEnabled = false
-        end
         if toggleSetters["全身透视"] then toggleSetters["全身透视"](v) end
         if toggleSetters["头顶血条"] then toggleSetters["头顶血条"](v) end
         if toggleSetters["距离显示"] then toggleSetters["距离显示"](v) end
         if toggleSetters["玩家雷达"] then toggleSetters["玩家雷达"](v) end
-        if toggleSetters["人物方框"] then toggleSetters["人物方框"](v and DrawingSupported) end
     end)
 
     local cache = {}
@@ -966,12 +928,6 @@ do
             pcall(function()
                 if entry.hl then entry.hl:Destroy() end
                 if entry.hb then entry.hb:Destroy() end
-                if entry.boxLines then
-                    for _, line in ipairs(entry.boxLines) do
-                        line:Remove()
-                    end
-                    entry.boxLines = nil
-                end
             end)
         end
         local hrp = char:FindFirstChild("HumanoidRootPart")
@@ -988,16 +944,20 @@ do
         if espFrameCounter % 2 ~= 0 then return end
         safeCall(function()
             local myRoot = getRootPart()
-            for _, plr in ipairs(Players:GetPlayers()) do
-                if plr == LocalPlayer then continue end
-                if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then continue end
-                if plr.Character then
-                    local char = plr.Character
-                    local hum = char:FindFirstChild("Humanoid")
+            -- 遍历所有带有 Humanoid 的模型（包括玩家和 NPC）
+            for _, model in ipairs(workspace:GetChildren()) do
+                if model:IsA("Model") and model:FindFirstChildOfClass("Humanoid") then
+                    local char = model
+                    local hum = char:FindFirstChildOfClass("Humanoid")
                     local head = char:FindFirstChild("Head")
-                    if (not hum or (hum.Health <= 0) or not head) then
+                    if not hum or hum.Health <= 0 or not head then
                         removeESP(char)
                     else
+                        -- 跳过本地玩家自己
+                        if char == LocalPlayer.Character then
+                            -- 可以跳过，但也可以透视自己，这里选择跳过
+                            continue
+                        end
                         local hl, hb = getOrCreateESP(char)
                         if hl then hl.Enabled = FuncState.ESPEnabled end
                         if hb then
@@ -1061,125 +1021,6 @@ do
             updateRadar()
         end)
     end)
-
-    if DrawingSupported then
-        RunService.RenderStepped:Connect(function()
-            safeCall(function()
-                if FuncState.BoxESPEnabled then
-                    for char, entry in pairs(cache) do
-                        if not char.Parent or not char:IsDescendantOf(workspace) then
-                            if entry.boxLines then
-                                for _, line in ipairs(entry.boxLines) do
-                                    pcall(function() line:Remove() end)
-                                end
-                                entry.boxLines = nil
-                            end
-                            cache[char] = nil
-                        end
-                    end
-
-                    local camera = workspace.CurrentCamera
-                    for _, plr in ipairs(Players:GetPlayers()) do
-                        if plr == LocalPlayer then continue end
-                        if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then continue end
-                        local char = plr.Character
-                        if not char then continue end
-                        local hum = char:FindFirstChild("Humanoid")
-                        local head = char:FindFirstChild("Head")
-                        local hrp = char:FindFirstChild("HumanoidRootPart")
-                        if not hum or hum.Health <= 0 or not head or not hrp then
-                            local entry = cache[char]
-                            if entry and entry.boxLines then
-                                for _, line in ipairs(entry.boxLines) do
-                                    pcall(function() line:Remove() end)
-                                end
-                                entry.boxLines = nil
-                            end
-                            continue
-                        end
-
-                        local entry = cache[char]
-                        if not entry then
-                            entry = {}
-                            cache[char] = entry
-                        end
-                        if not entry.boxLines then
-                            entry.boxLines = {}
-                            for i = 1, 8 do
-                                local line = Drawing.new("Line")
-                                line.Color = Color3.fromRGB(255, 0, 0)
-                                line.Thickness = 2
-                                line.Transparency = 0.6
-                                line.Visible = false
-                                table.insert(entry.boxLines, line)
-                            end
-                        end
-
-                        -- 以 HumanoidRootPart 为中心，固定上下范围
-                        local centerPos = hrp.Position
-                        local topPos = centerPos + Vector3.new(0, 2.5, 0)
-                        local bottomPos = centerPos - Vector3.new(0, 2.5, 0)
-                        local topScreen, topOn = camera:WorldToScreenPoint(topPos)
-                        local bottomScreen, bottomOn = camera:WorldToScreenPoint(bottomPos)
-
-                        if topOn and bottomOn then
-                            -- 整体下移50像素
-                            local offset = 50
-                            local top = topScreen.Y + offset
-                            local bottom = bottomScreen.Y + offset
-                            local height = bottom - top
-                            if height > 1 then
-                                local centerX = (topScreen.X + bottomScreen.X) / 2
-                                local width = height * 0.4
-                                local left = centerX - width / 2
-                                local right = centerX + width / 2
-                                local cornerSize = math.min(height, width) * 0.2
-
-                                local lines = entry.boxLines
-                                lines[1].From = Vector2.new(left, top)
-                                lines[1].To   = Vector2.new(left + cornerSize, top)
-                                lines[2].From = Vector2.new(left, top)
-                                lines[2].To   = Vector2.new(left, top + cornerSize)
-                                lines[3].From = Vector2.new(right, top)
-                                lines[3].To   = Vector2.new(right - cornerSize, top)
-                                lines[4].From = Vector2.new(right, top)
-                                lines[4].To   = Vector2.new(right, top + cornerSize)
-                                lines[5].From = Vector2.new(left, bottom)
-                                lines[5].To   = Vector2.new(left + cornerSize, bottom)
-                                lines[6].From = Vector2.new(left, bottom)
-                                lines[6].To   = Vector2.new(left, bottom - cornerSize)
-                                lines[7].From = Vector2.new(right, bottom)
-                                lines[7].To   = Vector2.new(right - cornerSize, bottom)
-                                lines[8].From = Vector2.new(right, bottom)
-                                lines[8].To   = Vector2.new(right, bottom - cornerSize)
-
-                                for _, line in ipairs(lines) do
-                                    line.Visible = true
-                                end
-                            else
-                                for _, line in ipairs(entry.boxLines) do
-                                    line.Visible = false
-                                end
-                            end
-                        else
-                            for _, line in ipairs(entry.boxLines) do
-                                line.Visible = false
-                            end
-                        end
-                    end
-                else
-                    for char, entry in pairs(cache) do
-                        if entry.boxLines then
-                            for _, line in ipairs(entry.boxLines) do
-                                pcall(function() line:Remove() end)
-                            end
-                            entry.boxLines = nil
-                        end
-                    end
-                end
-            end)
-        end)
-    end
 
     Players.PlayerRemoving:Connect(function(plr)
         if plr.Character then removeESP(plr.Character) end
@@ -2267,11 +2108,6 @@ local function cleanupAll()
             pcall(function()
                 if entry.hl then entry.hl:Destroy() end
                 if entry.hb then entry.hb:Destroy() end
-                if entry.boxLines then
-                    for _, line in ipairs(entry.boxLines) do
-                        line:Remove()
-                    end
-                end
             end)
         end
         cache = {}
