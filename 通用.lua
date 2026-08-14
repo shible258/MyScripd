@@ -1115,16 +1115,18 @@ do
                             end
                         end
 
-                        -- 以 HumanoidRootPart 为中心，固定上下范围，避免偏移
+                        -- 以 HumanoidRootPart 为中心，固定上下范围
                         local centerPos = hrp.Position
-                        local topPos = centerPos + Vector3.new(0, 2.5, 0)   -- 向上2.5格
-                        local bottomPos = centerPos - Vector3.new(0, 2.5, 0) -- 向下2.5格
+                        local topPos = centerPos + Vector3.new(0, 2.5, 0)
+                        local bottomPos = centerPos - Vector3.new(0, 2.5, 0)
                         local topScreen, topOn = camera:WorldToScreenPoint(topPos)
                         local bottomScreen, bottomOn = camera:WorldToScreenPoint(bottomPos)
 
                         if topOn and bottomOn then
-                            local top = topScreen.Y
-                            local bottom = bottomScreen.Y
+                            -- 整体下移50像素
+                            local offset = 50
+                            local top = topScreen.Y + offset
+                            local bottom = bottomScreen.Y + offset
                             local height = bottom - top
                             if height > 1 then
                                 local centerX = (topScreen.X + bottomScreen.X) / 2
