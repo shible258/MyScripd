@@ -942,7 +942,7 @@ do
     end
 
     local espFrameCounter = 0
-    RunService.RenderStepped:Connect(function()
+    RunService.Heartbeat:Connect(function(dt)
         espFrameCounter = espFrameCounter + 1
         if espFrameCounter % 2 ~= 0 then return end
         safeCall(function()
@@ -1676,165 +1676,27 @@ end
 
 local antiDetectRunning = false
 local antiDetectConnections = {}
-local antiDetectLoopConnection = nil
 
-local function cleanGlobalEnv()
+local function cleanAntiCheatMemory()
     pcall(function()
-        local keywords = {"AC_", "Anti", "Ban", "Cheat", "Detect", "Exploit", "Inject", "Check", "Report", "Verify"}
-        local function cleanTable(t)
-            if type(t) ~= "table" then return end
-            for k, v in pairs(t) do
-                local kLower = type(k) == "string" and string.lower(k) or ""
-                for _, kw in ipairs(keywords) do
-                    if string.find(kLower, string.lower(kw), 1, true) then
-                        t[k] = nil
-                        break
-                    end
-                end
-                if type(v) == "table" then
-                    cleanTable(v)
-                end
-            end
-        end
-        cleanTable(_G)
-        cleanTable(shared)
-        local genv = getgenv and getgenv()
-        if genv then cleanTable(genv) end
-        local renv = getrenv and getrenv()
-        if renv then
-            local ok, setRO = pcall(function() return setreadonly end)
-            if ok and setRO then
-                local old = setRO(renv, false)
-                cleanTable(renv)
-                setRO(renv, old)
-            end
-        end
-        if getfenv then
-            for i = 0, 10 do
-                local env = getfenv(i)
-                if env and type(env) == "table" then cleanTable(env) end
-            end
-        end
-    end)
-end
-
-local function interceptRemotes()
-    pcall(function()
-        for _, item in ipairs(game:GetDescendants()) do
-            if item:IsA("RemoteEvent") then
-                local name = item.Name:lower()
-                if name:find("check") or name:find("detect") or name:find("anti") or name:find("ban") or name:find("verify") or name:find("report") or name:find("ac") then
-                    item.OnServerEvent = function() end
-                    if item.FireServer then
-                        local oldFire = item.FireServer
-                        item.FireServer = function(...)
-                            if FuncState.AntiDetect then
-                                return
-                            end
-                            return oldFire(...)
-                        end
-                    end
-                end
-            elseif item:IsA("RemoteFunction") then
-                local name = item.Name:lower()
-                if name:find("check") or name:find("detect") or name:find("anti") or name:find("ban") or name:find("verify") or name:find("report") or name:find("ac") then
-                    item.OnClientInvoke = function() return nil end
-                    if item.InvokeServer then
-                        local oldInvoke = item.InvokeServer
-                        item.InvokeServer = function(...)
-                            if FuncState.AntiDetect then
-                                return nil
-                            end
-                            return oldInvoke(...)
-                        end
+        local gc = getgc(true)
+        for i, v in ipairs(gc) do
+            if type(v) == "table" then
+                local keys = {"AC_Enabled", "BanDetect", "CheatDetect", "ExploitDetect", "InjectDetect"}
+                for _, key in ipairs(keys) do
+                    if v[key] ~= nil then
+                        v[key] = nil
                     end
                 end
             end
         end
     end)
-end
-
-local function disableSuspiciousScripts()
     pcall(function()
-        local keywords = {"anti", "detect", "check", "ban", "verify", "ac", "exploit", "cheat", "inject"}
-        local function processContainer(container)
-            for _, child in ipairs(container:GetChildren()) do
-                if child:IsA("Script") or child:IsA("LocalScript") then
-                    local name = child.Name:lower()
-                    for _, kw in ipairs(keywords) do
-                        if string.find(name, kw, 1, true) then
-                            pcall(function() child.Disabled = true end)
-                            break
-                        end
-                    end
-                end
-                if child:IsA("ModuleScript") then
-                    local name = child.Name:lower()
-                    for _, kw in ipairs(keywords) do
-                        if string.find(name, kw, 1, true) then
-                            pcall(function() child.Disabled = true end)
-                            break
-                        end
-                    end
-                end
-                if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
-                    local name = child.Name:lower()
-                    for _, kw in ipairs(keywords) do
-                        if string.find(name, kw, 1, true) then
-                            if child:IsA("RemoteEvent") then
-                                child.OnServerEvent = function() end
-                            else
-                                child.OnClientInvoke = function() return nil end
-                            end
-                            break
-                        end
-                    end
-                end
-                if (#child:GetChildren() > 0) then
-                    processContainer(child)
-                end
-            end
-        end
-        processContainer(game)
-    end)
-end
-
-local function fakeACEnvironment()
-    pcall(function()
-        if not _G._shible_Fake then
-            _G._shible_Fake = {
-                Enabled = false,
-                Check = function() return false end,
-                Report = function() end
-            }
-        end
-        local fake = {
-            CheckAC = function() return false end,
-            BanCheck = function() return false end,
-            AntiCheatCheck = function() return false end,
-            VerifyExploit = function() return false end,
-            ReportCheat = function() end,
-            IsCheating = function() return false end,
-            DetectExploit = function() return false end,
-        }
-        for name, func in pairs(fake) do
-            if not _G[name] then
-                _G[name] = func
-            end
-        end
-        local vars = {"AC_Enabled", "AntiCheatEnabled", "BanDetect", "AntiCheat", "AC", "ExploitDetect", "CheatDetect", "InjectDetect"}
-        for _, var in ipairs(vars) do
-            if rawget(_G, var) then
-                rawset(_G, var, false)
-            end
-        end
-        _G.AC_Enabled = false
-        _G.AntiCheat = nil
-        _G.AC = nil
-        if shared then
-            for _, var in ipairs(vars) do
-                if rawget(shared, var) then
-                    rawset(shared, var, false)
+        local reg = getreg()
+        for i, v in ipairs(reg) do
+            if type(v) == "table" then
+                for _, key in ipairs({"AC_Enabled", "BanDetect", "CheatDetect"}) do
+                    if v[key] ~= nil then v[key] = nil end
                 end
             end
         end
@@ -1851,89 +1713,128 @@ local function hideExecutionTraces()
             end
         end
         if getgenv then
-            local env = getgenv()
-            for k, v in pairs(env) do
+            for k, v in pairs(getgenv()) do
                 if type(v) ~= "userdata" and type(v) ~= "function" then
-                    env[k] = nil
+                    getgenv()[k] = nil
                 end
             end
         end
+    end)
+end
+
+local function hookDetectionRemotes()
+    pcall(function()
+        for _, item in ipairs(game:GetDescendants()) do
+            if item:IsA("RemoteEvent") then
+                local name = item.Name:lower()
+                if name:find("check") or name:find("detect") or name:find("anti") or name:find("ban") then
+                    local old = item.OnServerEvent
+                    if old then
+                        item.OnServerEvent = function() end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local function blockDetectionScripts()
+    pcall(function()
+        for _, item in ipairs(game:GetDescendants()) do
+            if item:IsA("Script") or item:IsA("LocalScript") then
+                local name = item.Name:lower()
+                if name:find("anti") or name:find("detect") or name:find("check") or name:find("ban") then
+                    pcall(function() item.Disabled = true end)
+                end
+            end
+        end
+    end)
+end
+
+local function fakeACEnvironment()
+    pcall(function()
+        if not _G._shible_Fake then
+            _G._shible_Fake = {
+                Enabled = false,
+                Check = function() return false end,
+                Report = function() end
+            }
+        end
+        local fake = {
+            CheckAC = function() return false end,
+            BanCheck = function() return false end,
+            AntiCheatCheck = function() return false end
+        }
+        for name, func in pairs(fake) do
+            if not _G[name] then
+                _G[name] = func
+            end
+        end
+        local vars = {"AC_Enabled", "AntiCheatEnabled", "BanDetect", "AntiCheat", "AC"}
+        for _, var in ipairs(vars) do
+            if rawget(_G, var) then
+                rawset(_G, var, false)
+            end
+        end
+        _G.AC_Enabled = false
+        _G.AntiCheat = nil
+        _G.AC = nil
     end)
 end
 
 local function monitorNewDetections()
     local conn = game.DescendantAdded:Connect(function(child)
         if not FuncState.AntiDetect then return end
-        task.wait(0.05)
-        pcall(function()
-            local keywords = {"anti", "detect", "check", "ban", "verify", "ac", "exploit", "cheat", "inject"}
+        if child:IsA("Script") or child:IsA("LocalScript") then
             local name = child.Name:lower()
-            local shouldDisable = false
-            for _, kw in ipairs(keywords) do
-                if string.find(name, kw, 1, true) then
-                    shouldDisable = true
-                    break
-                end
+            if name:find("anti") or name:find("detect") or name:find("check") or name:find("ban") then
+                pcall(function() child.Disabled = true end)
             end
-            if shouldDisable then
-                if child:IsA("Script") or child:IsA("LocalScript") or child:IsA("ModuleScript") then
-                    child.Disabled = true
-                elseif child:IsA("RemoteEvent") then
-                    child.OnServerEvent = function() end
-                    if child.FireServer then
-                        local oldFire = child.FireServer
-                        child.FireServer = function(...)
-                            if FuncState.AntiDetect then return end
-                            return oldFire(...)
-                        end
-                    end
-                elseif child:IsA("RemoteFunction") then
-                    child.OnClientInvoke = function() return nil end
-                end
+        end
+        if child:IsA("RemoteEvent") then
+            local name = child.Name:lower()
+            if name:find("check") or name:find("detect") or name:find("anti") or name:find("ban") then
+                task.wait(0.1)
+                pcall(function() child.OnServerEvent = function() end end)
             end
-        end)
-    end)
-    return conn
-end
-
-local function performFullClean()
-    if not FuncState.AntiDetect then return end
-    pcall(function()
-        cleanGlobalEnv()
-        interceptRemotes()
-        disableSuspiciousScripts()
-        fakeACEnvironment()
-        if FuncState.HideTraces then
-            hideExecutionTraces()
         end
     end)
+    return conn
 end
 
 local function startAntiDetect()
     if antiDetectRunning then return end
     antiDetectRunning = true
-    performFullClean()
-    local monitorConn = monitorNewDetections()
-    table.insert(antiDetectConnections, monitorConn)
-    antiDetectLoopConnection = RunService.Heartbeat:Connect(function()
-        if not antiDetectRunning then
-            if antiDetectLoopConnection then
-                antiDetectLoopConnection:Disconnect()
-                antiDetectLoopConnection = nil
-            end
-            return
+    pcall(function()
+        cleanAntiCheatMemory()
+        hookDetectionRemotes()
+        blockDetectionScripts()
+        fakeACEnvironment()
+        if FuncState.HideTraces then
+            hideExecutionTraces()
         end
-        performFullClean()
+        local monitorConn = monitorNewDetections()
+        table.insert(antiDetectConnections, monitorConn)
     end)
-    Notify("shible", "防检测已启动（强化版）", 2)
+    while antiDetectRunning do
+        task.wait(60)
+        if FuncState.AntiDetect then
+            pcall(function()
+                cleanAntiCheatMemory()
+                fakeACEnvironment()
+                hookDetectionRemotes()
+                blockDetectionScripts()
+                if FuncState.HideTraces then
+                    hideExecutionTraces()
+                end
+            end)
+        end
+    end
+    Notify("shible", "防检测已启动", 2)
 end
 
 local function stopAntiDetect()
     antiDetectRunning = false
-    if antiDetectLoopConnection then
-        antiDetectLoopConnection:Disconnect()
-        antiDetectLoopConnection = nil
-    end
     for _, conn in ipairs(antiDetectConnections) do
         pcall(function() conn:Disconnect() end)
     end
@@ -1969,7 +1870,7 @@ local function enhancedACBypass()
                 rawset(_G, var, false)
             end
         end
-        local funcs = {"CheckAC", "AntiCheatCheck", "BanCheck", "ExploitCheck", "VerifyExploit"}
+        local funcs = {"CheckAC", "AntiCheatCheck", "BanCheck", "ExploitCheck"}
         for _, func in ipairs(funcs) do
             if type(_G[func]) == "function" then
                 _G[func] = function() return false end
@@ -1995,7 +1896,7 @@ end
 
 task.spawn(function()
     while antiDetectRunning do
-        task.wait(30)
+        task.wait(60)
         pcall(function()
             if FuncState.AdminDetect then enhancedAdminDetect() end
             if FuncState.BypassGroup then enhancedGroupBypass() end
