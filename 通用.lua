@@ -327,6 +327,7 @@ local pgFun = createPage("Fun")
 local pgAnti = createPage("Anti")
 local pgAction = createPage("Action")
 
+-- 修改点1：HideTraces 默认开启
 local FuncState = {
     SpeedEnabled = false,
     SpeedValue = 50,
@@ -342,7 +343,7 @@ local FuncState = {
     RadarEnabled = false,
     AntiFall = false,
     FlingLoaded = false,
-    HideTraces = false,
+    HideTraces = true,   -- 默认开启
     ESPMaster = false,
 }
 
@@ -870,11 +871,12 @@ do
         end
     end
 
+    -- 修改点2：血量条改为垂直，并左移
     local function createHealthBar(head)
         local bb = Instance.new("BillboardGui")
         bb.Name = "ESP_HB"
-        bb.Size = UDim2.new(0, 60, 0, 6)
-        bb.StudsOffset = Vector3.new(-1.5, 0.5, 0)
+        bb.Size = UDim2.new(0, 8, 0, 40)          -- 宽度小，高度大（垂直）
+        bb.StudsOffset = Vector3.new(-2.5, 0.5, 0) -- 在人物左侧
         bb.Adornee = head
         bb.AlwaysOnTop = true
         bb.MaxDistance = 500
@@ -888,7 +890,8 @@ do
         corner(bg, 3)
         local fill = Instance.new("Frame", bb)
         fill.Name = "Fill"
-        fill.Size = UDim2.new(1, 0, 1, 0)
+        fill.Size = UDim2.new(1, 0, 1, 0)         -- 初始全满，后续动态调整
+        fill.Position = UDim2.new(0, 0, 0, 0)
         fill.BackgroundColor3 = Color3.fromRGB(0, 255, 60)
         fill.BorderSizePixel = 0
         fill.ZIndex = 2
@@ -965,7 +968,9 @@ do
                                 local fill = hb:FindFirstChild("Fill")
                                 if fill then
                                     local ratio = math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1)
-                                    fill.Size = UDim2.new(ratio, 0, 1, 0)
+                                    -- 修改点3：垂直填充，从下往上
+                                    fill.Size = UDim2.new(1, 0, ratio, 0)
+                                    fill.Position = UDim2.new(0, 0, 1 - ratio, 0)
                                     if (ratio > 0.5) then
                                         fill.BackgroundColor3 = Color3.fromRGB(50, 215, 75)
                                     elseif (ratio > 0.25) then
@@ -977,7 +982,8 @@ do
                                 if (myRoot and head) then
                                     local dist = (myRoot.Position - head.Position).Magnitude
                                     local scale = math.clamp(8 / math.max(dist, 1), 0.3, 1.3)
-                                    hb.Size = UDim2.new(0, math.floor(55 * scale), 0, math.floor(5 * scale))
+                                    -- 垂直条，宽度按8缩放，高度按40缩放
+                                    hb.Size = UDim2.new(0, math.floor(8 * scale), 0, math.floor(40 * scale))
                                 end
                             end
                         end
@@ -2166,6 +2172,13 @@ gui.Enabled = true
 makeTween(blur, {Size = C.Blur}, 0.5)
 
 Notify("shible", "加载成功", 2)
+
+-- 修改点4：默认开启隐藏执行痕迹（若已开启则执行一次）
+if FuncState.HideTraces then
+    task.spawn(function()
+        pcall(hideExecutionTraces)
+    end)
+end
 
 LocalPlayer.OnTeleport:Connect(function(state)
     if state == Enum.TeleportState.InProgress then
