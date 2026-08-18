@@ -1,4 +1,3 @@
-
 --[[
 ╔═══════════════════════════════════════════════╗
 ║                                               ║
@@ -7,701 +6,8 @@
 ╚═══════════════════════════════════════════════╝
 ]]
 
---恭喜你找到了我的源码
+-- 作者抖音58873829421
 -- by 夜
--- ================= 配置 =================
-local FILE_NAME = "saveV1.2.txt"
-local BALL_COUNT = 14
-
--- ================= 状态检测 =================
-local alreadyRead = false
-if isfile and isfile(FILE_NAME) then
-    alreadyRead = true
-end
-
--- ================= 服务 =================
-local CoreGui = game:GetService("CoreGui")
-local Lighting = game:GetService("Lighting")
-local TweenService = game:GetService("TweenService")
-
--- ================= 彩色漂浮光球系统 =================
-local function CreateBall(parent)
-    local ball = Instance.new("Frame")
-    local size = math.random(40, 90)
-
-    ball.Size = UDim2.new(0, size, 0, size)
-    ball.Position = UDim2.new(
-        math.random(-20,120)/100,
-        0,
-        math.random(-20,120)/100,
-        0
-    )
-
-    ball.BackgroundColor3 = Color3.fromRGB(255,255,255)
-    ball.BackgroundTransparency = 0.85
-    ball.ZIndex = 0
-    ball.Parent = parent
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(1,0)
-    corner.Parent = ball
-
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromHSV(math.random(),0.6,1)),
-        ColorSequenceKeypoint.new(1, Color3.fromHSV(math.random(),0.6,1))
-    })
-    gradient.Rotation = math.random(0,360)
-    gradient.Parent = ball
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Thickness = 2
-    stroke.Transparency = 0.6
-    stroke.Color = Color3.fromHSV(math.random(),1,1)
-    stroke.Parent = ball
-
-    return ball
-end
-
-local function AnimateBall(ball)
-    task.spawn(function()
-        while ball.Parent do
-            local newPos = UDim2.new(
-                math.random(-10,110)/100,
-                math.random(-60,60),
-                math.random(-10,110)/100,
-                math.random(-60,60)
-            )
-
-            local tween = TweenService:Create(
-                ball,
-                TweenInfo.new(math.random(4,8), Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-                {Position = newPos}
-            )
-
-            tween:Play()
-            tween.Completed:Wait()
-        end
-    end)
-
-    task.spawn(function()
-        while ball.Parent do
-            TweenService:Create(ball, TweenInfo.new(2), {
-                BackgroundTransparency = 0.75
-            }):Play()
-            task.wait(2)
-
-            TweenService:Create(ball, TweenInfo.new(2), {
-                BackgroundTransparency = 0.9
-            }):Play()
-            task.wait(2)
-        end
-    end)
-end
-
-local function StartBalls(parent)
-    for i = 1, BALL_COUNT do
-        local ball = CreateBall(parent)
-        AnimateBall(ball)
-    end
-end
-
--- ================= 主逻辑 =================
-local clicked = false
-
-if not alreadyRead then
-
-    -- 背景模糊
-    local blur = Instance.new("BlurEffect")
-    blur.Size = 0
-    blur.Parent = Lighting
-
-    TweenService:Create(blur, TweenInfo.new(0.25), {
-        Size = 18
-    }):Play()
-
-    -- UI
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "NoticeUI"
-    ScreenGui.Parent = CoreGui
-
-    -- ⭐彩球在最底层
-    StartBalls(ScreenGui)
-
-    -- 主窗口
-    local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 280, 0, 150)
-    Frame.AnchorPoint = Vector2.new(0.5, 0.5)
-    Frame.Position = UDim2.new(0.5, 0, 0.45, 0)
-    Frame.BackgroundColor3 = Color3.fromRGB(18,18,18)
-    Frame.BackgroundTransparency = 1
-    Frame.ZIndex = 10
-    Frame.Parent = ScreenGui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 14)
-    corner.Parent = Frame
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Thickness = 1
-    stroke.Transparency = 0.7
-    stroke.Color = Color3.fromRGB(255,255,255)
-    stroke.Parent = Frame
-
-    -- 文本
-    local TextLabel = Instance.new("TextLabel")
-    TextLabel.Size = UDim2.new(1, -40, 0, 80)
-    TextLabel.Position = UDim2.new(0, 20, 0, 20)
-    TextLabel.BackgroundTransparency = 1
-    TextLabel.TextColor3 = Color3.fromRGB(235,235,235)
-    TextLabel.TextWrapped = true
-    TextLabel.TextSize = 17
-    TextLabel.Font = Enum.Font.Gotham
-    TextLabel.TextYAlignment = Enum.TextYAlignment.Top
-    TextLabel.TextTransparency = 1
-    TextLabel.ZIndex = 11
-    TextLabel.Text = "公告\n\n已更新动作功能，目前作者随缘更新"
-    TextLabel.Parent = Frame
-
-    -- 按钮
-    local Button = Instance.new("TextButton")
-    Button.Size = UDim2.new(0, 110, 0, 36)
-    Button.Position = UDim2.new(0.5, -55, 1, -50)
-    Button.Text = "好"
-    Button.BackgroundColor3 = Color3.fromRGB(35,35,35)
-    Button.TextColor3 = Color3.fromRGB(255,255,255)
-    Button.Font = Enum.Font.GothamMedium
-    Button.TextScaled = true
-    Button.BackgroundTransparency = 1
-    Button.ZIndex = 11
-    Button.Parent = Frame
-
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 10)
-    btnCorner.Parent = Button
-
-    -- 入场动画
-    TweenService:Create(Frame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Size = UDim2.new(0, 320, 0, 180),
-        BackgroundTransparency = 0.15
-    }):Play()
-
-    TweenService:Create(TextLabel, TweenInfo.new(0.3), {
-        TextTransparency = 0
-    }):Play()
-
-    TweenService:Create(Button, TweenInfo.new(0.3), {
-        BackgroundTransparency = 0
-    }):Play()
-
-    -- hover
-    Button.MouseEnter:Connect(function()
-        TweenService:Create(Button, TweenInfo.new(0.15), {
-            BackgroundColor3 = Color3.fromRGB(55,55,55)
-        }):Play()
-    end)
-
-    Button.MouseLeave:Connect(function()
-        TweenService:Create(Button, TweenInfo.new(0.15), {
-            BackgroundColor3 = Color3.fromRGB(35,35,35)
-        }):Play()
-    end)
-
-    -- 点击
-    Button.MouseButton1Click:Connect(function()
-        clicked = true
-
-        if writefile then
-            writefile(FILE_NAME, "read")
-        end
-
-        TweenService:Create(Frame, TweenInfo.new(0.2), {
-            BackgroundTransparency = 1,
-            Size = UDim2.new(0, 280, 0, 150)
-        }):Play()
-
-        TweenService:Create(blur, TweenInfo.new(0.2), {
-            Size = 0
-        }):Play()
-
-        task.wait(0.2)
-
-        ScreenGui:Destroy()
-        blur:Destroy()
-    end)
-
-    -- 阻塞
-    repeat task.wait() until clicked
-
-end
-
--- ================= 后续执行 =================
-print("公告已确认，继续执行")
-local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
-
-
-local function Notify(title, content, duration, icon)
-
-    pcall(function()
-        WindUI:Notify({
-            Title = tostring(title or "提示"),
-            Content = tostring(content or ""),
-            Duration = duration or 3,
-            Icon = icon or "info",
-        })
-    end)
-
-end
--- ================= 瞬移模块（可开关版）=================
-
--- ================= 瞬移模块（稳定无跳跃冲突版）=================
-
-local TP_Module = {}
-local TP_Loaded = false
-
-function EnableTPUI()
-
-    if TP_Loaded then
-        if TP_Module.Gui then
-            TP_Module.Gui.Enabled = true
-        end
-        return
-    end
-
-    TP_Loaded = true
-
-    -- ================= 服务 =================
-    local Players = game:GetService("Players")
-    local UIS = game:GetService("UserInputService")
-    local RunService = game:GetService("RunService")
-    local Workspace = game:GetService("Workspace")
-
-    local LP = Players.LocalPlayer
-    local Camera = Workspace.CurrentCamera
-
-    -- ================= 状态 =================
-    local Mode = false
-    local Root, Hum
-
-    local OldCF, OldType
-    local FixedY = 0
-
-    local MoveInput = Vector2.zero
-    local TouchMove, TouchStart
-
-    local Speed = 3
-    local HeightSpeed = 4
-
-    -- ================= UI =================
-    local Gui = Instance.new("ScreenGui")
-    Gui.Parent = game.CoreGui
-    Gui.IgnoreGuiInset = true
-    Gui.Enabled = true
-
-    TP_Module.Gui = Gui
-
-    -- 主按钮
-    local Btn = Instance.new("TextButton", Gui)
-    Btn.Size = UDim2.new(0,80,0,40)
-    Btn.Position = UDim2.new(1,-90,0.35,0)
-    Btn.Text = "瞬移"
-    Btn.BackgroundColor3 = Color3.fromRGB(40,40,40)
-    Btn.TextColor3 = Color3.new(1,1,1)
-
-    -- 准心
-    local Cross = Instance.new("Frame", Gui)
-    Cross.Size = UDim2.new(0,8,0,8)
-    Cross.AnchorPoint = Vector2.new(0.5,0.5)
-    Cross.Position = UDim2.new(0.5,0,0.5,0)
-    Cross.BackgroundColor3 = Color3.fromRGB(255,0,0)
-    Cross.Visible = false
-    Instance.new("UICorner", Cross).CornerRadius = UDim.new(1,0)
-
-    -- 上按钮
-    local UpBtn = Instance.new("TextButton", Gui)
-    UpBtn.Size = UDim2.new(0,60,0,60)
-    UpBtn.Position = UDim2.new(1,-80,0.7,-70)
-    UpBtn.Text = "↑"
-    UpBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    UpBtn.Visible = false
-
-    -- 下按钮
-    local DownBtn = Instance.new("TextButton", Gui)
-    DownBtn.Size = UDim2.new(0,60,0,60)
-    DownBtn.Position = UDim2.new(1,-80,0.7,10)
-    DownBtn.Text = "↓"
-    DownBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    DownBtn.Visible = false
-
-    -- ================= 核心 =================
-    local function LockChar()
-        local char = LP.Character
-        if not char then return end
-        Root = char:FindFirstChild("HumanoidRootPart")
-        Hum = char:FindFirstChildOfClass("Humanoid")
-
-        if Root then Root.Anchored = true end
-        if Hum then
-            Hum.AutoRotate = false
-            Hum.PlatformStand = true
-        end
-    end
-
-    local function UnlockChar()
-        if Root then Root.Anchored = false end
-        if Hum then
-            Hum.AutoRotate = true
-            Hum.PlatformStand = false
-        end
-    end
-
-    local function Enter()
-        local char = LP.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
-
-        OldCF = Camera.CFrame
-        OldType = Camera.CameraType
-
-        Camera.CameraType = Enum.CameraType.Scriptable
-        FixedY = root.Position.Y + 150
-
-        Camera.CFrame =
-            CFrame.new(root.Position + Vector3.new(0,150,0))
-            * CFrame.Angles(math.rad(-90), 0, 0)
-
-        LockChar()
-        Cross.Visible = true
-        UpBtn.Visible = true
-        DownBtn.Visible = true
-    end
-
-    local function Exit()
-
-        -- ⭐重新获取（防重生）
-        local char = LP.Character
-        if char then
-            Root = char:FindFirstChild("HumanoidRootPart")
-            Hum = char:FindFirstChildOfClass("Humanoid")
-        end
-
-        UnlockChar()
-
-        if Hum then
-            pcall(function()
-                Hum.PlatformStand = false
-                Hum.AutoRotate = true
-
-                Hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-                Hum:ChangeState(Enum.HumanoidStateType.Running)
-
-                Hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
-                Hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
-
-                if CustomJumpEnabled then
-                    Hum.UseJumpPower = true
-                    Hum.JumpPower = CustomJumpValue
-                    Hum.JumpHeight = CustomJumpValue * (7.2 / 50)
-                end
-            end)
-        end
-
-        -- ⭐防卡死
-        if Root and Root.Parent then
-            Root.Anchored = false
-        end
-
-        Camera.CameraType = OldType or Enum.CameraType.Custom
-        if OldCF then Camera.CFrame = OldCF end
-
-        Cross.Visible = false
-        UpBtn.Visible = false
-        DownBtn.Visible = false
-    end
-
-    -- ================= 相机 =================
-    RunService.RenderStepped:Connect(function()
-        if not Mode then return end
-
-        local move = Vector3.new(MoveInput.X, 0, MoveInput.Y) * Speed
-        local pos = Camera.CFrame.Position + move
-
-        Camera.CFrame =
-            CFrame.new(Vector3.new(pos.X, FixedY, pos.Z))
-            * CFrame.Angles(math.rad(-90), 0, 0)
-    end)
-
-    -- 高度控制
-    local UpHolding = false
-    local DownHolding = false
-
-    UpBtn.MouseButton1Down:Connect(function() UpHolding = true end)
-    UpBtn.MouseButton1Up:Connect(function() UpHolding = false end)
-    DownBtn.MouseButton1Down:Connect(function() DownHolding = true end)
-    DownBtn.MouseButton1Up:Connect(function() DownHolding = false end)
-
-    RunService.RenderStepped:Connect(function()
-        if not Mode then return end
-        if UpHolding then FixedY += HeightSpeed end
-        if DownHolding then FixedY -= HeightSpeed end
-    end)
-
-    -- 摇杆
-    UIS.TouchStarted:Connect(function(t)
-        if not Mode then return end
-        if t.Position.X < Camera.ViewportSize.X/2 then
-            TouchMove = t
-            TouchStart = t.Position
-        end
-    end)
-
-    UIS.TouchMoved:Connect(function(t)
-        if t ~= TouchMove then return end
-        local delta = t.Position - TouchStart
-        MoveInput = Vector2.new(
-            math.clamp(delta.X/50, -1, 1),
-            math.clamp(delta.Y/50, -1, 1)
-        )
-    end)
-
-    UIS.TouchEnded:Connect(function(t)
-        if t == TouchMove then
-            TouchMove = nil
-            MoveInput = Vector2.zero
-        end
-    end)
-
-    -- 射线
-    local function GetCenterRay()
-        local absPos = Cross.AbsolutePosition
-        local absSize = Cross.AbsoluteSize
-
-        local x = absPos.X + absSize.X/2
-        local y = absPos.Y + absSize.Y/2
-
-        local ray = Camera:ViewportPointToRay(x, y)
-
-        local params = RaycastParams.new()
-        params.FilterType = Enum.RaycastFilterType.Exclude
-        params.FilterDescendantsInstances = {LP.Character}
-
-        local result = Workspace:Raycast(
-            ray.Origin,
-            Vector3.new(0,-5000,0),
-            params
-        )
-
-        return result and result.Position or ray.Origin
-    end
-
-    local function TP()
-        if not Root then return end
-        local pos = GetCenterRay()
-        Root.Anchored = false
-        Root.CFrame = CFrame.new(pos + Vector3.new(0,3,0))
-    end
-
-    -- 按钮
-    Btn.MouseButton1Click:Connect(function()
-        if not Mode then
-            Mode = true
-            Btn.Text = "确认地点"
-            Btn.BackgroundColor3 = Color3.fromRGB(200,0,0)
-            Enter()
-        else
-            Mode = false
-            Btn.Text = "瞬移"
-            Btn.BackgroundColor3 = Color3.fromRGB(40,40,40)
-            TP()
-            Exit()
-        end
-    end)
-
-end
-
-function DisableTPUI()
-    if TP_Module.Gui then
-        TP_Module.Gui.Enabled = false
-    end
-end
--- ================= 主题注册 =================
--- 🖤 BlackGold
-WindUI:AddTheme({
-    Name = "BlackGold",
-
-    Background = Color3.fromRGB(8,8,10),
-
-    -- ⭐关键：卡片层（必须明显存在）
-    ElementBackground = Color3.fromRGB(98,98,100),
-
-    -- ⭐控件层（再亮一层）
-    Button = Color3.fromRGB(140,125,100),
-
-    Hover = Color3.fromRGB(255,255,255),
-
-    Text = Color3.fromRGB(235,235,235),
-    Placeholder = Color3.fromRGB(120,120,130),
-    Icon = Color3.fromRGB(200,160,80),
-
-    Outline = Color3.fromRGB(70,70,75),
-
-    Accent = WindUI:Gradient({
-        ["0"] = { Color = Color3.fromRGB(200,160,80), Transparency = 0.5 },
-        ["100"] = { Color = Color3.fromRGB(120,90,40), Transparency = 0.5 },
-    }),
-
-    WindowBackground = Color3.fromRGB(8,8,10),
-
-    TabTitle = Color3.fromRGB(235,235,235),
-    TabIcon = Color3.fromRGB(200,160,80),
-
-    ElementTitle = Color3.fromRGB(235,235,235),
-    ElementDesc = Color3.fromRGB(150,150,160),
-
-    Toggle = Color3.fromRGB(90,70,40),
-    ToggleBar = Color3.fromRGB(255,255,255),
-
-    Slider = Color3.fromRGB(90,70,40),
-    SliderThumb = Color3.fromRGB(255,255,255),
-
-    Checkbox = Color3.fromRGB(90,70,40),
-    CheckboxIcon = Color3.fromRGB(255,255,255),
-})
-
-
--- 🌌 Aurora
-WindUI:AddTheme({
-    Name = "Aurora",
-
-    Background = Color3.fromRGB(18,18,22),
-
-    ElementBackground = Color3.fromRGB(98,98,102),
-    Button = Color3.fromRGB(155,145,210),
-
-    Hover = Color3.fromRGB(255,255,255),
-
-    Text = Color3.fromRGB(235,235,235),
-    Placeholder = Color3.fromRGB(140,140,160),
-    Icon = Color3.fromRGB(170,150,255),
-
-    Outline = Color3.fromRGB(80,80,100),
-
-    Accent = WindUI:Gradient({
-        ["0"] = { Color = Color3.fromRGB(140,100,255), Transparency = 0.5 },
-        ["100"] = { Color = Color3.fromRGB(80,60,200), Transparency = 0.5 },
-    }),
-
-    WindowBackground = Color3.fromRGB(18,18,22),
-
-    TabTitle = Color3.fromRGB(235,235,235),
-    TabIcon = Color3.fromRGB(170,150,255),
-
-    ElementTitle = Color3.fromRGB(235,235,235),
-    ElementDesc = Color3.fromRGB(150,150,170),
-
-    Toggle = Color3.fromRGB(100,90,160),
-    ToggleBar = Color3.fromRGB(255,255,255),
-
-    Slider = Color3.fromRGB(100,90,160),
-    SliderThumb = Color3.fromRGB(255,255,255),
-
-    Checkbox = Color3.fromRGB(100,90,160),
-    CheckboxIcon = Color3.fromRGB(255,255,255),
-})
-
-
--- 🌊 Cyan
-WindUI:AddTheme({
-    Name = "Cyan",
-
-    Background = Color3.fromRGB(10,18,20),
-
-  ElementBackground = Color3.fromRGB(105,120,120),
-    Button = Color3.fromRGB(130,170,180),
-
-    Hover = Color3.fromRGB(255,255,255),
-
-    Text = Color3.fromRGB(210,240,240),
-    Placeholder = Color3.fromRGB(130,170,170),
-    Icon = Color3.fromRGB(80,220,200),
-
-    Outline = Color3.fromRGB(80,110,110),
-
-    Accent = WindUI:Gradient({
-        ["0"] = { Color = Color3.fromRGB(0,200,180), Transparency = 0.5 },
-        ["100"] = { Color = Color3.fromRGB(0,120,200), Transparency = 0.5 },
-    }, { Rotation = 45 }),
-
-    WindowBackground = Color3.fromRGB(10,18,20),
-
-    TabTitle = Color3.fromRGB(210,240,240),
-    TabIcon = Color3.fromRGB(80,220,200),
-
-    ElementTitle = Color3.fromRGB(210,240,240),
-    ElementDesc = Color3.fromRGB(150,190,190),
-
-    Toggle = Color3.fromRGB(90,130,130),
-    ToggleBar = Color3.fromRGB(255,255,255),
-
-    Slider = Color3.fromRGB(90,130,130),
-    SliderThumb = Color3.fromRGB(255,255,255),
-
-    Checkbox = Color3.fromRGB(90,130,130),
-    CheckboxIcon = Color3.fromRGB(255,255,255),
-})
-
-
--- 🔵 Blue
-WindUI:AddTheme({
-    Name = "Blue",
-
-    Background = Color3.fromRGB(8,10,18),
-  ElementBackground = Color3.fromRGB(120,136,188),
-    Button = Color3.fromRGB(120,140,200),
-
-    Hover = Color3.fromRGB(255,255,255),
-
-    Text = Color3.fromRGB(235,240,255),
-    Placeholder = Color3.fromRGB(130,140,170),
-    Icon = Color3.fromRGB(120,160,255),
-
-    Outline = Color3.fromRGB(90,100,130),
-
-    Accent = WindUI:Gradient({
-        ["0"] = { Color = Color3.fromRGB(120,160,255), Transparency = 0.5 },
-        ["100"] = { Color = Color3.fromRGB(60,100,200), Transparency = 0.5 },
-    }),
-
-    WindowBackground = Color3.fromRGB(8,10,18),
-
-    TabTitle = Color3.fromRGB(235,240,255),
-    TabIcon = Color3.fromRGB(120,160,255),
-
-    ElementTitle = Color3.fromRGB(235,240,255),
-    ElementDesc = Color3.fromRGB(150,160,180),
-
-    Toggle = Color3.fromRGB(60,70,90),
-    ToggleBar = Color3.fromRGB(255,255,255),
-
-    Slider = Color3.fromRGB(100,120,180),
-    SliderThumb = Color3.fromRGB(255,255,255),
-
-    Checkbox = Color3.fromRGB(100,120,180),
-    CheckboxIcon = Color3.fromRGB(255,255,255),
-})
-local ThemeFile = "NightTheme.txt"
-local CurrentTheme = "Dark"
-
--- 读取
-pcall(function()
-    if isfile and isfile(ThemeFile) then
-        local saved = readfile(ThemeFile)
-        if saved and saved ~= "" then
-            CurrentTheme = saved
-        end
-    end
-end)
-
 -- =================== UI版FOV圈 ===================
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
@@ -729,6 +35,106 @@ stroke.Parent = circle
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(1, 0)
 corner.Parent = circle
+-- =================== 主题配置系统 ===================
+
+local ThemeFile = "NightScriptTheme.txt"
+local CurrentTheme = "Serenity" -- 默认
+
+-- 读取配置
+pcall(function()
+    if isfile and isfile(ThemeFile) then
+        local saved = readfile(ThemeFile)
+        if saved and saved ~= "" then
+            CurrentTheme = saved
+        end
+    end
+end)
+-- --------- 1. 预设通知工具（为了在加载网络库前就能弹出提示） ----------
+local StarterGui = game:GetService("StarterGui")
+local function FallbackNotify(title, content, duration)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = title or "通知",
+            Text = content or "",
+            Duration = duration or 4
+        })
+    end)
+end
+
+-- [新增] 注入成功后的瞬间反馈
+FallbackNotify("夜脚本", "看到这个就说明基础脚本已经加载完毕，正在加载UI库", 3)
+FallbackNotify("加载中", "开始载入UI，剩余时间大约1秒如网络不佳可能延长", 3)
+
+local function tryLoadRayfield(retries, timeoutPerAttempt)
+    retries = retries or 3
+    timeoutPerAttempt = timeoutPerAttempt or 5 -- 每次尝试最长等待 5 秒
+    
+    for i = 1, retries do
+        print("正在尝试第 " .. i .. " 次加载 UI 库...")
+        local success = false
+        local content = nil
+        
+        -- 开启协程请求数据，避免下载时主线程死锁
+        task.spawn(function()
+            local ok, res = pcall(function()
+                return game:HttpGet('https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/nwjdud')
+            end)
+            if ok and res then
+                content = res
+                success = true
+            end
+        end)
+
+        -- 计时器：如果 5 秒内没成功，直接进入下一次重试
+        local start = tick()
+        repeat task.wait(0.1) until success or (tick() - start) > timeoutPerAttempt
+
+        if success and content then
+            local runOk, Rayfield = pcall(function()
+                return loadstring(content)()
+            end)
+            if runOk and Rayfield then
+                return Rayfield
+            end
+        end
+        FallbackNotify(
+    "加载重试",
+    "第 "..i.." 次加载 UI 库失败",
+    3
+)
+    end
+    return nil, "网络连接超时 (35秒)"
+end
+
+-- 启动加载程序
+local Rayfield, loadErr = tryLoadRayfield(5, 7)
+
+-- --------- 3. 检查加载结果并定义统一通知函数 ----------
+if not Rayfield then
+    FallbackNotify("加载失败", "UI 库加载失败，请尝试更换加速器或再次注入，错误：" .. tostring(loadErr), 10)
+    return -- 彻底停止脚本
+end
+
+-- 统一 Notify 函数（供 UI 加载成功后的后续代码调用）
+local function Notify(title, content, duration)
+    if Rayfield and type(Rayfield.Notify) == "function" then
+        pcall(function() Rayfield:Notify({ Title = title or "通知", Content = content or "", Duration = duration or 4 }) end)
+    else
+        FallbackNotify(title, content, duration)
+    end
+end
+FallbackNotify("加载成功", "脚本即将运行", 3)
+-- ---------------------------------------------------------
+-- 创建窗口（使用琥珀色发光主题）
+local Window = Rayfield:CreateWindow({
+    Name = "夜脚本｜抖音夜出品",
+    LoadingTitle = "感谢使用夜脚本",
+    LoadingSubtitle = "by Grok&ChatGPT&Gemini",
+    ConfigurationSaving = { Enabled = true, FolderName = "ESP", FileName = "RayfieldESP" },
+    Discord = { Enabled = false },
+    KeySystem = false,
+    Theme = CurrentTheme
+})
 -- =================== 管理员检测系统 ===================
 
 local AdminDetectEnabled = true
@@ -789,65 +195,94 @@ end)
 Players.PlayerRemoving:Connect(function(p)
     flaggedAdmins[p] = nil
 end)
--- =================== 强制解锁第三人称 ===================
+-- =================== 完美修复版·流光彩虹 ===================
+task.wait(0.01)
 
-local ThirdPersonUnlock = {
-    Enabled = false,
-    Connection = nil
-}
+local RayfieldScreen = game:GetService("CoreGui"):FindFirstChild("Rayfield") 
+                 or (gethui and gethui():FindFirstChild("Rayfield"))
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
+if not RayfieldScreen or not RayfieldScreen:FindFirstChild("Main") then return end
 
-local function ApplyUnlock()
+local Main = RayfieldScreen.Main
 
-    pcall(function()
-        -- ⭐核心：解除锁定
-        if LocalPlayer.CameraMode ~= Enum.CameraMode.Classic then
-            LocalPlayer.CameraMode = Enum.CameraMode.Classic
-        end
-
-        -- ⭐允许缩放
-        LocalPlayer.CameraMinZoomDistance = 0.5
-        LocalPlayer.CameraMaxZoomDistance = 50
-    end)
-end
-
-local function EnableUnlock()
-
-    if ThirdPersonUnlock.Connection then return end
-
-    ThirdPersonUnlock.Enabled = true
-
-    ApplyUnlock()
-
-    -- ⭐持续对抗游戏锁定（关键）
-    ThirdPersonUnlock.Connection = RunService.RenderStepped:Connect(function()
-        if not ThirdPersonUnlock.Enabled then return end
-        ApplyUnlock()
-    end)
-end
-
-local function DisableUnlock()
-
-    ThirdPersonUnlock.Enabled = false
-
-    if ThirdPersonUnlock.Connection then
-        ThirdPersonUnlock.Connection:Disconnect()
-        ThirdPersonUnlock.Connection = nil
+-- 1. 清理旧逻辑
+for _, v in ipairs(Main:GetDescendants()) do
+    if v:IsA("UIStroke") and v.Name == "RainbowBorder" then
+        v:Destroy()
     end
-
-    -- ⚠️ 不强制改回（避免干扰游戏）
 end
 
--- ⭐重生修复
-LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(0.5)
-    if ThirdPersonUnlock.Enabled then
-        ApplyUnlock()
+-- 2. 创建持久的描边对象
+local Stroke = Instance.new("UIStroke")
+Stroke.Name = "RainbowBorder"
+Stroke.Thickness = 3.5
+Stroke.Color = Color3.new(1, 1, 1)
+Stroke.LineJoinMode = Enum.LineJoinMode.Round
+Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+Stroke.Parent = Main
+
+local Gradient = Instance.new("UIGradient")
+Gradient.Name = "RainbowGradient"
+Gradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0,    Color3.fromRGB(255, 0, 0)),
+    ColorSequenceKeypoint.new(0.16, Color3.fromRGB(255, 255, 0)),
+    ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 255, 0)),
+    ColorSequenceKeypoint.new(0.5,  Color3.fromRGB(0, 255, 255)),
+    ColorSequenceKeypoint.new(0.66, Color3.fromRGB(0, 0, 255)),
+    ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 0, 255)),
+    ColorSequenceKeypoint.new(1,    Color3.fromRGB(255, 0, 0))
+})
+Gradient.Parent = Stroke
+
+-- 3. 动画逻辑 (保持常驻)
+local RunService = game:GetService("RunService")
+local currentAngle = 0
+local rotSpeed = 150 
+
+RunService.RenderStepped:Connect(function(dt)
+    if Stroke and Stroke.Parent then
+        currentAngle = (currentAngle + dt * rotSpeed) % 360
+        Gradient.Rotation = currentAngle
     end
 end)
+
+-- 4. ⭐ 解决“变白”和“先关闭”的核心逻辑 ⭐
+-- 我们不销毁它，而是直接让它消失，这样二次打开时配置依然在
+local function ToggleBorder(show)
+    if show then
+        Stroke.Enabled = true
+        -- 如果 Rayfield 重置了透明度，强制设回 0
+        Stroke.Transparency = 0 
+    else
+        -- 关闭时：立即让描边失效
+        Stroke.Enabled = false 
+    end
+end
+
+-- 监听可见性
+Main:GetPropertyChangedSignal("Visible"):Connect(function()
+    ToggleBorder(Main.Visible)
+end)
+
+-- 监听大小（处理缩放关闭动画）
+Main:GetPropertyChangedSignal("Size"):Connect(function()
+    if Main.Size.X.Offset < 50 or Main.Size.Y.Offset < 50 then
+        ToggleBorder(false)
+    else
+        ToggleBorder(true)
+    end
+end)
+
+-- 初始状态同步
+ToggleBorder(Main.Visible)
+
+-- 圆角同步
+local Corner = Main:FindFirstChildOfClass("UICorner")
+if not Corner then
+    Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 12)
+    Corner.Parent = Main
+end
 -- =================== 功能显示系统（终极进阶版） ===================
 
 local FeatureDisplayEnabled = true
@@ -1153,26 +588,21 @@ local ESP_SETTINGS = {
     DistanceCheck = false,     -- 距离限制
     WallCheck = false          -- 墙体检测
 }
--- ⭐团队白名单（核心）
-local AimbotTeamWhitelist = {}
-local AimbotTeamWhitelistEnabled = false
-
 -- ================= 玩家透视专用变量 =================
 local PLAYER_ESP = {
     Enabled = false,        -- 总开关（⭐核心）
-    HighlightEnabled = false,
-    BoxEnabled = false,
-    TeamCheck = false,
-    ShowName = false,
-    ShowHealth = false,
-    ShowDist = false
+    HighlightEnabled = true,
+    BoxEnabled = true,
+    TeamCheck = true,
+    ShowName = true,
+    ShowHealth = true,
+    ShowDist = true
 }
 
 -- 自瞄参数
 local FOV = 120              -- 自瞄范围（和圈同步）
 local Smoothness = 0.18      -- 平滑程度
 local AimPart = "Head"
-local ShowFOVCircle = true -- ⭐FOV圈显示开关（新增）
 
 -- ⭐可选部位列表（顺便做容错）
 local AimPartsList = {
@@ -1205,16 +635,13 @@ local SelectedTarget = nil
 local PlayerList = {}
 
 -- =================== 全局变量与属性记录 (修改这里) ===================
--- =================== 旋转模块（完全修复版） ===================
+-- =================== 旋转模块（重生完全修复版） ===================
 
 local SpinEnabled = false
 local SpinSpeed = 5
 local SpinConnection = nil
 
--- ⭐线程控制（核心修复）
-local AnimationLockThread = nil
-
--- ================= 锁动画 =================
+-- ⭐强制锁动画（可重复调用）
 local function ApplyAnimationLock(char)
 
     if not char then return end
@@ -1224,25 +651,27 @@ local function ApplyAnimationLock(char)
         hum.AutoRotate = false
     end
 
-    -- 停旧线程
-    if AnimationLockThread then
-        task.cancel(AnimationLockThread)
-        AnimationLockThread = nil
-    end
-
-    AnimationLockThread = task.spawn(function()
+    -- ⭐关键：持续找 Animate（因为有延迟生成）
+    task.spawn(function()
 
         local animate = char:WaitForChild("Animate", 3)
 
-        while SpinEnabled and animate and animate.Parent do
+        if animate then
             animate.Disabled = true
-            task.wait(0.2)
+        end
+
+        -- ⭐防止被脚本重新开启（很多游戏会重启动画）
+        for i = 1, 10 do
+            if animate and animate.Parent then
+                animate.Disabled = true
+            end
+            task.wait(0.3)
         end
 
     end)
 end
 
--- ================= 恢复动画 =================
+-- 恢复动画
 local function RemoveAnimationLock(char)
 
     if not char then return end
@@ -1252,19 +681,13 @@ local function RemoveAnimationLock(char)
         hum.AutoRotate = true
     end
 
-    -- ⭐停止线程（关键）
-    if AnimationLockThread then
-        task.cancel(AnimationLockThread)
-        AnimationLockThread = nil
-    end
-
     local animate = char:FindFirstChild("Animate")
     if animate then
         animate.Disabled = false
     end
 end
 
--- ================= 开始旋转 =================
+-- 开始旋转
 local function StartSpin()
 
     if SpinConnection then return end
@@ -1285,13 +708,12 @@ local function StartSpin()
 
     end)
 
+    -- ⭐立即锁一次
     ApplyAnimationLock(plr.Character)
 end
 
--- ================= 停止旋转 =================
+-- 停止旋转
 local function StopSpin()
-
-    SpinEnabled = false -- ⭐必须
 
     if SpinConnection then
         SpinConnection:Disconnect()
@@ -1301,77 +723,22 @@ local function StopSpin()
     RemoveAnimationLock(game.Players.LocalPlayer.Character)
 end
 
--- ================= 重生修复 =================
+-- ⭐⭐⭐ 核心修复：重生强制重新锁动画 + 旋转
 game.Players.LocalPlayer.CharacterAdded:Connect(function(char)
 
     if SpinEnabled then
 
+        -- 等角色完全加载
         task.wait(0.5)
 
         ApplyAnimationLock(char)
 
+        -- 再确保旋转在跑
         if not SpinConnection then
             StartSpin()
         end
     end
 end)
-
--- ================= 下面这部分保持不变 =================
-
-local function TeleportToPlayer(target)
-
-    if not target then return end
-
-    local char = LocalPlayer.Character
-    local tChar = target.Character
-
-    if not char or not tChar then return end
-
-    local root = char:FindFirstChild("HumanoidRootPart")
-    local tRoot = tChar:FindFirstChild("HumanoidRootPart")
-
-    if root and tRoot then
-        root.CFrame = tRoot.CFrame * CFrame.new(0, 4, 0)
-    end
-
-end
-
-local Spectating = false
-
-local function SpectatePlayer(target)
-
-    if not target then return end
-
-    local cam = workspace.CurrentCamera
-    if not cam then return end
-
-    local char = target.Character
-    if not char then return end
-
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum then return end
-
-    cam.CameraSubject = hum
-    cam.CameraType = Enum.CameraType.Custom
-
-    Spectating = true
-end
-
-local function StopSpectate()
-
-    local cam = workspace.CurrentCamera
-    if not cam then return end
-
-    local char = LocalPlayer.Character
-    if not char then return end
-
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum then
-        cam.CameraSubject = hum
-    end
-
-    Spectating = false
-end
 -- =================== 状态 ===================
 local FlingLoop = false
 local Flinging = false
@@ -1403,17 +770,6 @@ local function SkidFling(TargetPlayer)
 
     local Camera = workspace.CurrentCamera
 
-    -- ⭐ 新增：监听自身重生
-    local Dead = false
-    local DeadConn
-    DeadConn = Player.CharacterAdded:Connect(function()
-        Dead = true
-        if DeadConn then
-            DeadConn:Disconnect()
-            DeadConn = nil
-        end
-    end)
-
     if RootPart.Velocity.Magnitude < 50 then
         getgenv().OldPos = RootPart.CFrame
     end
@@ -1428,96 +784,90 @@ local function SkidFling(TargetPlayer)
         end
     end
 
-    local function FPos(BasePart, Pos, Ang)
-        -- ⭐ 新增：每次移动前检查
-        if Dead then return end
-        if not BasePart or not BasePart.Parent then return end
-        if not RootPart or not RootPart.Parent then return end
+local function FPos(BasePart, Pos, Ang)
 
-        RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
-        Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
+    if not BasePart or not BasePart.Parent then return end
+    if not RootPart or not RootPart.Parent then return end
 
-        RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
-        RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
-    end
+    RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
+    Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
 
+    RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
+    RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+end
     local function SFBasePart(BasePart)
 
-        local TimeToWait = 2
-        local Time = tick()
-        local Angle = 0
+    local TimeToWait = 2
+    local Time = tick()
+    local Angle = 0
 
-        repeat
-            -- ⭐ 新增：死亡检测放最前面
-            if Dead then break end
+    repeat
 
-            if not BasePart or not BasePart.Parent then break end
-            if not RootPart or not RootPart.Parent then break end
-            if not TRootPart or not TRootPart.Parent then break end
-            if not THumanoid or THumanoid.Health <= 0 then break end
+        -- ⭐核心防炸（你缺的就是这个）
+        if not BasePart or not BasePart.Parent then break end
+        if not RootPart or not RootPart.Parent then break end
+        if not TRootPart or not TRootPart.Parent then break end
+        if not THumanoid or THumanoid.Health <= 0 then break end
 
-            if BasePart.Velocity.Magnitude > 1 then
+        if BasePart.Velocity.Magnitude > 1 then
 
-                Angle = Angle + 100
+            Angle = Angle + 100
 
-                FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle),0 ,0))
-                task.wait()
+            FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle),0 ,0))
+            task.wait()
 
-                FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
-                task.wait()
+            FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+            task.wait()
 
-                FPos(BasePart, CFrame.new(2.25, 1.5, -2.25) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
-                task.wait()
+            FPos(BasePart, CFrame.new(2.25, 1.5, -2.25) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+            task.wait()
 
-                FPos(BasePart, CFrame.new(-2.25, -1.5, 2.25) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
-                task.wait()
+            FPos(BasePart, CFrame.new(-2.25, -1.5, 2.25) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+            task.wait()
 
-                FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0))
-                task.wait()
+            FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0))
+            task.wait()
 
-                FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0))
-                task.wait()
+            FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0))
+            task.wait()
 
-            else
+        else
 
-                FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
-                task.wait()
+            FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
+            task.wait()
 
-                FPos(BasePart, CFrame.new(0, -1.5, -THumanoid.WalkSpeed), CFrame.Angles(0, 0, 0))
-                task.wait()
+            FPos(BasePart, CFrame.new(0, -1.5, -THumanoid.WalkSpeed), CFrame.Angles(0, 0, 0))
+            task.wait()
 
-                FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
-                task.wait()
+            FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
+            task.wait()
 
-                FPos(BasePart, CFrame.new(0, 1.5, TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0))
-                task.wait()
+            FPos(BasePart, CFrame.new(0, 1.5, TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0))
+            task.wait()
 
-                FPos(BasePart, CFrame.new(0, -1.5, -TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(0, 0, 0))
-                task.wait()
+            FPos(BasePart, CFrame.new(0, -1.5, -TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(0, 0, 0))
+            task.wait()
 
-                FPos(BasePart, CFrame.new(0, 1.5, TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0))
-                task.wait()
+            FPos(BasePart, CFrame.new(0, 1.5, TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0))
+            task.wait()
 
-                FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
-                task.wait()
+            FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
+            task.wait()
 
-                FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
-                task.wait()
+            FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
+            task.wait()
 
-                FPos(BasePart, CFrame.new(0, -1.5 ,0), CFrame.Angles(math.rad(-90), 0, 0))
-                task.wait()
+            FPos(BasePart, CFrame.new(0, -1.5 ,0), CFrame.Angles(math.rad(-90), 0, 0))
+            task.wait()
 
-                FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
-                task.wait()
-            end
+            FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
+            task.wait()
+        end
 
-        -- ⭐ 新增 Dead 退出条件
-        until BasePart.Velocity.Magnitude > 500
-            or not BasePart.Parent
-            or Dead
-            or tick() > Time + TimeToWait
-    end
-
+    until BasePart.Velocity.Magnitude > 500
+        or not BasePart.Parent
+        or tick() > Time + TimeToWait
+end
     local BV = Instance.new("BodyVelocity")
     BV.Parent = RootPart
     BV.Velocity = Vector3.new(9e8,9e8,9e8)
@@ -1525,56 +875,37 @@ local function SkidFling(TargetPlayer)
 
     Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated,false)
 
-    if not Dead then
-        if TRootPart then
-            SFBasePart(TRootPart)
-        elseif THead then
-            SFBasePart(THead)
-        elseif Handle then
-            SFBasePart(Handle)
-        end
+    if TRootPart then
+        SFBasePart(TRootPart)
+    elseif THead then
+        SFBasePart(THead)
+    elseif Handle then
+        SFBasePart(Handle)
     end
 
     BV:Destroy()
     Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated,true)
 
     if Camera then
-        -- ⭐ 新增：恢复镜头前检查角色是否还存在
-        local newChar = Player.Character
-        local newHum = newChar and newChar:FindFirstChildOfClass("Humanoid")
-        if newHum then
-            Camera.CameraSubject = newHum
-        end
+        Camera.CameraSubject = Humanoid
     end
 
-    -- ⭐ 新增：刹车前检查是否重生
-    if not Dead and getgenv().OldPos then
-        local newChar = Player.Character
-        local newRoot = newChar and newChar:FindFirstChild("HumanoidRootPart")
-        local newHum = newChar and newChar:FindFirstChildOfClass("Humanoid")
+    -- ⭐原版刹车
+    if getgenv().OldPos then
+        repeat
+            RootPart.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
+            Character:SetPrimaryPartCFrame(getgenv().OldPos * CFrame.new(0, .5, 0))
+            Humanoid:ChangeState("GettingUp")
 
-        if newRoot and newHum then
-            repeat
-                newRoot.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
-                newChar:SetPrimaryPartCFrame(getgenv().OldPos * CFrame.new(0, .5, 0))
-                newHum:ChangeState("GettingUp")
-
-                for _, x in ipairs(newChar:GetChildren()) do
-                    if x:IsA("BasePart") then
-                        x.Velocity = Vector3.zero
-                        x.RotVelocity = Vector3.zero
-                    end
+            for _, x in ipairs(Character:GetChildren()) do
+                if x:IsA("BasePart") then
+                    x.Velocity = Vector3.zero
+                    x.RotVelocity = Vector3.zero
                 end
+            end
 
-                task.wait()
-            until (newRoot.Position - getgenv().OldPos.Position).Magnitude < 25
-        end
-    end
-
-    -- ⭐ 新增：清理连接
-    if DeadConn then
-        DeadConn:Disconnect()
-        DeadConn = nil
+            task.wait()
+        until (RootPart.Position - getgenv().OldPos.Position).Magnitude < 25
     end
 
     Flinging = false
@@ -1583,11 +914,7 @@ local function MonitorTarget(target)
 
     if not target then return end
 
-    -- ⭐核心修复：没有在执行功能就不监听
-    if not (TP_Loop or FlingLoop or Flinging) then
-        return
-    end
-
+    -- ⭐ 初始化状态
     if not AlreadyNotified[target] then
         AlreadyNotified[target] = {
             dead = false,
@@ -1600,11 +927,6 @@ local function MonitorTarget(target)
     task.spawn(function()
 
         while true do
-
-            -- ⭐再次校验（防止中途关闭功能）
-            if not (TP_Loop or FlingLoop or Flinging) then
-                break
-            end
 
             -- ===== 玩家退出 =====
             if not target or not target.Parent then
@@ -1646,6 +968,7 @@ local function MonitorTarget(target)
                     Notify("目标失效", msg, 3)
                 end
 
+                -- ⭐关键：等复活 → 重置状态
                 repeat
                     task.wait(0.5)
                     char = target.Character
@@ -1653,7 +976,7 @@ local function MonitorTarget(target)
                 until hum and hum.Health > 0 or not target.Parent
 
                 if hum and hum.Health > 0 then
-                    state.dead = false
+                    state.dead = false -- ✅允许再次检测死亡
                 end
             end
 
@@ -1673,27 +996,11 @@ local function StartFlingLoop()
 
         while FlingLoop do
 
-            -- ⭐ 检查自身角色是否存在，重生中就等待
-            local selfChar = LocalPlayer.Character
-            local selfHum = selfChar and selfChar:FindFirstChildOfClass("Humanoid")
-            local selfRoot = selfChar and selfChar:FindFirstChild("HumanoidRootPart")
-
-            if not selfChar or not selfHum or not selfRoot or selfHum.Health <= 0 then
-                task.wait(0.5)
-                continue
-            end
-
--- ================= 所有人模式 =================
+            -- ================= 所有人模式 =================
             if TP_SelectedPlayer == "ALL" then
 
                 for _, p in ipairs(Players:GetPlayers()) do
-                    if not FlingLoop then break end
-
-                    -- ⭐ 每次循环重新检查自身
-                    local c = LocalPlayer.Character
-                    local h = c and c:FindFirstChildOfClass("Humanoid")
-                    if not c or not h or h.Health <= 0 then break end
-
+    if not FlingLoop then break end -- ⭐加这一行
                     if p ~= LocalPlayer then
 
                         local char = p.Character
@@ -1741,6 +1048,7 @@ local function StartFlingLoop()
 
             end
 
+            -- ⭐必须在 while 里面
             task.wait(0.2)
 
         end
@@ -1748,7 +1056,6 @@ local function StartFlingLoop()
     end)
 
 end
-
 local function StopFlingLoop()
     FlingLoop = false
 end
@@ -2359,7 +1666,7 @@ local function UpdatePlayerESP()
             local head = char:FindFirstChild("Head")
             local root = char:FindFirstChild("HumanoidRootPart")
 
-            if hum and head and root and hum.Health > -500 then
+            if hum and head and root and hum.Health > 0 then
 
                 local isTeam = (p.Team == LocalPlayer.Team)
                 local filtered = PLAYER_ESP.TeamCheck and isTeam
@@ -2712,13 +2019,6 @@ local function ToggleNewInteractESP(state)
         if Connections.NewInteract then pcall(function() Connections.NewInteract:Disconnect() end) Connections.NewInteract = nil end
     end
 end
-RunService.RenderStepped:Connect(function()
-
-    if PLAYER_ESP.Enabled then
-        UpdatePlayerESP()
-    end
-
-end)
 -- =================== 作者检测模块 ===================
 
 local DevESP = {
@@ -2937,62 +2237,6 @@ LocalPlayer.CharacterAdded:Connect(function()
     if VisualModule.SuperNightVision then ApplySuperNightVision(true) end
     if VisualModule.NoFog then ApplyNoFog(true) end
 end)
--- ================= 防摔落伤害2（平滑位移补偿） =================
-
-local AntiFall2Enabled = false
-local AntiFall2Connection = nil
-
-local function StartAntiFall2(character)
-
-    if AntiFall2Connection then
-        AntiFall2Connection:Disconnect()
-        AntiFall2Connection = nil
-    end
-
-    local root = character:WaitForChild("HumanoidRootPart")
-
-    local lastY = root.Position.Y
-    local CHECK_INTERVAL = 14
-
-    AntiFall2Connection = game:GetService("RunService").Heartbeat:Connect(function()
-
-        if not AntiFall2Enabled then return end
-        if not character.Parent then return end
-
-        local currentPosition = root.Position
-        local fallDistance = lastY - currentPosition.Y
-
-        -- 触发保护
-        if fallDistance >= CHECK_INTERVAL then
-
-            local currentVel = root.AssemblyLinearVelocity
-
-            -- ⭐核心补偿（防抖）
-            root.CFrame = root.CFrame * CFrame.new(0, -0.5, 0)
-
-            -- ⭐速度重置
-            root.AssemblyLinearVelocity = Vector3.new(currentVel.X, -10, currentVel.Z)
-
-            lastY = root.Position.Y
-        end
-
-        -- 上升时刷新安全高度
-        if currentPosition.Y > lastY then
-            lastY = currentPosition.Y
-        end
-
-    end)
-end
-
--- 启动监听
-game.Players.LocalPlayer.CharacterAdded:Connect(function(char)
-    task.wait(0.5)
-    StartAntiFall2(char)
-end)
-
-if game.Players.LocalPlayer.Character then
-    StartAntiFall2(game.Players.LocalPlayer.Character)
-end
 -- =================== 防摔落伤害模块 (新逻辑) ===================
 
 local AntiFallEnabled = false
@@ -3052,291 +2296,213 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
-
--- ===================UI创建===================
-
-
-
-local Window = WindUI:CreateWindow({
-    Title = "夜脚本",
-    Icon = "solar:moon-bold", -- ⭐不要用rbxasset，换现代图标
-    Author = "作者:夜",
-    Folder = "NightHub",
-
-    Size = UDim2.fromOffset(520, 420), -- ⭐变大（关键）
-
-    Transparent = true,
-    Theme = CurrentTheme,
-
-    -- ⭐核心：开启新UI系统
-    NewElements = true,
-
-   
-    -- ⭐浮动按钮（iOS风格）
-    OpenButton = {
-        CornerRadius = UDim.new(1,0),
-        Scale = 1,
-        Draggable = true,
-
-        Color = ColorSequence.new(
-            Color3.fromRGB(120,80,255),
-            Color3.fromRGB(0,200,255)
-        )
-    },
-
-    SideBarWidth = 150, -- ⭐稍微加宽
-    ScrollBarEnabled = false, -- ⭐关掉更像mac
-
-    User = {
-        Enabled = true,
-        Anonymous = false
-    }
-})
-
-
--- ⭐再补一层保险（防UI初始化不同步）
-pcall(function()
-    WindUI:SetTheme(CurrentTheme)
-end)
-Window:Tag({
-    Title = "夜脚本V1.1",
-    Icon = "github",
-    Color = Color3.fromRGB(255, 204, 0), -- ⭐柔和黄色（推荐）
-    Radius = 8,
-})
-
-local MainTab = Window:Tab({
-        Title = "公告",
-        Icon = "megaphone",
-        Locked = false,
-    })
-
-MainTab:Paragraph({ Title="夜脚本主群", Desc ="1081045774" })
-MainTab:Button({
-    Title = "复制QQ群",
+-- 1. 公告 Tab
+local TabAnnounce = Window:CreateTab("公告")
+TabAnnounce:CreateParagraph({ Title="公告", Content="感谢所有支持夜脚本的人，我们的群已经100人了" })
+TabAnnounce:CreateParagraph({ Title="夜脚本主群", Content="1081045774" })
+TabAnnounce:CreateButton({
+    Name = "复制QQ群",
     Callback = function()
         if setclipboard then
             setclipboard("1081045774")
+            Notify("复制成功", "QQ群号已复制到剪贴板", 3)
+        else
+            Notify("复制失败", "当前环境不支持复制", 3)
         end
-end
+    end
 })
-MainTab:Paragraph({
-        Title = "夜脚本V1.2版本更新",
-        Desc = "更新了动作功能\n虽然是bs那里借鉴的就是了", 
-    })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="修复了因为修复了偶发性的自瞄墙壁检测把瞄准镜当墙壁的bug而导致的不在fov内自瞄的bug" })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="修复了偶发性的自瞄墙壁检测把瞄准镜当墙壁的bug" })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="修复了指定自瞄开启队伍检测或墙壁检测，会导致指定自瞄，变为普通自瞄的bug" })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="更新了自身血量显示" })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="更新了自定义UI主题" })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="自瞄更新了选择瞄准位置" })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="给UI加了彩虹描边，并且修复了修改走路速度重生后异常的bug" })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="把玩家透视集成进了脚本，并且还加入了开启功能显示" })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="修复了修改跳跃重生后失效的bug" })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="做了一个世纪，总算是把自瞄集成到主脚本里了不过那个以前的小窗自瞄也可以用" })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="做了个新的自瞄脚本还可以的" })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="加入黑洞和无敌少侠飞行" })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="修复了npc透视的bug" })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="更新了自由视角" })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="借鉴了一下皮脚本代码，使得防摔落伤害更好用了" })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="GPT帮助我修复了100年前就存在的穿墙关闭会抖动的bug" })
+TabAnnounce:CreateParagraph({ Title="更新日志", Content="删除了无用的注释，并且增加了静默自瞄" })
 
-MainTab:Paragraph({
-        Title = "夜脚本V1.1版本更新",
-        Desc = "更新了若干服务器功能\n一些新功能\n开启了新版wind UI界面\n优化了脚本\n实则没有优化😋\n增加了自动检测俄亥俄州并加载其他脚本", 
-    })
 
-local TabAttr = Window:Tab({
-    Title = "玩家功能",
-    Icon = "zap",
-    Locked = false,
+-- 2. 属性修改 Tab 
+local TabAttr = Window:CreateTab("属性修改")
+
+-- --- 走路速度修改 (WalkSpeed 模式) ---
+TabAttr:CreateSection("常规速度修改")
+
+
+TabAttr:CreateInput({
+    Name = "改速度(重启开关生效)",
+    PlaceholderText = "输入数值",
+    Callback = function(Text)
+        TargetWalkSpeed = tonumber(Text) or OriginalWalkSpeed
+    end,
 })
 
--- ================= 速度 =================
-TabAttr:Toggle({
-    Title = "开启速度修改",
-    Default = false,
-    Callback = function(v)
-        SpeedEnabled = v
+TabAttr:CreateToggle({
+    Name = "开启/关闭速度修改",
+    CurrentValue = false,
+    Callback = function(Value)
+
+        SpeedEnabled = Value -- ⭐核心
 
         local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         if hum then
-            if v then
-                hum.WalkSpeed = TargetWalkSpeed
-                AddFeature("速度修改")
-            else
-                hum.WalkSpeed = OriginalWalkSpeed
-                RemoveFeature("速度修改")
-            end
+            hum.WalkSpeed = Value and TargetWalkSpeed or OriginalWalkSpeed
         end
-    end
+
+        if Value then
+            AddFeature("速度修改")
+        else
+            RemoveFeature("速度修改")
+        end
+
+    end,
+})
+-- --- 快速跑步 ---
+TabAttr:CreateSection("高级快速跑步 (TranslateBy 模式)")
+
+TabAttr:CreateInput({
+    Name = "设置快速跑步强度",
+    PlaceholderText = "输入强度",
+    Callback = function(speedValue)
+        Speed = tonumber(speedValue) or 0
+    end,
 })
 
-TabAttr:Input({
-    Title = "速度数值",
-    Desc = "请输入 0 - 400 之间的数值",
-    Placeholder = "默认 16",
-    Callback = function(value)
-        -- 将输入的字符串转换为数字
-        local numValue = tonumber(value)
-        
-        if numValue then
-            -- 限制数值范围（可选，为了防止数值过大导致崩溃）
-            numValue = math.clamp(numValue, 0, 400)
-            TargetWalkSpeed = numValue
-
-            if SpeedEnabled then
-                local char = game:GetService("Players").LocalPlayer.Character
-                local hum = char and char:FindFirstChildOfClass("Humanoid")
-                if hum then
-                    hum.WalkSpeed = numValue
-                end
-            end
-        end
-    end
-})
-
--- ================= 快速跑步 =================
-
-TabAttr:Toggle({
-    Title = "开启快速跑步",
-    Default = false,
+TabAttr:CreateToggle({
+    Name = "开启/关闭快速跑步",
+    CurrentValue = false,
     Callback = function(enabled)
 
         if enabled then
             if sudu then sudu:Disconnect() end
-
             sudu = game:GetService("RunService").Heartbeat:Connect(function()
                 local lp = game:GetService("Players").LocalPlayer
-                if lp.Character and lp.Character:FindFirstChild("Humanoid") and lp.Character.Humanoid.MoveDirection.Magnitude > 0 then
+                if lp.Character and lp.Character:FindFirstChild("Humanoid") and lp.Character.Humanoid.Parent and 0 < lp.Character.Humanoid.MoveDirection.Magnitude then
                     lp.Character:TranslateBy(lp.Character.Humanoid.MoveDirection * Speed / 0.5)
                 end
             end)
+            Notify("开启快速跑步", "成功", 2)
+        elseif sudu then
+            sudu:Disconnect()
+            sudu = nil
+            Notify("关闭快速跑步", "成功", 2)
+        end
 
+        if enabled then
             AddFeature("快速跑步")
         else
-            if sudu then
-                sudu:Disconnect()
-                sudu = nil
-            end
-
             RemoveFeature("快速跑步")
         end
 
-    end
+    end,
 })
 
-TabAttr:Input({
-    Title = "快速跑步强度",
-    Placeholder = "输入速度 (0-200)",
-    Default = tostring(Speed or 0),
+-- --- 跳跃修改 ---
+local TargetJump = OriginalJump
 
-    Callback = function(text)
+TabAttr:CreateSection("跳跃修改")
 
-        local num = tonumber(text)
-
+TabAttr:CreateInput({
+    Name = "设置跳跃强度",
+    PlaceholderText = "默认50",
+    Callback = function(Text)
+        local num = tonumber(Text)
         if num then
-            num = math.clamp(num, 0, 200) -- ⭐限制范围
-            Speed = num
-               end
-
-    end
-})
--- ================= 跳跃 =================
-
-TabAttr:Toggle({
-    Title = "开启跳跃修改",
-    Default = false,
-    Callback = function(v)
-        CustomJumpEnabled = v
-
-        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if hum then
-            if v then
-                hum.UseJumpPower = true
-                hum.JumpPower = CustomJumpValue
-                AddFeature("跳跃修改")
-            else
-                hum.JumpPower = OriginalJump
-                RemoveFeature("跳跃修改")
-            end
+            CustomJumpValue = num
+            Notify("跳跃已设置", tostring(num), 2)
+        else
+            Notify("错误", "请输入数字", 2)
         end
-    end
+    end,
 })
 
-TabAttr:Slider({
-    Title = "跳跃高度",
-    Value = {
-        Min = 50,
-        Max = 600,
-        Default = 50,
-    },
-    Increment = 1,
-    Callback = function(value)
-        CustomJumpValue = value
+TabAttr:CreateToggle({
+    Name = "开启/关闭跳跃修改",
+    CurrentValue = false,
+    Callback = function(Value)
 
-        if CustomJumpEnabled then
+        CustomJumpEnabled = Value
+
+        if not Value then
             local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
             if hum then
                 hum.UseJumpPower = true
-                hum.JumpPower = value
+                hum.JumpPower = OriginalJump
             end
         end
-    end
+
+        if Value then
+            AddFeature("跳跃修改")
+        else
+            RemoveFeature("跳跃修改")
+        end
+
+    end,
 })
 
--- ================= 无限跳 =================
+-- --- 无限跳 ---
+TabAttr:CreateSection("无限跳")
 
-TabAttr:Toggle({
-    Title = "无限跳跃",
-    Default = false,
-    Callback = function(v)
-        InfiniteJumpEnabled = v
+TabAttr:CreateToggle({
+    Name = "无限跳跃",
+    CurrentValue = false,
+    Callback = function(Value)
 
-        if v then
+        InfiniteJumpEnabled = Value
+
+        if Value then
+            Notify("开启无限跳", "成功", 1)
             AddFeature("无限跳")
         else
+            Notify("关闭无限跳", "成功", 1)
             RemoveFeature("无限跳")
         end
-    end
-})
 
-local TabOther = Window:Tab({
-    Title = "通用",
-    Icon = "info",
-    Locked = false,
+    end,
 })
--- ================= 飞行 =================
-
-TabOther:Button({
-    Title = "一键飞行",
-    Callback = function()
+-- 通用功能 Tab
+local TabOther = Window:CreateTab("通用")
+TabOther:CreateSection("飞行功能")
+TabOther:CreateButton({
+    Name="一键飞行",
+    Callback=function()
         local ok, err = pcall(function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/flyab.lua"))()
         end)
-
-        if ok then
-            Notify("成功", "飞行已加载", 2, "success")
-        else
-            Notify("错误", tostring(err), 3, "error")
-        end
+        if ok then Notify("加载飞行脚本","成功",2) else Notify("飞行脚本加载失败", tostring(err), 5) end
     end
 })
-
-TabOther:Button({
-    Title = "枪械飞行",
-    Callback = function()
+TabOther:CreateButton({
+    Name="枪械飞行",
+    Callback=function()
         local ok, err = pcall(function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/fly"))()
         end)
-
-        if ok then
-            Notify("成功", "枪械飞行已加载", 2, "success")
-        else
-            Notify("错误", tostring(err), 3, "error")
-        end
+        if ok then Notify("枪械飞行加载","成功",4) else Notify("枪械飞行加载失败", tostring(err), 5) end
     end
 })
-
--- ================= 穿墙 =================
-
 local NoclipConnection = nil
 local CharacterConnection = nil
 local OriginalCollision = {}
 
-TabOther:Toggle({
-    Title = "穿墙",
-    Default = false,
+TabOther:CreateToggle({
+    Name = "穿墙",
+    CurrentValue = false,
     Callback = function(enabled)
 
         if enabled then
 
             OriginalCollision = {}
 
+            -- ✅ 监听重生（关键修复）
             if CharacterConnection then
                 CharacterConnection:Disconnect()
             end
@@ -3345,28 +2511,33 @@ TabOther:Toggle({
                 OriginalCollision = {}
             end)
 
+            -- 防止重复连接
             if NoclipConnection then
                 NoclipConnection:Disconnect()
             end
 
             NoclipConnection = RunService.Stepped:Connect(function()
+
                 local character = Players.LocalPlayer.Character
                 if not character then return end
 
                 for _, part in ipairs(character:GetDescendants()) do
                     if part:IsA("BasePart") then
+
+                        -- 只记录一次
                         if OriginalCollision[part] == nil then
                             OriginalCollision[part] = part.CanCollide
                         end
+
                         part.CanCollide = false
                     end
                 end
-            end)
 
-            AddFeature("穿墙")
+            end)
 
         else
 
+            -- 关闭穿墙
             if NoclipConnection then
                 NoclipConnection:Disconnect()
                 NoclipConnection = nil
@@ -3377,6 +2548,7 @@ TabOther:Toggle({
                 CharacterConnection = nil
             end
 
+            -- 恢复碰撞
             for part, state in pairs(OriginalCollision) do
                 if typeof(part) == "Instance" and part.Parent then
                     part.CanCollide = state
@@ -3385,73 +2557,97 @@ TabOther:Toggle({
 
             OriginalCollision = {}
 
+        end
+
+        -- ⭐ 功能显示（重点）
+        if enabled then
+            AddFeature("穿墙")
+        else
             RemoveFeature("穿墙")
         end
 
     end
 })
+TabOther:CreateSection("自由视角说明：请勿在正在飞行时打开自由视角，这可能导致冲突并使得本体移动，如果输入时键盘卡住就切后台再切回来")
+-- 自由视角
+TabOther:CreateToggle({
+    Name = "自由视角",
+    CurrentValue = false,
+    Callback = function(Value)
 
--- ================= 自由视角（唯一保留通知） =================
-
-TabOther:Toggle({
-    Title = "自由视角",
-    Default = false,
-    Callback = function(v)
-
-        if v then
+        if Value then
             StartFreecam()
-            Notify("自由视角", "已开启", 2, "success")
-            AddFeature("自由视角")
+            Notify("Freecam","已开启",2)
         else
             StopFreecam()
-            Notify("自由视角", "已关闭", 2, "info")
+            Notify("Freecam","已关闭",2)
+        end
+
+        -- ⭐功能显示
+        if Value then
+            AddFeature("自由视角")
+        else
             RemoveFeature("自由视角")
         end
 
     end
 })
 
-TabOther:Slider({
-    Title = "自由视角速度",
-    Value = {
-        Min = 1,
-        Max = 20,
-        Default = 2,
-    },
-    Increment = 0.5,
-    Callback = function(value)
-        Freecam.Speed = value
-    end
+-- ⚠️ 输入框保持不变（不加显示）
+TabOther:CreateInput({
+    Name = "Freecam速度（建议1-5）",
+    PlaceholderText = "默认2",
+    Callback = function(Text)
+        local num = tonumber(Text)
+        if num then
+            Freecam.Speed = math.clamp(num, 0.5, 20)
+            Notify("Freecam速度", "设置成功", 2)
+        else
+            Notify("输入错误", "请输入数字", 2)
+        end
+    end,
 })
---[[ ================= 杀戮光环 =================
 
-TabOther:Toggle({
-    Title = "杀戮光环",
-    Default = false,
-    Callback = function(v)
+TabOther:CreateInput({
+    Name = "视角灵敏度（建议0.005-0.02）",
+    PlaceholderText = "默认0.01",
+    Callback = function(Text)
+        local num = tonumber(Text)
+        if num then
+            Freecam.Sensitivity = math.clamp(num, 0.001, 0.05)
+            Notify("灵敏度", "调节成功", 2)
+        else
+            Notify("输入错误", "请输入数字", 2)
+        end
+    end,
+})
+TabOther:CreateToggle({
+    Name = "杀戮光环（有些用不了）",
+    CurrentValue = false,
+    Callback = function(Value)
 
-        if v then
+        if Value then
             StartAura()
+            Notify("杀戮光环","已开启",2)
             AddFeature("杀戮光环")
         else
             StopAura()
+            Notify("杀戮光环","已关闭",2)
             RemoveFeature("杀戮光环")
         end
 
     end
 })
-]]
+-- 防摔落伤害
+TabOther:CreateToggle({
+    Name = "防摔落伤害",
+    CurrentValue = false,
+    Callback = function(Value)
 
--- ================= 防摔 =================
+        ToggleAntiFall(Value)
 
-TabOther:Toggle({
-    Title = "防摔落伤害",
-    Default = false,
-    Callback = function(v)
-
-        ToggleAntiFall(v)
-
-        if v then
+        -- ⭐功能显示
+        if Value then
             AddFeature("防摔")
         else
             RemoveFeature("防摔")
@@ -3459,409 +2655,142 @@ TabOther:Toggle({
 
     end
 })
-TabOther:Toggle({
-    Title = "防摔落伤害2（1没用再开）",
-    Default = false,
-    Callback = function(state)
-        AntiFall2Enabled = state
-
-        if state then
-            Notify("防摔落伤害2", "已开启", 3)
-            AddFeature("防摔落伤害2")
-        else
-            Notify("防摔落伤害2", "已关闭", 3)
-            RemoveFeature("防摔落伤害2")
-        end
-    end
-})
-TabOther:Toggle({
-    Title = "闪电尖兵大招",
-    Default = false,
-    Callback = function(v)
-
-        if v then
-            EnableTPUI()
-            AddFeature("瞬移")
-        else
-            DisableTPUI()
-            RemoveFeature("瞬移")
-        end
-
-    end
-})
--- ================= 安全加载 =================
-
-local function SafeLoad(url, name)
-
-    Notify("加载中", "正在加载 "..name, 2, "info")
-
-    local ok, err = pcall(function()
-        loadstring(game:HttpGet(url))()
-    end)
-
-    if ok then
-        Notify("成功", name.." 已加载", 2, "success")
-    else
-        Notify("错误", name.." 加载失败\n"..tostring(err), 3, "error")
-    end
-end
-
--- ================= 外链 =================
-
-TabOther:Button({
-    Title = "卡服脚本",
-    Callback = function()
-        SafeLoad("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/卡服.lua", "卡服脚本")
-    end
-})
-
-TabOther:Button({
-    Title = "静默自瞄",
-    Callback = function()
-        SafeLoad("https://raw.githubusercontent.com/odhdshhe/bu/refs/heads/main/%E6%9C%88%E4%BA%AE%E5%8A%A0%E5%AF%86%E8%BF%87%E7%9A%84%E6%9E%97%E7%9A%84%E8%87%AA%E7%9E%84.lua", "静默自瞄")
-    end
-})
-
-TabOther:Button({
-    Title = "甩飞所有",
-    Callback = function()
-        SafeLoad("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/甩飞", "甩飞")
-    end
-})
-
-TabOther:Button({
-    Title = "r6道馆",
-    Callback = function()
-        SafeLoad("https://pastefy.app/wa3v2Vgm/raw", "r6道馆")
-    end
-})
-
-TabOther:Button({
-    Title = "r15道馆",
-    Callback = function()
-        SafeLoad("https://pastefy.app/YZoglOyJ/raw", "r15道馆")
-    end
-})
-
-TabOther:Button({
-    Title = "无敌少侠飞行",
-    Callback = function()
-        local UIS = game:GetService("UserInputService")
-
-        if UIS.TouchEnabled and not UIS.KeyboardEnabled then
-            SafeLoad("https://raw.githubusercontent.com/396abc/Script/refs/heads/main/MobileFly.lua", "手机飞行")
-        else
-            SafeLoad("https://raw.githubusercontent.com/396abc/Script/refs/heads/main/FlyR15.lua", "PC飞行")
-        end
-    end
-})
-
-TabOther:Button({
-    Title = "黑洞",
-    Callback = function()
-        SafeLoad("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/黑洞", "黑洞")
-    end
-})
-
-TabOther:Button({
-    Title = "夜自瞄",
-    Callback = function()
-        SafeLoad("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/ye%20aimbot", "夜自瞄")
-    end
-})
-TabOther:Button({
-    Title = "夜脚本测试版",
+TabOther:CreateButton({
+    Name = "卡服脚本",
     Callback = function()
         local ok, err = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/fyukvdrf"))()
+           loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/卡服.lua"))()
         end)
-
-        if ok then
-            Notify("成功", "夜脚本测试版已加载", 2, "success")
-        else
-            Notify("错误", tostring(err), 3, "error")
+        
+        if ok then 
+            Notify("加载卡服脚本", "成功", 4) 
+        else 
+            Notify("卡服脚本加载失败", tostring(err), 5) 
         end
-    end
-})
-TabOther:Button({
-    Title = "fe变车（有些动画关不掉）",
+    end 
+}) 
+TabOther:CreateButton({
+    Name = "静默自瞄",
     Callback = function()
         local ok, err = pcall(function()
-            loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-FE-SILLY-CAR-V1-48227"))()
+           loadstring(game:HttpGet("https://raw.githubusercontent.com/odhdshhe/bu/refs/heads/main/%E6%9C%88%E4%BA%AE%E5%8A%A0%E5%AF%86%E8%BF%87%E7%9A%84%E6%9E%97%E7%9A%84%E8%87%AA%E7%9E%84.lua"))()
         end)
-
-        if ok then
-            Notify("成功", "fe变车已加载", 2, "success")
-        else
-            Notify("错误", tostring(err), 3, "error")
+        
+        if ok then 
+            Notify("加载静默自瞄", "成功", 4) 
+        else 
+            Notify("静默自瞄加载失败", tostring(err), 5) 
         end
     end
 })
-TabOther:Toggle({
-    Title = "强制第三人称",
-    Default = false,
-    Callback = function(v)
-
-        if v then
-            EnableUnlock()
-            AddFeature("第三人称")
-        else
-            DisableUnlock()
-            RemoveFeature("第三人称")
-        end
-
-    end
-})
-
-TabOther:Button({
-    Title = "绕过群组检测",
+TabOther:CreateButton({
+    Name = "甩飞所有",
     Callback = function()
         local ok, err = pcall(function()
-local getnamecallmethod
-= getnamecallmethod
-local Speaker = cloneref(game:GetService("Players")).LocalPlayer
-local OldNameCall
-OldNameCall = hookmetamethod(game, "__namecall", function(self, ...)
-if self ~= Speaker or getnamecallmethod() ~= "IsInGroup" then
-return OldNameCall(self, ...)
-end
-return true
-end)
-hookfunction(Speaker.IsInGroup, function(self, ...)
-return true
-end)
+           loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/甩飞"))()
         end)
-
-        if ok then
-            Notify("成功", "已绕过", 2, "success")
-        else
-            Notify("错误", tostring(err), 3, "error")
+        
+        if ok then 
+            Notify("甩飞", "成功", 4) 
+        else 
+            Notify("甩飞失败", tostring(err), 5) 
         end
-    end
-})
-
-TabOther:Button({
-    Title = "一键清屏（有独立UI可关闭）",
+    end 
+}) 
+TabOther:CreateButton({
+    Name = "r6道馆",
     Callback = function()
         local ok, err = pcall(function()
--- ================== 全GUI隐藏（可拖拽版） ==================
-
-local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
-local UserInputService = game:GetService("UserInputService")
-
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-
-local Hidden = false
-local Stored = {}
-
--- 🖱 创建自己的UI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "FullUIToggle"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = PlayerGui
-
-local Button = Instance.new("TextButton")
-Button.Size = UDim2.new(0, 120, 0, 30)
-Button.Position = UDim2.new(1, -130, 0, 10)
-Button.BackgroundColor3 = Color3.fromRGB(20,20,20)
-Button.TextColor3 = Color3.new(1,1,1)
-Button.Text = "Hide ALL UI"
-Button.Parent = ScreenGui
-
-Instance.new("UICorner", Button)
-
--- ================== 拖拽逻辑 ==================
-
-local dragging = false
-local dragInput, startPos, startFramePos
-
-Button.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 
-    or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        startPos = input.Position
-        startFramePos = Button.Position
-
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
+           loadstring(game:HttpGet("https://pastefy.app/wa3v2Vgm/raw"))()
         end)
-    end
-end)
-
-Button.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement 
-    or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - startPos
-        Button.Position = UDim2.new(
-            startFramePos.X.Scale,
-            startFramePos.X.Offset + delta.X,
-            startFramePos.Y.Scale,
-            startFramePos.Y.Offset + delta.Y
-        )
-    end
-end)
-
--- ================== 原逻辑 ==================
-
-local function IsUI(obj)
-    return obj:IsA("GuiObject")
-end
-
-local function ShouldSkip(obj)
-    return obj:IsDescendantOf(ScreenGui)
-end
-
-local function Process(container, hide)
-    for _, obj in ipairs(container:GetDescendants()) do
-        if IsUI(obj) and not ShouldSkip(obj) then
-            if hide then
-                if not Stored[obj] then
-                    Stored[obj] = obj.Visible
-                end
-                obj.Visible = false
-            else
-                if Stored[obj] ~= nil then
-                    obj.Visible = Stored[obj]
-                end
-            end
-        end
-    end
-end
-
-local function Toggle(state)
-    if state then
-        Stored = {}
-        Process(PlayerGui, true)
-        pcall(function()
-            Process(CoreGui, true)
-        end)
-    else
-        Process(PlayerGui, false)
-        pcall(function()
-            Process(CoreGui, false)
-        end)
-        Stored = {}
-    end
-end
-
-Button.MouseButton1Click:Connect(function()
-    Hidden = not Hidden
-    Toggle(Hidden)
-    Button.Text = Hidden and "Show ALL UI" or "Hide ALL UI"
-end)
-
-local function Hook(container)
-    container.DescendantAdded:Connect(function(obj)
-        if Hidden and obj:IsA("GuiObject") and not ShouldSkip(obj) then
-            Stored[obj] = obj.Visible
-            obj.Visible = false
-        end
-    end)
-end
-
-Hook(PlayerGui)
-pcall(function()
-    Hook(CoreGui)
-end)
-        end)
-
-        if ok then
-            Notify("成功", "已加载", 2, "success")
-        else
-            Notify("错误", tostring(err), 3, "error")
+        
+        if ok then 
+            Notify("加载r6道馆", "成功", 4) 
+        else 
+            Notify("r6道馆加载失败", tostring(err), 5) 
         end
     end
 })
-
-TabOther:Button({
-    Title = "点击传送工具（夜脚本重制版）",
+TabOther:CreateButton({
+    Name = "r15道馆",
     Callback = function()
         local ok, err = pcall(function()
--- 服务
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-
--- 玩家
-local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
-local Camera = Workspace.CurrentCamera
-
--- 工具
-local Tool = Instance.new("Tool")
-Tool.Name = "点击传送道具"
-Tool.RequiresHandle = false
-
-Tool.Activated:Connect(function()
-    local Character = LocalPlayer.Character
-    if not Character then return end
-
-    local HRP = Character:FindFirstChild("HumanoidRootPart")
-    if not HRP then return end
-
-    -- Raycast 参数（忽略自己）
-    local params = RaycastParams.new()
-    params.FilterDescendantsInstances = {Character}
-    params.FilterType = Enum.RaycastFilterType.Blacklist
-
-    -- 从相机朝鼠标方向发射射线
-    local unitRay = Camera:ScreenPointToRay(Mouse.X, Mouse.Y)
-    local rayOrigin = unitRay.Origin
-    local rayDirection = unitRay.Direction * 100000 -- 距离可调
-
-    local result = Workspace:Raycast(rayOrigin, rayDirection, params)
-
-    -- ❌ 没打到任何东西 = 空气 → 禁止传送
-    if not result then
-        warn("点到空气，取消传送")
-        return
+           loadstring(game:HttpGet("https://pastefy.app/YZoglOyJ/raw"))()
+        end)
+        
+        if ok then 
+            Notify("加载r15道馆", "成功", 4) 
+        else 
+            Notify("r15道馆加载失败", tostring(err), 5) 
+        end
     end
+})
+TabOther:CreateButton({
+    Name = "无敌少侠飞行",
+    Callback = function()
+        local ok, err = pcall(function()
+           local UserInputService = game:GetService("UserInputService")
 
-    -- ✅ 命中物体 → 直接传送到命中点上方一点
-    local hitPos = result.Position + Vector3.new(0, 3, 0)
-    HRP.CFrame = CFrame.new(hitPos)
-end)
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
-Tool.Parent = LocalPlayer:WaitForChild("Backpack")
-end)
-        if ok then
-            Notify("成功", "已加载", 2, "success")
-        else
-            Notify("错误", tostring(err), 3, "error")
+if isMobile then
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/396abc/Script/refs/heads/main/MobileFly.lua"))()
+else
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/396abc/Script/refs/heads/main/FlyR15.lua"))()
+end
+end)        
+        if ok then 
+            Notify("加载无敌少侠飞行", "成功", 4) 
+        else 
+            Notify("无敌少侠飞行加载失败", tostring(err), 5) 
+        end
+    end
+})
+TabOther:CreateButton({
+    Name = "黑洞（所有游戏只要有散落的碎片就可以用）",
+    Callback = function()
+        local ok, err = pcall(function()
+           loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/黑洞"))()
+        end)
+        
+        if ok then 
+            Notify("加载黑洞", "成功", 4) 
+        else 
+            Notify("黑洞加载失败", tostring(err), 5) 
+        end
+    end
+})
+TabOther:CreateButton({
+    Name = "夜自瞄（有UI）",
+    Callback = function()
+        local ok, err = pcall(function()
+           loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/ye%20aimbot"))()
+        end)
+        
+        if ok then 
+            Notify("加载自瞄", "成功", 4) 
+        else 
+            Notify("自瞄加载失败", tostring(err), 5) 
         end
     end
 })
 
-local TabVisual = Window:Tab({
-    Title = "透视功能",
-    Icon = "eye",
-    Locked = false,
-})
+-- 3. 视觉功能 Tab (NPC + 互动 + 玩家)
+local TabVisual = Window:CreateTab("透视功能")
+TabVisual:CreateParagraph({ Title="提示", Content="旧互动物品透视能看到的东西更少但是是中文，新版能看到的更多但都是英文" })
 
--- ===== 提示 =====
-TabVisual:Paragraph({
-    Title = "提示",
-    Desc = "旧互动少但中文，新版更多但英文"
-})
+-- NPC 部分
+TabVisual:CreateSection("NPC 透视")
+TabVisual:CreateToggle({
+    Name = "开启 / 关闭 NPC透视",
+    CurrentValue = false,
+    Callback = function(Value)
 
--- ================= NPC =================
-TabVisual:Toggle({
-    Title = "NPC透视",
-    Default = false,
-    Callback = function(v)
+        -- 原功能
+        ToggleNPCESP(Value)
 
-        ToggleNPCESP(v)
-
-        if v then
+        -- 功能显示
+        if Value then
             AddFeature("NPC透视")
         else
             RemoveFeature("NPC透视")
@@ -3869,16 +2798,24 @@ TabVisual:Toggle({
 
     end
 })
+TabVisual:CreateColorPicker({
+    Name = "NPC透视颜色",
+    Color = NPCESP.Color,
+    Callback = UpdateNPCESPColor
+})
 
--- ================= 旧互动 =================
-TabVisual:Toggle({
-    Title = "旧版互动透视",
-    Default = false,
-    Callback = function(v)
+-- 旧版互动 部分
+TabVisual:CreateSection("互动物体 (旧版-稳定)")
+TabVisual:CreateToggle({
+    Name = "开启 / 关闭 旧版互动透视",
+    CurrentValue = false,
+    Callback = function(Value)
 
-        ToggleInteractESP(v)
+        -- 原功能
+        ToggleInteractESP(Value)
 
-        if v then
+        -- 功能显示
+        if Value then
             AddFeature("互动透视")
         else
             RemoveFeature("互动透视")
@@ -3886,16 +2823,24 @@ TabVisual:Toggle({
 
     end
 })
+TabVisual:CreateColorPicker({
+    Name = "互动物体颜色",
+    Color = InteractESP.Color,
+    Callback = UpdateInteractColor
+})
 
--- ================= 新互动 =================
-TabVisual:Toggle({
-    Title = "新版互动透视",
-    Default = false,
-    Callback = function(v)
+-- 新版互动 部分
+TabVisual:CreateSection("互动物体 (新版-显名)")
+TabVisual:CreateToggle({
+    Name = "开启 / 关闭 新版互动透视",
+    CurrentValue = false,
+    Callback = function(Value)
 
-        ToggleNewInteractESP(v)
+        -- 原功能
+        ToggleNewInteractESP(Value)
 
-        if v then
+        -- 功能显示
+        if Value then
             AddFeature("新版互动透视")
         else
             RemoveFeature("新版互动透视")
@@ -3903,22 +2848,23 @@ TabVisual:Toggle({
 
     end
 })
-
-TabVisual:Button({
-    Title = "刷新新版ESP",
-    Callback = function()
+TabVisual:CreateButton({
+    Name="强制刷新新版ESP",
+    Callback=function()
         ToggleNewInteractESP(false)
         task.wait(0.2)
         ToggleNewInteractESP(true)
+        Notify("正在刷新", "成功", 4)
     end
 })
+TabVisual:CreateColorPicker({Name="新版颜色",Color=NewInteractESP.Color,Callback=UpdateNewInteractColor})
 
--- ================= 玩家ESP =================
+TabVisual:CreateSection("玩家 ESP")
 
--- 总开关
-TabVisual:Toggle({
-    Title = "玩家透视",
-    Default = false,
+-- ================= 总开关 =================
+TabVisual:CreateToggle({
+    Name = "玩家透视总开关",
+    CurrentValue = false,
     Callback = function(v)
 
         PLAYER_ESP.Enabled = v
@@ -3936,74 +2882,72 @@ TabVisual:Toggle({
     end
 })
 
--- 高亮
-TabVisual:Toggle({
-    Title = "高亮",
-    Default = false,
+-- ================= 高亮 =================
+TabVisual:CreateToggle({
+    Name = "高亮透视",
+    CurrentValue = true,
     Callback = function(v)
         PLAYER_ESP.HighlightEnabled = v
     end
 })
 
--- 方框
-TabVisual:Toggle({
-    Title = "方框",
-    Default = false,
+-- ================= 方框 =================
+TabVisual:CreateToggle({
+    Name = "人物方框",
+    CurrentValue = true,
     Callback = function(v)
         PLAYER_ESP.BoxEnabled = v
     end
 })
 
--- 名字
-TabVisual:Toggle({
-    Title = "名字",
-    Default = false,
+-- ================= 名字 =================
+TabVisual:CreateToggle({
+    Name = "名字显示",
+    CurrentValue = true,
     Callback = function(v)
         PLAYER_ESP.ShowName = v
     end
 })
 
--- 血量
-TabVisual:Toggle({
-    Title = "血量",
-    Default = false,
+-- ================= 血量 =================
+TabVisual:CreateToggle({
+    Name = "血量显示",
+    CurrentValue = true,
     Callback = function(v)
         PLAYER_ESP.ShowHealth = v
     end
 })
 
--- 距离
-TabVisual:Toggle({
-    Title = "距离",
-    Default = false,
+-- ================= 距离 =================
+TabVisual:CreateToggle({
+    Name = "距离显示",
+    CurrentValue = true,
     Callback = function(v)
         PLAYER_ESP.ShowDist = v
     end
 })
 
--- 队伍检测
-TabVisual:Toggle({
-    Title = "队伍检测",
-    Default = false,
+-- ================= 队伍检测 =================
+TabVisual:CreateToggle({
+    Name = "队伍检测",
+    CurrentValue = true,
     Callback = function(v)
         PLAYER_ESP.TeamCheck = v
     end
 })
-local TabNight = Window:Tab({
-    Title = "视觉功能",
-    Icon = "moon",
-    Locked = false,
-})
 
--- ================= 普通夜视 =================
-TabNight:Toggle({
-    Title = "普通夜视",
-    Default = false,
-    Callback = function(v)
+-- 4. 夜视功能 Tab
+local TabNight = Window:CreateTab("视觉功能")
+TabNight:CreateToggle({
+    Name = "普通夜视",
+    CurrentValue = false,
+    Callback = function(Value)
 
-        ApplyNormalNightVision(v)
+        -- 原功能
+        ApplyNormalNightVision(Value)
 
-        if v then
+        -- 功能显示
+        if Value then
             AddFeature("夜视")
         else
             RemoveFeature("夜视")
@@ -4011,16 +2955,16 @@ TabNight:Toggle({
 
     end
 })
+TabNight:CreateToggle({
+    Name = "超级夜视 (1.5x 增强)",
+    CurrentValue = false,
+    Callback = function(Value)
 
--- ================= 超级夜视 =================
-TabNight:Toggle({
-    Title = "超级夜视",
-    Default = false,
-    Callback = function(v)
+        -- 原功能
+        ApplySuperNightVision(Value)
 
-        ApplySuperNightVision(v)
-
-        if v then
+        -- 功能显示
+        if Value then
             AddFeature("超级夜视")
         else
             RemoveFeature("超级夜视")
@@ -4028,16 +2972,16 @@ TabNight:Toggle({
 
     end
 })
+TabNight:CreateToggle({
+    Name = "彻底去雾",
+    CurrentValue = false,
+    Callback = function(Value)
 
--- ================= 去雾 =================
-TabNight:Toggle({
-    Title = "彻底去雾",
-    Default = false,
-    Callback = function(v)
+        -- 原功能（必须保留）
+        ApplyNoFog(Value)
 
-        ApplyNoFog(v)
-
-        if v then
+        -- ⭐功能显示（你要加的）
+        if Value then
             AddFeature("去雾")
         else
             RemoveFeature("去雾")
@@ -4045,26 +2989,20 @@ TabNight:Toggle({
 
     end
 })
+TabNight:CreateButton({Name="关闭所有夜视/去雾",Callback=function() 
+    ApplyNormalNightVision(false) 
+    ApplySuperNightVision(false) 
+    ApplyNoFog(false) 
+end})
+TabNight:CreateToggle({
+    Name = "功能列表显示",
+    CurrentValue = true,
+    Callback = function(Value)
 
--- ================= 一键关闭 =================
-TabNight:Button({
-    Title = "关闭所有夜视/去雾",
-    Callback = function()
-        ApplyNormalNightVision(false)
-        ApplySuperNightVision(false)
-        ApplyNoFog(false)
-    end
-})
+        FeatureDisplayEnabled = Value
 
--- ================= 功能列表显示 =================
-TabNight:Toggle({
-    Title = "功能列表显示",
-    Default = true,
-    Callback = function(v)
-
-        FeatureDisplayEnabled = v
-
-        if v then
+        if Value then
+            -- ⭐关键：清空缓存 → 强制所有UI重新动画
             for _, item in pairs(FeatureItems) do
                 if item then item:Destroy() end
             end
@@ -4079,29 +3017,22 @@ TabNight:Toggle({
             RemoveFeature("夜脚本")
             RefreshFeatureUI()
         end
-
     end
 })
 
--- ⭐初始化（必须保留）
-task.spawn(function()
+-- ⭐初始化（也要用同样逻辑）
+for _, item in pairs(FeatureItems) do
+    if item then item:Destroy() end
+end
+FeatureItems = {}
 
-    for _, item in pairs(FeatureItems) do
-        if item then item:Destroy() end
-    end
-    FeatureItems = {}
+task.wait(0.05)
 
-    task.wait(0.05)
-
-    AddFeature("夜脚本")
-    RefreshFeatureUI()
-
-end)
-
--- ================= 自身血量 =================
-TabNight:Toggle({
-    Title = "自身血量显示",
-    Default = true,
+AddFeature("夜脚本")
+RefreshFeatureUI()
+TabNight:CreateToggle({
+    Name = "自身血量显示",
+    CurrentValue = true, -- ⭐直接默认开
     Callback = function(v)
 
         HealthDisplay.Enabled = v
@@ -4112,45 +3043,43 @@ TabNight:Toggle({
 
     end
 })
+TabNight:CreateDropdown({
+    Name = "显示位置",
+    Options = {"LeftTop","RightTop","LeftBottom","RightBottom"},
+    CurrentOption = {HealthDisplay.Position},
+    MultipleOptions = false,
+    Callback = function(opt)
 
--- ================= 位置 =================
-TabNight:Dropdown({
-    Title = "显示位置",
-    Values = {"LeftTop","RightTop","LeftBottom","RightBottom"},
-    Default = HealthDisplay.Position,
-    Callback = function(v)
+        local pos = opt[1]
+        HealthDisplay.Position = pos
 
-        HealthDisplay.Position = v
-
+        -- ⭐保存
         pcall(function()
             if writefile then
-                writefile(HealthPosFile, v)
+                writefile(HealthPosFile, pos)
             end
         end)
 
-        UpdatePosition()
+        UpdatePosition() -- ⭐直接刷新
 
     end
 })
-local TabAimbot = Window:Tab({
-    Title = "自瞄",
-    Icon = "target",
-    Locked = false,
-})
 
--- ================= 自瞄开关 =================
-TabAimbot:Toggle({
-    Title = "自瞄开关",
-    Default = false,
-    Callback = function(v)
+local TabAimbot = Window:CreateTab("自瞄")
+TabAimbot:CreateToggle({
+    Name = "自瞄开关",
+    CurrentValue = false,
+    Callback = function(Value)
 
-        ESP_SETTINGS.HighlightEnabled = v
+        -- 原逻辑（保持不动）
+        ESP_SETTINGS.HighlightEnabled = Value
 
         if circle then
-            circle.Visible = v
+            circle.Visible = Value
         end
 
-        if v then
+        -- ⭐加这里（就完事）
+        if Value then
             AddFeature("自瞄")
         else
             RemoveFeature("自瞄")
@@ -4158,215 +3087,126 @@ TabAimbot:Toggle({
 
     end
 })
-local FOVToggle = TabAimbot:Toggle({
-    Title = "显示FOV圈",
-    Default = true,
-    Callback = function(v)
-        ShowFOVCircle = v
-    end
-})
-task.delay(0.1, function()
-    if FOVToggle then
-        FOVToggle:Set(ShowFOVCircle) -- ⭐用变量覆盖UI
-    end
-end)
 -- ================= 队伍检测 =================
-TabAimbot:Toggle({
-    Title = "队伍检测",
-    Default = ESP_SETTINGS.TeamCheck,
-    Callback = function(v)
-        ESP_SETTINGS.TeamCheck = v
+TabAimbot:CreateToggle({
+    Name = "队伍检测",
+    CurrentValue = ESP_SETTINGS.TeamCheck,
+    Callback = function(Value)
+        ESP_SETTINGS.TeamCheck = Value
     end
 })
 
 -- ================= 墙体检测 =================
-TabAimbot:Toggle({
-    Title = "墙体检测",
-    Default = ESP_SETTINGS.WallCheck,
-    Callback = function(v)
-        ESP_SETTINGS.WallCheck = v
+TabAimbot:CreateToggle({
+    Name = "墙体检测",
+    CurrentValue = ESP_SETTINGS.WallCheck,
+    Callback = function(Value)
+        ESP_SETTINGS.WallCheck = Value
+    end
+})
+TabAimbot:CreateInput({
+    Name = "自瞄范围(FOV)",
+    PlaceholderText = "默认120",
+    Callback = function(Text)
+        local num = tonumber(Text)
+        if num then
+            FOV = math.clamp(num, 10, 1000)
+            Notify("FOV已修改", tostring(FOV), 2)
+        else
+            Notify("输入错误", "请输入数字", 2)
+        end
     end
 })
 
--- ================= FOV =================
-TabAimbot:Slider({
-    Title = "自瞄范围(FOV)",
-    Value = {
-        Min = 10,
-        Max = 700,
-        Default = FOV,
-    },
-    Increment = 10,
-    Callback = function(v)
-        FOV = v
-    end
-})
-
--- ================= 距离 =================
-TabAimbot:Slider({
-    Title = "最大距离",
-    Value = {
-        Min = 50,
-        Max = 6000,
-        Default = MaxDistance,
-    },
+-- ================= 自瞄距离 =================
+TabAimbot:CreateSlider({
+    Name = "自瞄最大距离",
+    Range = {50, 2000},
     Increment = 50,
-    Callback = function(v)
-        MaxDistance = v
+    CurrentValue = MaxDistance,
+    Callback = function(Value)
+        MaxDistance = Value
     end
 })
-
--- ================= 平滑 =================
-TabAimbot:Toggle({
-    Title = "平滑自瞄",
-    Default = ESP_SETTINGS.SmoothAim,
-    Callback = function(v)
-        ESP_SETTINGS.SmoothAim = v
+TabAimbot:CreateToggle({
+    Name = "平滑自瞄",
+    CurrentValue = ESP_SETTINGS.SmoothAim,
+    Callback = function(Value)
+        ESP_SETTINGS.SmoothAim = Value
     end
 })
+TabAimbot:CreateDropdown({
+    Name = "瞄准部位",
+    Options = AimPartsList,
+    CurrentOption = {"Head"},
+    MultipleOptions = false,
+    Callback = function(Option)
 
--- ================= 瞄准部位 =================
-local AimPartDropdown = TabAimbot:Dropdown({
-    Title = "瞄准部位",
-    Values = AimPartsList,
-    Default = nil, -- ❗不要用Default
-    Callback = function(v)
+        AimPart = Option[1]
 
-    -- ⭐兼容WindUI返回结构（关键）
-    if typeof(v) == "table" then
-        v = v.Value or v[1]
+        Notify("瞄准部位", AimPart, 2)
+
     end
+})
+-- ================= 指定自瞄 =================
+TabAimbot:CreateSection("指定自瞄目标")
 
-    if not v then return end
-
-    AimPart = v
-
+-- 开关
+TabAimbot:CreateToggle({
+    Name = "开启指定自瞄目标",
+    CurrentValue = false,
+ Callback = function(Value)
+    LockTargetEnabled = Value
+    Notify("指定自瞄", Value and "已开启" or "已关闭", 2)
 end
 })
-task.defer(function()
-    AimPart = "Head"
-end)
--- ================= 指定目标 =================
-TabAimbot:Toggle({
-    Title = "指定自瞄目标",
-    Default = false,
-    Callback = function(v)
-        LockTargetEnabled = v
+
+-- 下拉选择
+local PlayerDropdown = TabAimbot:CreateDropdown({
+    Name = "选择玩家",
+    Options = {},
+    CurrentOption = {},
+    MultipleOptions = false,
+    Callback = function(Option)
+
+        local name = Option[1]
+        if not name then return end
+
+        local target = Players:FindFirstChild(name)
+        if target then
+            SelectedTarget = target
+            Notify("已锁定目标", name, 2)
+        end
     end
 })
 
-local PlayerDropdown = nil
-local AimbotPlayerList = {}
+-- 刷新列表函数
+local function RefreshPlayerList()
 
--- ================= 定义缺失的刷新函数 =================
-local function RefreshAimbotPlayerList()
-    -- 1. 获取最新玩家列表
-    AimbotPlayerList = {}
+    PlayerList = {}
+
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LocalPlayer then
-            table.insert(AimbotPlayerList, p.Name)
+            table.insert(PlayerList, p.Name)
         end
     end
 
-    local lastSelected = SelectedTarget and SelectedTarget.Name or nil
+    PlayerDropdown:Refresh(PlayerList)
 
-    -- 2. ⭐ 核心修复：使用 Refresh 而不是 Destroy
-    if PlayerDropdown then
-        -- 如果 UI 已经存在，直接刷新列表内容
-        PlayerDropdown:Refresh(AimbotPlayerList, lastSelected)
-    else
-        -- 如果 UI 不存在（第一次加载），则创建它
-        PlayerDropdown = TabAimbot:Dropdown({
-            Title = "选择玩家",
-            Values = AimbotPlayerList,
-            Default = lastSelected,
-            Callback = function(v)
-                if typeof(v) == "table" then
-                    v = v.Value or v[1]
-                end
-
-                if not v then return end
-
-                local target = Players:FindFirstChild(v)
-                if target then
-                    SelectedTarget = target
-                    print("自瞄锁定目标:", v)
-                else
-                    warn("找不到玩家:", v)
-                end
-            end
-        })
-    end
-end
-
--- ================= 刷新按钮 =================
-TabAimbot:Button({
-    Title = "刷新玩家列表",
-    Callback = function()
-        RefreshAimbotPlayerList()
-    end
-})
--- ================= 白名单开关 =================
-TabAimbot:Toggle({
-    Title = "启用团队白名单",
-    Default = false,
-    Callback = function(v)
-        AimbotTeamWhitelistEnabled = v
-    end
-})
--- ================= 团队白名单 =================
-local TeamDropdown = nil
-
-local function RefreshTeamList()
-
-    local teams = {}
-
-    for _, t in ipairs(game:GetService("Teams"):GetTeams()) do
-        table.insert(teams, t.Name)
-    end
-
-    if TeamDropdown then
-        TeamDropdown:Refresh(teams, {})
-    else
-        TeamDropdown = TabAimbot:Dropdown({
-            Title = "自瞄团队白名单",
-            Values = teams,
-            Value = {}, -- ⭐默认空
-            Multi = true, -- ⭐开启多选
-            AllowNone = true,
-
-            Callback = function(selected)
-
-                -- 清空旧数据
-                AimbotTeamWhitelist = {}
-
-                -- ⭐selected 是 table
-                for _, teamName in ipairs(selected) do
-                    AimbotTeamWhitelist[teamName] = true
-                end
-
-            end
-        })
-    end
+    Notify("玩家列表已刷新", "当前人数: "..#PlayerList, 2)
 end
 
 -- 刷新按钮
-TabAimbot:Button({
-    Title = "刷新团队列表",
+TabAimbot:CreateButton({
+    Name = "刷新玩家列表",
     Callback = function()
-        RefreshTeamList()
+        RefreshPlayerList()
     end
 })
 
--- 初始化
-task.delay(1, function()
-    RefreshTeamList()
-end)
+-- 自动初始化一次
+task.delay(1, RefreshPlayerList)
 
--- ================= 初始化列表 =================
-task.delay(1, function()
-    RefreshAimbotPlayerList()
-end)
 local VisibilityCache = {}
 
 local function isVisible(p, part)
@@ -4534,25 +3374,12 @@ local function getTarget()
 
         if p and isAlive(p) then
 
--- ================= 团队过滤（最终版） =================
-if not LockTargetEnabled then
+            if (not LockTargetEnabled) and ESP_SETTINGS.TeamCheck then
+                if p.Team == LocalPlayer.Team then
+                    continue
+                end
+            end
 
-    -- ⭐白名单开关开启才生效
-    if AimbotTeamWhitelistEnabled and next(AimbotTeamWhitelist) ~= nil then
-
-        if not p.Team or not AimbotTeamWhitelist[p.Team.Name] then
-            continue
-        end
-
-    elseif ESP_SETTINGS.TeamCheck then
-
-        if p.Team == LocalPlayer.Team then
-            continue
-        end
-
-    end
-
-end
             local char = p.Character
             local part = char and GetAimPart(char)
 
@@ -4618,154 +3445,159 @@ end
 
     return nil
 end
-local TabTP = Window:Tab({
-    Title = "传送与甩飞",
-    Icon = "send",
-    Locked = false,
-})
+-- =================== 传送与观战系统 ===================
 
--- ===== 提示 =====
-TabTP:Paragraph({
-    Title = "警告",
-    Desc = "不要在循环甩飞时手动重生，否则可能报错"
-})
+local TabTP = Window:CreateTab("传送与甩飞")
+TabTP:CreateParagraph({ Title="警告", Content="不要在开着循环甩飞的时候手动重生不然会报错" })
 
--- ================= 玩家列表（最终统一版） =================
+-- ================= 玩家列表（与自瞄共用目标） =================
+
 local TP_PlayerList = {}
+
+-- ⭐ 关键：选中后同时写入 TP_SelectedPlayer + SelectedTarget
 local TP_SelectedPlayer = nil
-local TP_Dropdown = nil
 
--- ================= 核心创建函数 =================
-local function CreateTPDropdown(lastSelectedName)
+local TP_Dropdown = TabTP:CreateDropdown({
+    Name = "选择玩家",
+    Options = {},
+    CurrentOption = {},
+    MultipleOptions = false,
+    Callback = function(opt)
 
-    -- ⭐生成列表
-    TP_PlayerList = {"所有人"}
+    local name = opt and opt[1]
+    if not name then return end
 
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            table.insert(TP_PlayerList, p.Name)
-        end
+    -- ⭐选择“所有人”
+    if name == "所有人" then
+        TP_SelectedPlayer = "ALL"
+        SelectedTarget = nil
+
+        Notify("目标选择", "所有玩家", 2)
+        return
     end
 
-    -- ⭐ 核心修复：使用 Refresh 而不是 Destroy
-    if TP_Dropdown then
-        -- 如果 UI 已经存在，直接刷新列表内容
-        TP_Dropdown:Refresh(TP_PlayerList, lastSelectedName)
-    else
-        -- 如果 UI 不存在（第一次加载），则创建它
-        TP_Dropdown = TabTP:Dropdown({
-            Title = "选择玩家",
-            Values = TP_PlayerList,
-            Default = lastSelectedName,
-            Callback = function(v)
-                if typeof(v) == "table" then
-                    v = v.Value or v[1]
-                end
+    local plr = Players:FindFirstChild(name)
+    if plr then
+        TP_SelectedPlayer = plr
+        SelectedTarget = plr
 
-                if not v then return end
-
-                if v == "所有人" then
-                    TP_SelectedPlayer = "ALL"
-                    SelectedTarget = nil
-                    return
-                end
-
-                local plr = Players:FindFirstChild(v)
-                if plr then
-                    TP_SelectedPlayer = plr
-                    SelectedTarget = plr
-                end
-            end
-        })
+        Notify("已选择玩家", name, 2)
     end
 end
+})
 
--- ================= 刷新函数 =================
+-- ⭐ 稳定刷新（兼容不同 Rayfield 版本）
 local function TP_RefreshPlayerList()
 
-    -- ⭐记录当前选择
-    local lastSelectedName = nil
+    TP_PlayerList = {"所有人"} -- ⭐新增
 
-    if typeof(TP_SelectedPlayer) == "Instance" then
-        lastSelectedName = TP_SelectedPlayer.Name
-    elseif TP_SelectedPlayer == "ALL" then
-        lastSelectedName = "所有人"
+for _, p in ipairs(Players:GetPlayers()) do
+    if p ~= LocalPlayer then
+        table.insert(TP_PlayerList, p.Name)
     end
+end
+    if not TP_Dropdown then return end
 
-    -- ⭐重建UI
-    CreateTPDropdown(lastSelectedName)
+    if TP_Dropdown.SetOptions then
+    TP_Dropdown:SetOptions(TP_PlayerList)
 
-    -- ⭐校验目标是否还存在
-    if lastSelectedName and lastSelectedName ~= "所有人" then
-        local still = Players:FindFirstChild(lastSelectedName)
-
-        if still then
-            TP_SelectedPlayer = still
-            SelectedTarget = still
-        else
-            TP_SelectedPlayer = nil
-            SelectedTarget = nil
-        end
-    end
-
+elseif TP_Dropdown.Refresh then
+    TP_Dropdown:Refresh(TP_PlayerList)
 end
 
--- ================= 按钮 =================
-TabTP:Button({
-    Title = "刷新玩家列表",
+-- ⭐关键修复（放在外面！不要放在 Refresh 里面）
+if typeof(TP_SelectedPlayer) == "Instance" then
+
+    local name = TP_SelectedPlayer.Name
+    local stillExists = Players:FindFirstChild(name)
+
+    if stillExists then
+        TP_SelectedPlayer = stillExists
+        SelectedTarget = stillExists
+    else
+        TP_SelectedPlayer = nil
+        SelectedTarget = nil
+    end
+end
+end
+-- ================= 刷新按钮 =================
+TabTP:CreateButton({
+    Name = "刷新玩家列表",
     Callback = function()
         TP_RefreshPlayerList()
     end
 })
 
--- ================= 初始化 =================
-task.delay(1, function()
+-- ⭐ 初始化（防UI没加载）
+task.spawn(function()
+    repeat task.wait() until TP_Dropdown
+    task.wait(0.5)
     TP_RefreshPlayerList()
 end)
--- ================= 传送 =================
 
-TabTP:Button({
-    Title = "传送到玩家",
+
+-- ================= 传送 =================
+local function TeleportToPlayer(player)
+
+    if not player then return end
+
+    local char = LocalPlayer.Character
+    local targetChar = player.Character
+
+    if not char or not targetChar then return end
+
+    local root = char:FindFirstChild("HumanoidRootPart")
+    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+
+    if root and targetRoot then
+        root.CFrame = targetRoot.CFrame + Vector3.new(0, 3, 0)
+    end
+end
+
+TabTP:CreateButton({
+    Name = "传送到玩家身边",
     Callback = function()
 
         local target = TP_SelectedPlayer
 
         if target then
             TeleportToPlayer(target)
+        else
+            Notify("错误", "未选择玩家", 2)
         end
 
     end
 })
 
 -- ================= 循环传送 =================
-
 local TP_Loop = false
 local TP_LoopConnection = nil
 
-TabTP:Toggle({
-    Title = "循环传送",
-    Default = false,
-    Callback = function(v)
+TabTP:CreateToggle({
+    Name = "循环传送到玩家",
+    CurrentValue = false,
+    Callback = function(Value)
 
-        TP_Loop = v
+        TP_Loop = Value
 
-        if v then
-
-            AlreadyNotified = {}
+        if Value then
+AlreadyNotified = {}
 
             TP_LoopConnection = RunService.Heartbeat:Connect(function()
 
                 local target = TP_SelectedPlayer or SelectedTarget
 
                 if target then
-                    if not AlreadyNotified[target] then
-                        MonitorTarget(target)
-                    end
 
-                    TeleportToPlayer(target)
-                end
+    if not AlreadyNotified[target] then
+        MonitorTarget(target)
+    end
+
+    TeleportToPlayer(target)
+end
             end)
 
+            Notify("循环传送", "已开启", 2)
             AddFeature("循环传送")
 
         else
@@ -4774,38 +3606,66 @@ TabTP:Toggle({
                 TP_LoopConnection:Disconnect()
                 TP_LoopConnection = nil
             end
+local char = LocalPlayer.Character
+if char then
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if root then
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+    end
+end
 
-            local char = LocalPlayer.Character
-            if char then
-                local root = char:FindFirstChild("HumanoidRootPart")
-                if root then
-                    root.AssemblyLinearVelocity = Vector3.zero
-                    root.AssemblyAngularVelocity = Vector3.zero
-                end
-            end
 
+            Notify("循环传送", "已关闭", 2)
             RemoveFeature("循环传送")
+
         end
 
     end
 })
 
 -- ================= 观战 =================
+local function SpectatePlayer(player)
 
-TabTP:Toggle({
-    Title = "观战玩家",
-    Default = false,
-    Callback = function(v)
+    if not player then return end
 
-        if v then
+    local char = player.Character
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+
+    Camera.CameraSubject = hum
+end
+
+local function StopSpectate()
+    local char = LocalPlayer.Character
+    if char then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            Camera.CameraSubject = hum
+        end
+    end
+end
+
+TabTP:CreateToggle({
+    Name = "观战玩家",
+    CurrentValue = false,
+    Callback = function(Value)
+
+        if Value then
             local target = TP_SelectedPlayer or SelectedTarget
 
             if target then
                 SpectatePlayer(target)
+                Notify("观战", "已观战 "..target.Name, 2)
                 AddFeature("观战")
+            else
+                Notify("错误", "未选择玩家", 2)
             end
         else
             StopSpectate()
+            Notify("观战", "已关闭", 2)
             RemoveFeature("观战")
         end
 
@@ -4813,40 +3673,42 @@ TabTP:Toggle({
 })
 
 -- ================= 甩飞 =================
-
-TabTP:Button({
-    Title = "甩飞一次",
+TabTP:CreateButton({
+    Name = "甩飞一次",
     Callback = function()
 
-        if TP_SelectedPlayer == "ALL" then
+    if TP_SelectedPlayer == "ALL" then
 
-            for _, p in ipairs(Players:GetPlayers()) do
-                if p ~= LocalPlayer then
-                    SkidFling(p)
-                    repeat task.wait() until not Flinging
-                    task.wait(0.1)
-                end
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then
+                SkidFling(p)
+
+-- ⭐等待甩飞结束
+repeat task.wait() until not Flinging
+task.wait(0.1)
             end
+        end
 
+    else
+
+        local target = TP_SelectedPlayer or SelectedTarget
+
+        if target then
+            SkidFling(target)
         else
-
-            local target = TP_SelectedPlayer or SelectedTarget
-
-            if target then
-                SkidFling(target)
-            end
-
+            Notify("错误", "未选择玩家", 2)
         end
 
     end
+
+end
 })
+TabTP:CreateToggle({
+    Name = "循环甩飞",
+    CurrentValue = false,
+    Callback = function(Value)
 
-TabTP:Toggle({
-    Title = "循环甩飞",
-    Default = false,
-    Callback = function(v)
-
-        if v then
+        if Value then
             StartFlingLoop()
             AddFeature("循环甩飞")
         else
@@ -4856,300 +3718,79 @@ TabTP:Toggle({
 
     end
 })
+TabTP:CreateToggle({
+    Name = "人物自转",
+    CurrentValue = false,
+    Callback = function(Value)
 
--- ================= 自转 =================
+        SpinEnabled = Value
 
-TabTP:Toggle({
-    Title = "人物自转",
-    Default = false,
-    Callback = function(v)
-
-        SpinEnabled = v
-
-        if v then
+        if Value then
             StartSpin()
+            Notify("自转", "已开启", 2)
             AddFeature("自转")
         else
             StopSpin()
+            Notify("自转", "已关闭", 2)
             RemoveFeature("自转")
         end
 
     end
 })
+TabTP:CreateInput({
+    Name = "旋转速度",
+    PlaceholderText = "默认5",
+    Callback = function(Text)
 
--- ⭐ Input → Slider（稳定）
-TabTP:Slider({
-    Title = "旋转速度",
-    Value = {
-        Min = 1,
-        Max = 200,
-        Default = SpinSpeed,
-    },
-    Increment = 5,
-    Callback = function(v)
-        SpinSpeed = v
-    end
-})
-local TabAb = Window:Tab({
-    Title = "服务器功能",
-    Icon = "info",
-    Locked = false,
-})
-TabAb:Paragraph({
-        Title = "免责声明",
-        Desc = "以下缝合的所有服务器脚本源码或加载链接均来源于qq，如果认为您的脚本为付费脚本或不想让我缝合，请先不要挂我，加入夜脚本主群联系我，我会立刻删除您的脚本，并向您道歉，如果我没有看到的话可以多说几遍，感谢\n\n我会保留所有原作者标识并标明出处", 
-    })
+        local num = tonumber(Text)
 
-TabAb:Button({
-    Title = "竞争对手（伊散）",
-    Callback = function()
-        local ok, err = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/weiifnrnfj"))()
-        end)
-   end
-})
-TabAb:Button({
-    Title = "最强战场（凌乱）",
-    Callback = function()
-        local ok, err = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/最强战场"))()
-        end)
-   end
-})
-TabAb:Button({
-    Title = "墨水游戏（Rb）",
-    Callback = function()
-        local ok, err = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/ink"))()
-        end)
-   end
-})
-TabAb:Button({
-    Title = "终极战场（kanl）",
-    Callback = function()
-        local ok, err = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/终极战场"))()
-        end)
-   end
-})
-TabAb:Button({
-    Title = "战争大亨（alienx）有些功能不可用，但是作者是不可能修的😋",
-    Callback = function()
-        local ok, err = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/战争大亨"))()
-        end)
-   end
-})
-TabAb:Button({
-    Title = "99夜（Rb）",
-    Callback = function()
-        local ok, err = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/99夜"))()
-        end)
-   end
-})
-TabAb:Button({
-    Title = "狙击竞技场（YG）这里非常感谢YG作者允许我缝合好吧😋",
-    Callback = function()
-        local ok, err = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/yg狙击竞技场"))()
-        end)
-   end
-})
-TabAb:Button({
-    Title = "L&C（这个虽然没有源码但是真的特别牛逼必须缝合，第一次加载会久一点）",
-    Callback = function()
-        local ok, err = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/XOTRXONY/AUREATE/main/lc.lua"))()
-        end)
-   end
-})
-TabAb:Button({
-    Title = "子弹追踪（非常牛逼）",
-    Callback = function()
-        local ok, err = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/子追"))()
-        end)
-   end
-})
-
-local TabFE = Window:Tab({
-    Title = "动作功能",
-    Icon = "eye",
-    Locked = false,
-})
-
--- ===== 提示 =====
-TabFE:Paragraph({
-    Title = "提示",
-    Desc = "实测下面动作全部是别人可见但是如果那个人是新进来的人需要重新开动作他才会可见"
-})
-
--- ===== 基础 =====
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-
-local currentTrack = nil
-
--- ===== 重生处理 =====
-player.CharacterAdded:Connect(function()
-    currentTrack = nil
-end)
-
--- ===== 获取 Animator =====
-local function GetAnimator()
-    local character = player.Character or player.CharacterAdded:Wait()
-    local humanoid = character:WaitForChild("Humanoid")
-
-    local animator = humanoid:FindFirstChildOfClass("Animator")
-    if not animator then
-        animator = Instance.new("Animator")
-        animator.Parent = humanoid
-    end
-
-    return animator
-end
-
--- ===== 播放函数 =====
-local function PlayAnim(animId)
-    local animator = GetAnimator()
-
-    -- 停旧动画
-    if currentTrack then
-        currentTrack:Stop()
-        currentTrack:Destroy()
-        currentTrack = nil
-    end
-
-    local anim = Instance.new("Animation")
-    anim.AnimationId = animId
-
-    local track = animator:LoadAnimation(anim)
-    anim:Destroy()
-
-    track.Priority = Enum.AnimationPriority.Action
-    track.Looped = true
-    track:Play()
-
-    currentTrack = track
-end
-
--- ===== 总关闭函数 =====
-local function StopAllAnim()
-    if currentTrack then
-        currentTrack:Stop()
-        currentTrack:Destroy()
-        currentTrack = nil
-    end
-
-    -- 兜底清理
-    local character = player.Character
-    if character then
-        local humanoid = character:FindFirstChild("Humanoid")
-        if humanoid then
-            local animator = humanoid:FindFirstChildOfClass("Animator")
-            if animator then
-                for _, track in pairs(animator:GetPlayingAnimationTracks()) do
-                    track:Stop()
-                end
-            end
-        end
-    end
-end
-
--- ===== 总关闭按钮（在最上面）=====
-TabFE:Button({
-    Title = "关闭所有动作",
-    Callback = function()
-        StopAllAnim()
-    end
-})
-
--- ===== 动作按钮（一个一个写）=====
-
-TabFE:Button({
-    Title = "环绕身体动作",
-    Callback = function()
-        PlayAnim("rbxassetid://109873544976020")
-    end
-})
-
-TabFE:Button({
-    Title = "无头",
-    Callback = function()
-        PlayAnim("rbxassetid://78837807518622")
-    end
-})
-
-TabFE:Button({
-    Title = "直升机",
-    Callback = function()
-        PlayAnim("rbxassetid://95301257497525")
-    end
-})
-
-TabFE:Button({
-    Title = "飞机",
-    Callback = function()
-        PlayAnim("rbxassetid://82135680487389")
-    end
-})
-
-TabFE:Button({
-    Title = "坦克",
-    Callback = function()
-        PlayAnim("rbxassetid://94915612757079")
-    end
-})
-
-TabFE:Button({
-    Title = "假死",
-    Callback = function()
-        PlayAnim("rbxassetid://88130117312312")
-    end
-})
-
-TabFE:Button({
-    Title = "投降",
-    Callback = function()
-        PlayAnim("rbxassetid://100537772865440")
-    end
-})
-
-
--- ================= 终止 =================
-local TabStop = Window:Tab({
-    Title = "终止",
-    Icon = "x",
-    Locked = false,
-})
-
-TabStop:Button({
-    Title = "强制退出",
-    Callback = function()
-
-        local ok, err = pcall(function()
-            game:Shutdown()
-        end)
-
-        if ok then
-            Notify("退出", "成功", 4)
+        if num then
+            SpinSpeed = math.clamp(num, 10, 500)
+            Notify("旋转速度", tostring(SpinSpeed), 2)
         else
-            Notify("踢出失败", tostring(err), 5)
+            Notify("错误", "请输入数字", 2)
         end
 
     end
 })
+Players.PlayerRemoving:Connect(function(p)
 
-TabStop:Button({
-    Title = "自杀（重生）",
+    local isUsing =
+        TP_Loop
+        or FlingLoop
+        or Flinging
+
+    if isUsing
+    and (p == TP_SelectedPlayer or p == SelectedTarget)
+    and not AlreadyNotified[p] then
+
+        AlreadyNotified[p] = true
+
+        Notify("目标已退出", p.Name .. " 已离开游戏，无法继续甩飞/传送", 3)
+    end
+
+end)
+local TabStop = Window:CreateTab("终止")
+TabStop:CreateButton({
+    Name = "强制退出",
     Callback = function()
-
+        local ok, err = pcall(function()
+           game:Shutdown()
+        end)
+        
+        if ok then 
+            Notify("退出", "成功", 4) 
+        else 
+            Notify("踢出失败", tostring(err), 5) 
+        end
+    end
+})
+TabStop:CreateButton({
+    Name = "自杀（重生）",
+    Callback = function()
         local char = LocalPlayer.Character
-
         if char then
             local hum = char:FindFirstChildOfClass("Humanoid")
-
             if hum then
                 hum.Health = 0
                 Notify("已自杀", "角色已重生", 2)
@@ -5159,122 +3800,99 @@ TabStop:Button({
         else
             Notify("失败", "角色未加载", 2)
         end
-
     end
 })
-
--- ================= 配置 =================
-local TabConfig = Window:Tab({
-    Title = "配置",
-    Icon = "settings",
-    Locked = false,
+local TabConfig = Window:CreateTab("配置")
+TabConfig:CreateToggle({
+    Name = "管理员检测",
+    CurrentValue = true, -- 默认开启
+    Callback = function(Value)
+        AdminDetectEnabled = Value
+           end
 })
+TabConfig:CreateDropdown({
+    Name = "UI主题",
+    Options = {
+        "Default",
+        "AmberGlow",
+        "Amethyst",
+        "Bloom",
+        "DarkBlue",
+        "Green",
+        "Light",
+        "Ocean",
+        "Serenity"
+    },
+    CurrentOption = {CurrentTheme},
+    MultipleOptions = false,
 
+    Callback = function(Option)
 
--- ⭐延迟获取主题（确保AddTheme已注册）
-task.wait()
+        local theme = Option[1]
+        CurrentTheme = theme
 
-local ThemeList = {}
-pcall(function()
-    ThemeList = WindUI:GetThemes()
-end)
-
--- ⭐严格校验
-if not table.find(ThemeList, CurrentTheme) then
-    warn("主题不存在，重置为 Dark ->", CurrentTheme)
-    CurrentTheme = "Dark"
-end
--- ================= 管理员检测 =================
-
-TabConfig:Toggle({
-    Title = "管理员检测",
-    Default = true,
-    Callback = function(v)
-        AdminDetectEnabled = v
-    end
-})
-
--- ================= 主题列表（关键修复） =================
-
-local ThemeList = {}
-
-pcall(function()
-    ThemeList = WindUI:GetThemes()
-end)
-
--- ⭐手动加入自定义主题
-local CustomThemes = {"Aurora", "Cyan", "Blue", "BlackGold"}
-
-for _, v in ipairs(CustomThemes) do
-    if not table.find(ThemeList, v) then
-        table.insert(ThemeList, v)
-    end
-end
--- ⭐去重并确保Dark在第一位
-local NewList = {"Dark"}
-
-for _, v in ipairs(ThemeList) do
-    if v ~= "Dark" then
-        table.insert(NewList, v)
-    end
-end
-
-ThemeList = NewList
-
--- ================= 主题切换 =================
-
-TabConfig:Dropdown({
-    Title = "UI主题",
-    Values = ThemeList,
-    Default = CurrentTheme,
-
-    Callback = function(v)
-
-        CurrentTheme = v
-
+        -- 切换主题
         pcall(function()
-            WindUI:SetTheme(v)
+            Window:ModifyTheme(theme)
         end)
 
+        -- 保存配置
         pcall(function()
             if writefile then
-                writefile(ThemeFile, v)
+                writefile(ThemeFile, theme)
             end
         end)
 
-        Notify("主题切换", "已切换为 "..tostring(v), 2, "success")
+        -- ⭐新增：提示重新进入
+        FallbackNotify("主题已更改", "请重新加入服务器并重新注入以完全生效", 5)
 
     end
 })
-
--- ================= 重进服务器 =================
-
-TabConfig:Button({
-    Title = "重新进入服务器",
+TabConfig:CreateButton({
+    Name = "重新进入服务器",
     Callback = function()
 
         Notify("正在重进", "请稍候...", 3)
 
         local TeleportService = game:GetService("TeleportService")
-        local player = game.Players.LocalPlayer
+        local Players = game:GetService("Players")
 
+        local player = Players.LocalPlayer
+
+        -- ⭐重新加入当前Place
         TeleportService:Teleport(game.PlaceId, player)
 
     end
 })
+TabConfig:CreateParagraph({ Title="查看配置图例", Content="https://docs.sirius.menu/rayfield/configuration/themes" })
+TabConfig:CreateButton({
+    Name = "复制网址",
+    Callback = function()
+        if setclipboard then
+            setclipboard("https://docs.sirius.menu/rayfield/configuration/themes")
+            Notify("复制成功", "网址已复制到剪贴板", 3)
+        else
+            Notify("复制失败", "当前环境不支持复制", 3)
+        end
+    end
+})
+
+
+Notify("脚本加载完成","by 夜",3)
+Notify("感谢所有支持夜脚本的人","我们的群已经100人了",3)
 AimbotConnection = RunService.RenderStepped:Connect(function()
 
     -- UI FOV圈更新
-if circle then
-    local size = FOV * 2
-    circle.Size = UDim2.new(0, size, 0, size)
+    if circle then
+        local size = FOV * 2
+        circle.Size = UDim2.new(0, size, 0, size)
 
-    local shouldShow = ESP_SETTINGS.HighlightEnabled and ShowFOVCircle
-
-    if circle.Visible ~= shouldShow then
-        circle.Visible = shouldShow
+        -- ⭐只在变化时更新（防闪）
+        if circle.Visible ~= ESP_SETTINGS.HighlightEnabled then
+            circle.Visible = ESP_SETTINGS.HighlightEnabled
+        end
     end
-end    
+    
 if not Camera then return end
 
 
@@ -5308,71 +3926,3 @@ RunService.Heartbeat:Connect(function()
     end
 
 end)
-WindUI:Notify({
-    Title = "脚本加载成功",
-    Content = "感谢使用",
-    Duration = 3, 
-   Icon = "bird",
-})
---[[
- =================== WindUI适配版·流光彩虹（稳定版） ===================
-]]
-
-task.wait(0.3)
-
-local Main = Window.UIElements.Main
--- 1. 清理旧描边
-for _, v in ipairs(Main:GetDescendants()) do
-    if v:IsA("UIStroke") and v.Name == "RainbowBorder" then
-        v:Destroy()
-    end
-end
-
--- 2. 创建描边
-local Stroke = Instance.new("UIStroke")
-Stroke.Name = "RainbowBorder"
-Stroke.Thickness = 3.5
-Stroke.Color = Color3.new(1, 1, 1)
-Stroke.LineJoinMode = Enum.LineJoinMode.Round
-Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-Stroke.Parent = Main
-
--- 3. 渐变
-local Gradient = Instance.new("UIGradient")
-Gradient.Name = "RainbowGradient"
-Gradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0,    Color3.fromRGB(255, 0, 0)),
-    ColorSequenceKeypoint.new(0.16, Color3.fromRGB(255, 255, 0)),
-    ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 255, 0)),
-    ColorSequenceKeypoint.new(0.5,  Color3.fromRGB(0, 255, 255)),
-    ColorSequenceKeypoint.new(0.66, Color3.fromRGB(0, 0, 255)),
-    ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 0, 255)),
-    ColorSequenceKeypoint.new(1,    Color3.fromRGB(255, 0, 0))
-})
-Gradient.Parent = Stroke
-
--- 4. 动画（常驻稳定）
-local RunService = game:GetService("RunService")
-local currentAngle = 0
-local rotSpeed = 150
-
-RunService.RenderStepped:Connect(function(dt)
-    if Stroke and Stroke.Parent then
-        currentAngle = (currentAngle + dt * rotSpeed) % 360
-        Gradient.Rotation = currentAngle
-    end
-end)
-
--- 5. 始终开启（WindUI不需要Visible监听）
-Stroke.Enabled = true
-Stroke.Transparency = 0
-
--- 6. 圆角补齐（防描边变形）
-local Corner = Main:FindFirstChildOfClass("UICorner")
-if not Corner then
-    Corner = Instance.new("UICorner")
-    Corner.CornerRadius = UDim.new(0, 12)
-    Corner.Parent = Main
-end
-
-loadstring(game:HttpGet("https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/djejhebr"))()
