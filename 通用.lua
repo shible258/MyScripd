@@ -57,7 +57,6 @@ local function sendToTermuxServer(endpoint, method, data)
     return success, response
 end
 
--- 触发防检测周期
 local function triggerAntiDetectCycle()
     local success, response = sendToTermuxServer("/cycle", "GET")
     if success then
@@ -72,7 +71,6 @@ local function triggerAntiDetectCycle()
     return false
 end
 
--- 连接Termux服务器
 local function connectToAntiDetect()
     local success, response = sendToTermuxServer("/status", "GET")
     if success and response and response.Body then
@@ -2195,7 +2193,6 @@ end)
 
 closeBtn.MouseButton1Click:Connect(function()
     cleanupAll()
-    -- 彻底关闭：清理全局变量
     pcall(function()
         _G._shible_AntiDetect = nil
         _G._shible_Fake = nil
@@ -2223,7 +2220,6 @@ end)
 
 funcCloseBtn.MouseButton1Click:Connect(function()
     cleanupAll()
-    -- 彻底关闭：清理全局变量
     pcall(function()
         _G._shible_AntiDetect = nil
         _G._shible_Fake = nil
