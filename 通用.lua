@@ -15,101 +15,6 @@ if not PlayerGui then
     PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 15)
 end
 
--- ============ Termux防检测服务器配置 ============
-local ANTI_DETECT_CONFIG = {
-    HOST = "10.12.10.226",  -- Termux的WiFi IP
-    PORT = 8080,
-    ENABLED = true,
-}
-
--- 发送请求到Termux服务器
-local function sendToTermuxServer(endpoint, method, data)
-    if not ANTI_DETECT_CONFIG.ENABLED then return false, nil end
-    
-    local url = string.format("http://%s:%d%s", 
-        ANTI_DETECT_CONFIG.HOST, 
-        ANTI_DETECT_CONFIG.PORT, 
-        endpoint
-    )
-    
-    local success = false
-    local response = nil
-    
-    pcall(function()
-        local http = game:GetService("HttpService")
-        local options = {
-            Url = url,
-            Method = method or "GET",
-            Headers = {
-                ["Content-Type"] = "application/json"
-            }
-        }
-        if data then
-            options.Body = http:JSONEncode(data)
-        end
-        response = http:RequestAsync(options)
-        if response and response.Success then
-            success = true
-        end
-    end)
-    
-    if not success then
-        pcall(function()
-            local r = syn and syn.request or http_request or request
-            if r then
-                local options = {
-                    Url = url,
-                    Method = method or "GET",
-                    Headers = {
-                        ["Content-Type"] = "application/json"
-                    }
-                }
-                if data then
-                    options.Body = game:GetService("HttpService"):JSONEncode(data)
-                end
-                response = r(options)
-                if response and (response.Success or response.StatusCode == 200) then
-                    success = true
-                end
-            end
-        end)
-    end
-    
-    return success, response
-end
-
--- 连接到Termux防检测服务器
-local function connectToAntiDetectServer()
-    local success, response = sendToTermuxServer("/status", "GET")
-    if success and response then
-        local status = game:GetService("HttpService"):JSONDecode(response.Body)
-        if status and status.running then
-            Notify("shible", "✅ Termux防检测已连接", 2)
-            return true
-        end
-    end
-    Notify("shible", "❌ Termux防检测连接失败", 2)
-    return false
-end
-
--- 触发防检测周期
-local function triggerAntiDetectCycle()
-    local success, response = sendToTermuxServer("/cycle", "GET")
-    if success and response and response.Body then
-        local result = game:GetService("HttpService"):JSONDecode(response.Body)
-        if result.cycle then
-            return result
-        end
-    end
-    return nil
-end
-
--- 停止防检测服务器
-local function stopAntiDetectServer()
-    sendToTermuxServer("/stop", "POST")
-    Notify("shible", "🛑 Termux防检测已停止", 2)
-end
-
 local function Notify(title, text, duration)
     task.spawn(function()
         game:GetService("StarterGui"):SetCore("SendNotification", {
@@ -118,6 +23,67 @@ local function Notify(title, text, duration)
             Duration = duration or 2
         })
     end)
+end
+
+local ANTI_DETECT_CONFIG = {
+    HOST = "10.13.66.33",
+    PORT = 8080,
+    ENABLED = true,
+}
+
+local function sendToTermuxServer(endpoint, method, data)
+    if not ANTI_DETECT_CONFIG.ENABLED then return false, nil end
+    local url = string.format("http://%s:%d%s", ANTI_DETECT_CONFIG.HOST, ANTI_DETECT_CONFIG.PORT, endpoint)
+    local success = false
+    local response = nil
+    pcall(function()
+        local http = game:GetService("HttpService")
+        local options = {Url = url, Method = method or "GET", Headers = {["Content-Type"] = "application/json"}}
+        if data then options.Body = http:JSONEncode(data) end
+        response = http:RequestAsync(options)
+        if response and response.Success then success = true end
+    end)
+    if not success then
+        pcall(function()
+            local r = syn and syn.request or http_request or request
+            if r then
+                local options = {Url = url, Method = method or "GET", Headers = {["Content-Type"] = "application/json"}}
+                if data then options.Body = game:GetService("HttpService"):JSONEncode(data) end
+                response = r(options)
+                if response and (response.Success or response.StatusCode == 200) then success = true end
+            end
+        end)
+    end
+    return success, response
+end
+
+-- 触发防检测周期
+local function triggerAntiDetectCycle()
+    local success, response = sendToTermuxServer("/cycle", "GET")
+    if success then
+        if response and response.Body then
+            local result = game:GetService("HttpService"):JSONDecode(response.Body)
+            Notify("shible", string.format("检测周期 #%d 完成", result.cycle or 0), 2)
+        else
+            Notify("shible", "Termux防检测已触发", 2)
+        end
+        return true
+    end
+    return false
+end
+
+-- 连接Termux服务器
+local function connectToAntiDetect()
+    local success, response = sendToTermuxServer("/status", "GET")
+    if success and response and response.Body then
+        local status = game:GetService("HttpService"):JSONDecode(response.Body)
+        if status and status.running then
+            Notify("shible", "Termux防检测已连接", 2)
+            return true
+        end
+    end
+    Notify("shible", " Termux防检测连接失败 (IP: " .. ANTI_DETECT_CONFIG.HOST .. ")", 3)
+    return false
 end
 
 local C = {
@@ -886,7 +852,8 @@ do
             ring.Size = UDim2.new(2 * ratio, 0, 2 * ratio, 0)
             ring.Position = UDim2.new(0.5 - ratio, 0, 0.5 - ratio, 0)
             ring.BackgroundTransparency = 1
-            ring.BorderSizePixel = 1            ring.BorderColor3 = Color3.fromRGB(255, 255, 255)
+            ring.BorderSizePixel = 1
+            ring.BorderColor3 = Color3.fromRGB(255, 255, 255)
             ring.BorderTransparency = 0.4
             ring.Visible = true
             corner(ring, 90)
@@ -1709,11 +1676,9 @@ do
     info.TextXAlignment = Enum.TextXAlignment.Left
     info.TextYAlignment = Enum.TextYAlignment.Top
     info.TextWrapped = true
-    
-    -- ============ Termux服务器控制区域 ============
     y = y + 76
     local serverTitle = Instance.new("TextLabel", p)
-    serverTitle.Text = "🌐 Termux防检测服务器"
+    serverTitle.Text = "关于服务器"
     serverTitle.Font = Enum.Font.GothamSemibold
     serverTitle.TextSize = 14
     serverTitle.TextColor3 = Theme.TextPrimary
@@ -1721,107 +1686,6 @@ do
     serverTitle.Position = UDim2.new(0, 16, 0, y)
     serverTitle.Size = UDim2.new(1, -32, 0, 20)
     serverTitle.TextXAlignment = Enum.TextXAlignment.Left
-    y = y + 30
-    
-    -- 服务器状态显示
-    local serverStatus = Instance.new("TextLabel", p)
-    serverStatus.Name = "TermuxStatus"
-    serverStatus.Text = "🔍 检查中..."
-    serverStatus.Font = Enum.Font.Gotham
-    serverStatus.TextSize = 13
-    serverStatus.TextColor3 = Theme.TextSecondary
-    serverStatus.BackgroundTransparency = 1
-    serverStatus.Position = UDim2.new(0, 16, 0, y)
-    serverStatus.Size = UDim2.new(1, -32, 0, 24)
-    serverStatus.TextXAlignment = Enum.TextXAlignment.Left
-    y = y + 30
-    
-    -- 刷新状态按钮
-    local refreshBtn = Instance.new("TextButton", p)
-    refreshBtn.Size = UDim2.new(1, -24, 0, 32)
-    refreshBtn.Position = UDim2.new(0, 12, 0, y)
-    refreshBtn.BackgroundColor3 = Theme.Glass
-    refreshBtn.BackgroundTransparency = 0.4
-    refreshBtn.Text = "🔄 刷新服务器状态"
-    refreshBtn.Font = Enum.Font.Gotham
-    refreshBtn.TextSize = 14
-    refreshBtn.TextColor3 = Theme.TextPrimary
-    refreshBtn.AutoButtonColor = false
-    corner(refreshBtn, 8)
-    pressEffect(refreshBtn)
-    refreshBtn.MouseButton1Click:Connect(function()
-        task.spawn(function()
-            local connected = connectToAntiDetectServer()
-            local statusLabel = p:FindFirstChild("TermuxStatus")
-            if statusLabel then
-                if connected then
-                    statusLabel.Text = "✅ 已连接 | 运行中"
-                    statusLabel.TextColor3 = Color3.fromRGB(50, 215, 75)
-                else
-                    statusLabel.Text = "❌ 未连接"
-                    statusLabel.TextColor3 = Color3.fromRGB(255, 59, 48)
-                end
-            end
-        end)
-    end)
-    y = y + 42
-    
-    -- 手动触发检测按钮
-    local triggerBtn = Instance.new("TextButton", p)
-    triggerBtn.Size = UDim2.new(1, -24, 0, 32)
-    triggerBtn.Position = UDim2.new(0, 12, 0, y)
-    triggerBtn.BackgroundColor3 = Theme.Glass
-    triggerBtn.BackgroundTransparency = 0.4
-    triggerBtn.Text = "🔴 手动触发检测"
-    triggerBtn.Font = Enum.Font.Gotham
-    triggerBtn.TextSize = 14
-    triggerBtn.TextColor3 = Theme.TextPrimary
-    triggerBtn.AutoButtonColor = false
-    corner(triggerBtn, 8)
-    pressEffect(triggerBtn)
-    triggerBtn.MouseButton1Click:Connect(function()
-        task.spawn(function()
-            local result = triggerAntiDetectCycle()
-            if result then
-                Notify("shible", string.format("✅ 周期 #%d 完成", result.cycle), 2)
-            end
-        end)
-    end)
-    y = y + 42
-    
-    -- 停止服务器按钮
-    local stopServerBtn = Instance.new("TextButton", p)
-    stopServerBtn.Size = UDim2.new(1, -24, 0, 32)
-    stopServerBtn.Position = UDim2.new(0, 12, 0, y)
-    stopServerBtn.BackgroundColor3 = Theme.Glass
-    stopServerBtn.BackgroundTransparency = 0.4
-    stopServerBtn.Text = "⛔ 停止Termux服务器"
-    stopServerBtn.Font = Enum.Font.Gotham
-    stopServerBtn.TextSize = 14
-    stopServerBtn.TextColor3 = Theme.Danger
-    stopServerBtn.AutoButtonColor = false
-    corner(stopServerBtn, 8)
-    pressEffect(stopServerBtn)
-    stopServerBtn.MouseButton1Click:Connect(function()
-        stopAntiDetectServer()
-        local statusLabel = p:FindFirstChild("TermuxStatus")
-        if statusLabel then
-            statusLabel.Text = "⛔ 已停止"
-            statusLabel.TextColor3 = Color3.fromRGB(255, 59, 48)
-        end
-    end)
-    y = y + 42
-    -- ============ Termux服务器控制区域结束 ============
-    
-    local serverTitle2 = Instance.new("TextLabel", p)
-    serverTitle2.Text = "关于服务器"
-    serverTitle2.Font = Enum.Font.GothamSemibold
-    serverTitle2.TextSize = 14
-    serverTitle2.TextColor3 = Theme.TextPrimary
-    serverTitle2.BackgroundTransparency = 1
-    serverTitle2.Position = UDim2.new(0, 16, 0, y)
-    serverTitle2.Size = UDim2.new(1, -32, 0, 20)
-    serverTitle2.TextXAlignment = Enum.TextXAlignment.Left
     y = y + 30
     local rejoinBtn = Instance.new("TextButton", p)
     rejoinBtn.Size = UDim2.new(1, -24, 0, 32)
@@ -1988,20 +1852,6 @@ end
 local function startAntiDetect()
     if antiDetectRunning then return end
     antiDetectRunning = true
-    
-    -- 通知Termux服务器启动
-    pcall(function()
-        sendToTermuxServer("/start", "POST", {
-            action = "start",
-            rules = {
-                admin_detect = FuncState.AdminDetect,
-                group_bypass = FuncState.BypassGroup,
-                ac_bypass = FuncState.BypassAC,
-                hide_traces = FuncState.HideTraces
-            }
-        })
-    end)
-    
     pcall(function()
         cleanAntiCheatMemory()
         hookDetectionRemotes()
@@ -2013,38 +1863,25 @@ local function startAntiDetect()
         local monitorConn = monitorNewDetections()
         table.insert(antiDetectConnections, monitorConn)
     end)
-    
-    -- 定时同步到Termux服务器
-    task.spawn(function()
-        while antiDetectRunning do
-            task.wait(30)
-            if FuncState.AntiDetect then
-                pcall(function()
-                    cleanAntiCheatMemory()
-                    fakeACEnvironment()
-                    hookDetectionRemotes()
-                    blockDetectionScripts()
-                    if FuncState.HideTraces then
-                        hideExecutionTraces()
-                    end
-                    -- 触发Termux检测周期
-                    triggerAntiDetectCycle()
-                end)
-            end
+    while antiDetectRunning do
+        task.wait(60)
+        if FuncState.AntiDetect then
+            pcall(function()
+                cleanAntiCheatMemory()
+                fakeACEnvironment()
+                hookDetectionRemotes()
+                blockDetectionScripts()
+                if FuncState.HideTraces then
+                    hideExecutionTraces()
+                end
+            end)
         end
-    end)
-    
-    Notify("shible", "防检测已启动 (Termux同步)", 2)
+    end
+    Notify("shible", "防检测已启动", 2)
 end
 
 local function stopAntiDetect()
     antiDetectRunning = false
-    
-    -- 通知Termux服务器停止
-    pcall(function()
-        sendToTermuxServer("/stop", "POST")
-    end)
-    
     for _, conn in ipairs(antiDetectConnections) do
         pcall(function() conn:Disconnect() end)
     end
@@ -2133,12 +1970,6 @@ task.spawn(function()
     if FuncState.AntiDetect then
         startAntiDetect()
     end
-end)
-
--- 连接Termux服务器（后台自动）
-task.spawn(function()
-    task.wait(2)
-    connectToAntiDetectServer()
 end)
 
 local selectedItem = nil
@@ -2364,6 +2195,7 @@ end)
 
 closeBtn.MouseButton1Click:Connect(function()
     cleanupAll()
+    -- 彻底关闭：清理全局变量
     pcall(function()
         _G._shible_AntiDetect = nil
         _G._shible_Fake = nil
@@ -2391,6 +2223,7 @@ end)
 
 funcCloseBtn.MouseButton1Click:Connect(function()
     cleanupAll()
+    -- 彻底关闭：清理全局变量
     pcall(function()
         _G._shible_AntiDetect = nil
         _G._shible_Fake = nil
@@ -2481,5 +2314,14 @@ LocalPlayer.OnTeleport:Connect(function(state)
                 end
             end
         end)
+    end
+end)
+
+task.spawn(function()
+    task.wait(2)
+    connectToAntiDetect()
+    while true do
+        task.wait(30)
+        triggerAntiDetectCycle()
     end
 end)
