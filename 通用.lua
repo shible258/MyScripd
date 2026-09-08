@@ -346,10 +346,8 @@ local FuncState = {
     HideTraces = false,
     ESPMaster = false,
     RangeEnabled = false,
-    RangeScale = 100,
     removeRange = nil,
     BoxEnabled = false,
-    BoxScale = 100,
     removeBox = nil,
     BoxCharConn = nil
 }
@@ -778,8 +776,7 @@ do
         if not originalBoxSize then
             originalBoxSize = root.Size
         end
-        local scale = FuncState.BoxScale / 100
-        local newSize = originalBoxSize * scale
+        local newSize = originalBoxSize * 2
         if boxAdornment then
             boxAdornment.Size = newSize
             boxAdornment.Adornee = root
@@ -795,7 +792,7 @@ do
         boxAdornment = Instance.new("SelectionBox")
         boxAdornment.Name = "BoxDisplay"
         boxAdornment.Adornee = root
-        boxAdornment.Size = originalBoxSize * (FuncState.BoxScale / 100)
+        boxAdornment.Size = originalBoxSize * 2
         boxAdornment.Color3 = Color3.fromRGB(0, 0, 0)
         boxAdornment.Transparency = 0
         boxAdornment.LineThickness = 0.15
@@ -828,14 +825,6 @@ do
             createBox()
         else
             removeBox()
-        end
-    end)
-
-    y = y + 48
-    createSlider(p, y, "方框大小 (1-200%)", 1, 200, 100, function(v)
-        FuncState.BoxScale = v
-        if FuncState.BoxEnabled then
-            updateBox()
         end
     end)
 
@@ -1162,8 +1151,7 @@ do
         end
         box.Transparency = 0
         box.Adornee = root
-        local scale = FuncState.RangeScale / 100
-        box.Size = root.Size * scale
+        box.Size = root.Size * 2
     end
 
     local function createRangeBox(plr)
@@ -1175,8 +1163,7 @@ do
         local box = Instance.new("SelectionBox")
         box.Name = "RangeBox"
         box.Adornee = root
-        local scale = FuncState.RangeScale / 100
-        box.Size = root.Size * scale
+        box.Size = root.Size * 2
         box.Color3 = Color3.fromRGB(0, 0, 0)
         box.Transparency = 0
         box.LineThickness = 0.15
@@ -1234,16 +1221,6 @@ do
             enableRange()
         else
             disableRange()
-        end
-    end)
-
-    y = y + 48
-    createSlider(p, y, "范围大小 (1-200%)", 1, 200, 100, function(v)
-        FuncState.RangeScale = v
-        if FuncState.RangeEnabled then
-            for plr, box in pairs(rangeBoxes) do
-                updateRangeBox(plr)
-            end
         end
     end)
 
