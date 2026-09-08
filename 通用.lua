@@ -351,11 +351,7 @@ local FuncState = {
     BoxEnabled = false,
     BoxScale = 100,
     removeBox = nil,
-    BoxCharConn = nil,
-    SelfRangeEnabled = false,
-    SelfRangeScale = 100,
-    SelfOriginalSize = nil,
-    SelfRangeCharConn = nil
+    BoxCharConn = nil
 }
 
 local animTracks = {}
@@ -1133,7 +1129,7 @@ do
     local p = pgRange
     local y = 10
     local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "受击范围控制"
+    hdr.Text = "其他玩家受击范围"
     hdr.Font = Enum.Font.GothamSemibold
     hdr.TextSize = 14
     hdr.TextColor3 = Theme.TextPrimary
@@ -1143,157 +1139,84 @@ do
     hdr.TextXAlignment = Enum.TextXAlignment.Left
     y = y + 30
 
-    local selfOriginalSize = nil
-    local selfCharConn = nil
-
-    local function updateSelfRange()
-        if not FuncState.SelfRangeEnabled then return end
-        local root = getRootPart()
-        if not root then return end
-        if not selfOriginalSize then
-            selfOriginalSize = root.Size
-        end
-        local scale = FuncState.SelfRangeScale / 100
-        root.Size = selfOriginalSize * scale
-    end
-
-    local function enableSelfRange()
-        local root = getRootPart()
-        if root then
-            selfOriginalSize = root.Size
-            updateSelfRange()
-        end
-        if selfCharConn then selfCharConn:Disconnect() end
-        selfCharConn = LocalPlayer.CharacterAdded:Connect(function()
-            task.wait(0.1)
-            if FuncState.SelfRangeEnabled then
-                local root = getRootPart()
-                if root then
-                    selfOriginalSize = root.Size
-                    updateSelfRange()
-                end
-            end
-        end)
-    end
-
-    local function disableSelfRange()
-        if selfCharConn then selfCharConn:Disconnect() selfCharConn = nil end
-        local root = getRootPart()
-        if root and selfOriginalSize then
-            root.Size = selfOriginalSize
-        end
-        selfOriginalSize = nil
-    end
-
-    createToggle(p, y, "修改自身受击范围", function() return FuncState.SelfRangeEnabled end, function(v)
-        FuncState.SelfRangeEnabled = v
-        if v then
-            enableSelfRange()
-        else
-            disableSelfRange()
-        end
-    end)
-
-    y = y + 48
-    createSlider(p, y, "自身范围大小 (1-200%)", 1, 200, 100, function(v)
-        FuncState.SelfRangeScale = v
-        if FuncState.SelfRangeEnabled then
-            updateSelfRange()
-        end
-    end)
-
-    y = y + 60
-    local hdr2 = Instance.new("TextLabel", p)
-    hdr2.Text = "显示其他玩家受击范围"
-    hdr2.Font = Enum.Font.GothamSemibold
-    hdr2.TextSize = 14
-    hdr2.TextColor3 = Theme.TextPrimary
-    hdr2.BackgroundTransparency = 1
-    hdr2.Position = UDim2.new(0, 12, 0, y)
-    hdr2.Size = UDim2.new(1, -24, 0, 20)
-    hdr2.TextXAlignment = Enum.TextXAlignment.Left
-    y = y + 30
-
-    local rangeParts = {}
+    local rangeBoxes = {}
     local rangeUpdateConn = nil
     local playerAddedConn
     local playerRemovingConn
 
-    local function removeAllRangeParts()
-        for plr, part in pairs(rangeParts) do
-            if part then part:Destroy() end
+    local function removeAllRangeBoxes()
+        for plr, box in pairs(rangeBoxes) do
+            if box then box:Destroy() end
         end
-        rangeParts = {}
+        rangeBoxes = {}
     end
 
-    local function updateRangePart(plr)
-        local part = rangeParts[plr]
-        if not part then return end
+    local function updateRangeBox(plr)
+        local box = rangeBoxes[plr]
+        if not box then return end
         local char = plr.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then
-            part.Transparency = 1
+            box.Transparency = 1
             return
         end
-        part.Transparency = 0.5
-        part.CFrame = root.CFrame
+        box.Transparency = 0
+        box.Adornee = root
         local scale = FuncState.RangeScale / 100
-        part.Size = root.Size * scale
+        box.Size = root.Size * scale
     end
 
-    local function createRangePart(plr)
+    local function createRangeBox(plr)
         if plr == LocalPlayer then return end
-        if rangeParts[plr] then return end
+        if rangeBoxes[plr] then return end
         local char = plr.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
-        local part = Instance.new("Part")
-        part.Name = "RangeDisplay"
-        part.Anchored = false
-        part.CanCollide = false
-        part.Transparency = 0.5
-        part.Color = Color3.fromRGB(255, 0, 0)
-        part.Material = Enum.Material.ForceField
-        part.Parent = workspace
+        local box = Instance.new("SelectionBox")
+        box.Name = "RangeBox"
+        box.Adornee = root
         local scale = FuncState.RangeScale / 100
-        part.Size = root.Size * scale
-        part.CFrame = root.CFrame
-        rangeParts[plr] = part
+        box.Size = root.Size * scale
+        box.Color3 = Color3.fromRGB(0, 0, 0)
+        box.Transparency = 0
+        box.LineThickness = 0.15
+        box.Parent = workspace
+        rangeBoxes[plr] = box
     end
 
     local function onPlayerAdded(plr)
         if plr == LocalPlayer then return end
         if FuncState.RangeEnabled then
             task.wait(0.5)
-            createRangePart(plr)
+            createRangeBox(plr)
         end
     end
 
     local function onPlayerRemoving(plr)
-        local part = rangeParts[plr]
-        if part then part:Destroy() end
-        rangeParts[plr] = nil
+        local box = rangeBoxes[plr]
+        if box then box:Destroy() end
+        rangeBoxes[plr] = nil
     end
 
     local function enableRange()
-        removeAllRangeParts()
+        removeAllRangeBoxes()
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= LocalPlayer then
-                createRangePart(plr)
+                createRangeBox(plr)
             end
         end
         if rangeUpdateConn then rangeUpdateConn:Disconnect() end
         rangeUpdateConn = RunService.Heartbeat:Connect(function()
             if not FuncState.RangeEnabled then return end
-            for plr, part in pairs(rangeParts) do
-                updateRangePart(plr)
+            for plr, box in pairs(rangeBoxes) do
+                updateRangeBox(plr)
             end
         end)
     end
 
     local function disableRange()
         if rangeUpdateConn then rangeUpdateConn:Disconnect() rangeUpdateConn = nil end
-        removeAllRangeParts()
+        removeAllRangeBoxes()
     end
 
     playerAddedConn = Players.PlayerAdded:Connect(onPlayerAdded)
@@ -1303,8 +1226,6 @@ do
         if playerAddedConn then playerAddedConn:Disconnect() end
         if playerRemovingConn then playerRemovingConn:Disconnect() end
         disableRange()
-        disableSelfRange()
-        if selfCharConn then selfCharConn:Disconnect() selfCharConn = nil end
     end
 
     createToggle(p, y, "开启受击范围显示", function() return FuncState.RangeEnabled end, function(v)
@@ -1317,20 +1238,17 @@ do
     end)
 
     y = y + 48
-    createSlider(p, y, "显示范围大小 (1-200%)", 1, 200, 100, function(v)
+    createSlider(p, y, "范围大小 (1-200%)", 1, 200, 100, function(v)
         FuncState.RangeScale = v
         if FuncState.RangeEnabled then
-            for plr, part in pairs(rangeParts) do
-                updateRangePart(plr)
+            for plr, box in pairs(rangeBoxes) do
+                updateRangeBox(plr)
             end
         end
     end)
 
     if FuncState.RangeEnabled then
         enableRange()
-    end
-    if FuncState.SelfRangeEnabled then
-        enableSelfRange()
     end
 end
 
