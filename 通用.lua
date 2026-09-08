@@ -348,7 +348,6 @@ local FuncState = {
     RangeEnabled = false,
     RangeScale = 100,
     removeRange = nil,
-    RangeCharConn = nil,
     BoxEnabled = false,
     BoxScale = 100,
     removeBox = nil,
@@ -1131,7 +1130,7 @@ do
     local p = pgRange
     local y = 10
     local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "人物受击范围"
+    hdr.Text = "显示其他玩家受击范围"
     hdr.Font = Enum.Font.GothamSemibold
     hdr.TextSize = 14
     hdr.TextColor3 = Theme.TextPrimary
@@ -1141,84 +1140,103 @@ do
     hdr.TextXAlignment = Enum.TextXAlignment.Left
     y = y + 30
 
-    local hitboxPart = nil
-    local hitboxUpdateConn = nil
-    local originalRootSize = nil
+    local rangeParts = {}
+    local rangeUpdateConn = nil
+    local playerAddedConn
+    local playerRemovingConn
 
-    local function removeHitbox()
-        if hitboxPart then hitboxPart:Destroy() hitboxPart = nil end
-        if hitboxUpdateConn then hitboxUpdateConn:Disconnect() hitboxUpdateConn = nil end
-        if FuncState.RangeCharConn then
-            FuncState.RangeCharConn:Disconnect()
-            FuncState.RangeCharConn = nil
+    local function removeAllRangeParts()
+        for plr, part in pairs(rangeParts) do
+            if part then part:Destroy() end
         end
-        local char = getChar()
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if root and originalRootSize then
-            root.Size = originalRootSize
-        end
-        originalRootSize = nil
+        rangeParts = {}
     end
 
-    local function updateHitbox()
-        if not FuncState.RangeEnabled then return end
-        local char = getChar()
+    local function updateRangePart(plr)
+        local part = rangeParts[plr]
+        if not part then return end
+        local char = plr.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root or not originalRootSize then return end
+        if not root then
+            part.Transparency = 1
+            return
+        end
+        part.Transparency = 0.5
+        part.CFrame = root.CFrame
         local scale = FuncState.RangeScale / 100
-        local newSize = originalRootSize * scale
-        root.Size = newSize
-        if hitboxPart then
-            hitboxPart.Size = newSize
-            hitboxPart.CFrame = root.CFrame
-        end
+        part.Size = root.Size * scale
     end
 
-    local function createHitbox()
-        removeHitbox()
-        local char = getChar()
+    local function createRangePart(plr)
+        if plr == LocalPlayer then return end
+        if rangeParts[plr] then return end
+        local char = plr.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
-        originalRootSize = root.Size
-        hitboxPart = Instance.new("Part")
-        hitboxPart.Name = "HitboxDisplay"
-        hitboxPart.Anchored = false
-        hitboxPart.CanCollide = false
-        hitboxPart.Transparency = 0.5
-        hitboxPart.Color = Color3.fromRGB(255, 0, 0)
-        hitboxPart.Material = Enum.Material.ForceField
-        hitboxPart.Parent = workspace
+        local part = Instance.new("Part")
+        part.Name = "RangeDisplay"
+        part.Anchored = false
+        part.CanCollide = false
+        part.Transparency = 0.5
+        part.Color = Color3.fromRGB(255, 0, 0)
+        part.Material = Enum.Material.ForceField
+        part.Parent = workspace
         local scale = FuncState.RangeScale / 100
-        local newSize = originalRootSize * scale
-        hitboxPart.Size = newSize
-        hitboxPart.CFrame = root.CFrame
-        if hitboxUpdateConn then hitboxUpdateConn:Disconnect() end
-        hitboxUpdateConn = RunService.Heartbeat:Connect(function()
-            if not FuncState.RangeEnabled or not hitboxPart or not hitboxPart.Parent then
-                return
-            end
-            local r = getChar() and getChar():FindFirstChild("HumanoidRootPart")
-            if r then
-                hitboxPart.CFrame = r.CFrame
-            end
-        end)
-        updateHitbox()
+        part.Size = root.Size * scale
+        part.CFrame = root.CFrame
+        rangeParts[plr] = part
     end
 
-    local charAddedConn = LocalPlayer.CharacterAdded:Connect(function()
+    local function onPlayerAdded(plr)
+        if plr == LocalPlayer then return end
         if FuncState.RangeEnabled then
-            createHitbox()
+            task.wait(0.5)
+            createRangePart(plr)
         end
-    end)
-    FuncState.RangeCharConn = charAddedConn
-    FuncState.removeRange = removeHitbox
+    end
 
-    createToggle(p, y, "开启受击范围", function() return FuncState.RangeEnabled end, function(v)
+    local function onPlayerRemoving(plr)
+        local part = rangeParts[plr]
+        if part then part:Destroy() end
+        rangeParts[plr] = nil
+    end
+
+    local function enableRange()
+        removeAllRangeParts()
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer then
+                createRangePart(plr)
+            end
+        end
+        if rangeUpdateConn then rangeUpdateConn:Disconnect() end
+        rangeUpdateConn = RunService.Heartbeat:Connect(function()
+            if not FuncState.RangeEnabled then return end
+            for plr, part in pairs(rangeParts) do
+                updateRangePart(plr)
+            end
+        end)
+    end
+
+    local function disableRange()
+        if rangeUpdateConn then rangeUpdateConn:Disconnect() rangeUpdateConn = nil end
+        removeAllRangeParts()
+    end
+
+    playerAddedConn = Players.PlayerAdded:Connect(onPlayerAdded)
+    playerRemovingConn = Players.PlayerRemoving:Connect(onPlayerRemoving)
+
+    FuncState.removeRange = function()
+        if playerAddedConn then playerAddedConn:Disconnect() end
+        if playerRemovingConn then playerRemovingConn:Disconnect() end
+        disableRange()
+    end
+
+    createToggle(p, y, "开启受击范围显示", function() return FuncState.RangeEnabled end, function(v)
         FuncState.RangeEnabled = v
         if v then
-            createHitbox()
+            enableRange()
         else
-            removeHitbox()
+            disableRange()
         end
     end)
 
@@ -1226,9 +1244,15 @@ do
     createSlider(p, y, "范围大小 (1-200%)", 1, 200, 100, function(v)
         FuncState.RangeScale = v
         if FuncState.RangeEnabled then
-            updateHitbox()
+            for plr, part in pairs(rangeParts) do
+                updateRangePart(plr)
+            end
         end
     end)
+
+    if FuncState.RangeEnabled then
+        enableRange()
+    end
 end
 
 do
