@@ -347,7 +347,11 @@ local FuncState = {
     HitboxEnabled = false,
     HitboxScale = 100,
     removeHitbox = nil,
-    HitboxCharConn = nil
+    HitboxCharConn = nil,
+    BoxEnabled = false,
+    BoxScale = 100,
+    removeBox = nil,
+    BoxCharConn = nil
 }
 
 local animTracks = {}
@@ -839,6 +843,92 @@ do
         FuncState.HitboxScale = v
         if FuncState.HitboxEnabled then
             updateHitbox()
+        end
+    end)
+
+    local boxPart = nil
+    local boxUpdateConn = nil
+    local originalBoxSize = nil
+
+    local function removeBox()
+        if boxPart then boxPart:Destroy() boxPart = nil end
+        if boxUpdateConn then boxUpdateConn:Disconnect() boxUpdateConn = nil end
+        if FuncState.BoxCharConn then
+            FuncState.BoxCharConn:Disconnect()
+            FuncState.BoxCharConn = nil
+        end
+        originalBoxSize = nil
+    end
+
+    local function updateBox()
+        if not FuncState.BoxEnabled then return end
+        local char = getChar()
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        if not originalBoxSize then
+            originalBoxSize = root.Size
+        end
+        local scale = FuncState.BoxScale / 100
+        local newSize = originalBoxSize * scale
+        if boxPart then
+            boxPart.Size = newSize
+            boxPart.CFrame = root.CFrame
+        end
+    end
+
+    local function createBox()
+        removeBox()
+        local char = getChar()
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        originalBoxSize = root.Size
+        boxPart = Instance.new("Part")
+        boxPart.Name = "BoxDisplay"
+        boxPart.Anchored = false
+        boxPart.CanCollide = false
+        boxPart.Transparency = 0.6
+        boxPart.Color = Color3.fromRGB(0, 150, 255)
+        boxPart.Material = Enum.Material.ForceField
+        boxPart.Parent = workspace
+        local scale = FuncState.BoxScale / 100
+        boxPart.Size = originalBoxSize * scale
+        boxPart.CFrame = root.CFrame
+        if boxUpdateConn then boxUpdateConn:Disconnect() end
+        boxUpdateConn = RunService.Heartbeat:Connect(function()
+            if not FuncState.BoxEnabled or not boxPart or not boxPart.Parent then
+                return
+            end
+            local r = getChar() and getChar():FindFirstChild("HumanoidRootPart")
+            if r then
+                boxPart.CFrame = r.CFrame
+            end
+        end)
+        updateBox()
+    end
+
+    local boxCharConn = LocalPlayer.CharacterAdded:Connect(function()
+        if FuncState.BoxEnabled then
+            createBox()
+        end
+    end)
+    FuncState.BoxCharConn = boxCharConn
+    FuncState.removeBox = removeBox
+
+    y = y + 48
+    createToggle(p, y, "人物方框", function() return FuncState.BoxEnabled end, function(v)
+        FuncState.BoxEnabled = v
+        if v then
+            createBox()
+        else
+            removeBox()
+        end
+    end)
+
+    y = y + 48
+    createSlider(p, y, "方框大小 (1-200%)", 1, 200, 100, function(v)
+        FuncState.BoxScale = v
+        if FuncState.BoxEnabled then
+            updateBox()
         end
     end)
 
@@ -2207,6 +2297,9 @@ local function cleanupAll()
         cache = {}
         if FuncState.removeHitbox then
             FuncState.removeHitbox()
+        end
+        if FuncState.removeBox then
+            FuncState.removeBox()
         end
         gui:Destroy()
         blur:Destroy()
