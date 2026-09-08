@@ -351,7 +351,11 @@ local FuncState = {
     BoxEnabled = false,
     BoxScale = 100,
     removeBox = nil,
-    BoxCharConn = nil
+    BoxCharConn = nil,
+    SelfRangeEnabled = false,
+    SelfRangeScale = 100,
+    SelfOriginalSize = nil,
+    SelfRangeCharConn = nil
 }
 
 local animTracks = {}
@@ -792,14 +796,13 @@ do
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
         originalBoxSize = root.Size
-        boxAdornment = Instance.new("BoxHandleAdornment")
+        boxAdornment = Instance.new("SelectionBox")
         boxAdornment.Name = "BoxDisplay"
         boxAdornment.Adornee = root
         boxAdornment.Size = originalBoxSize * (FuncState.BoxScale / 100)
         boxAdornment.Color3 = Color3.fromRGB(0, 0, 0)
         boxAdornment.Transparency = 0
-        boxAdornment.AlwaysOnTop = true
-        boxAdornment.ZIndex = 0
+        boxAdornment.LineThickness = 0.15
         boxAdornment.Parent = workspace
         if boxUpdateConn then boxUpdateConn:Disconnect() end
         boxUpdateConn = RunService.Heartbeat:Connect(function()
@@ -1130,7 +1133,7 @@ do
     local p = pgRange
     local y = 10
     local hdr = Instance.new("TextLabel", p)
-    hdr.Text = "显示其他玩家受击范围"
+    hdr.Text = "受击范围控制"
     hdr.Font = Enum.Font.GothamSemibold
     hdr.TextSize = 14
     hdr.TextColor3 = Theme.TextPrimary
@@ -1138,6 +1141,77 @@ do
     hdr.Position = UDim2.new(0, 12, 0, y)
     hdr.Size = UDim2.new(1, -24, 0, 20)
     hdr.TextXAlignment = Enum.TextXAlignment.Left
+    y = y + 30
+
+    local selfOriginalSize = nil
+    local selfCharConn = nil
+
+    local function updateSelfRange()
+        if not FuncState.SelfRangeEnabled then return end
+        local root = getRootPart()
+        if not root then return end
+        if not selfOriginalSize then
+            selfOriginalSize = root.Size
+        end
+        local scale = FuncState.SelfRangeScale / 100
+        root.Size = selfOriginalSize * scale
+    end
+
+    local function enableSelfRange()
+        local root = getRootPart()
+        if root then
+            selfOriginalSize = root.Size
+            updateSelfRange()
+        end
+        if selfCharConn then selfCharConn:Disconnect() end
+        selfCharConn = LocalPlayer.CharacterAdded:Connect(function()
+            task.wait(0.1)
+            if FuncState.SelfRangeEnabled then
+                local root = getRootPart()
+                if root then
+                    selfOriginalSize = root.Size
+                    updateSelfRange()
+                end
+            end
+        end)
+    end
+
+    local function disableSelfRange()
+        if selfCharConn then selfCharConn:Disconnect() selfCharConn = nil end
+        local root = getRootPart()
+        if root and selfOriginalSize then
+            root.Size = selfOriginalSize
+        end
+        selfOriginalSize = nil
+    end
+
+    createToggle(p, y, "修改自身受击范围", function() return FuncState.SelfRangeEnabled end, function(v)
+        FuncState.SelfRangeEnabled = v
+        if v then
+            enableSelfRange()
+        else
+            disableSelfRange()
+        end
+    end)
+
+    y = y + 48
+    createSlider(p, y, "自身范围大小 (1-200%)", 1, 200, 100, function(v)
+        FuncState.SelfRangeScale = v
+        if FuncState.SelfRangeEnabled then
+            updateSelfRange()
+        end
+    end)
+
+    y = y + 60
+    local hdr2 = Instance.new("TextLabel", p)
+    hdr2.Text = "显示其他玩家受击范围"
+    hdr2.Font = Enum.Font.GothamSemibold
+    hdr2.TextSize = 14
+    hdr2.TextColor3 = Theme.TextPrimary
+    hdr2.BackgroundTransparency = 1
+    hdr2.Position = UDim2.new(0, 12, 0, y)
+    hdr2.Size = UDim2.new(1, -24, 0, 20)
+    hdr2.TextXAlignment = Enum.TextXAlignment.Left
     y = y + 30
 
     local rangeParts = {}
@@ -1229,6 +1303,8 @@ do
         if playerAddedConn then playerAddedConn:Disconnect() end
         if playerRemovingConn then playerRemovingConn:Disconnect() end
         disableRange()
+        disableSelfRange()
+        if selfCharConn then selfCharConn:Disconnect() selfCharConn = nil end
     end
 
     createToggle(p, y, "开启受击范围显示", function() return FuncState.RangeEnabled end, function(v)
@@ -1241,7 +1317,7 @@ do
     end)
 
     y = y + 48
-    createSlider(p, y, "范围大小 (1-200%)", 1, 200, 100, function(v)
+    createSlider(p, y, "显示范围大小 (1-200%)", 1, 200, 100, function(v)
         FuncState.RangeScale = v
         if FuncState.RangeEnabled then
             for plr, part in pairs(rangeParts) do
@@ -1252,6 +1328,9 @@ do
 
     if FuncState.RangeEnabled then
         enableRange()
+    end
+    if FuncState.SelfRangeEnabled then
+        enableSelfRange()
     end
 end
 
