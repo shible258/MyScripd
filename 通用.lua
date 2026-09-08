@@ -326,6 +326,7 @@ local pgFly = createPage("Fly")
 local pgFun = createPage("Fun")
 local pgAnti = createPage("Anti")
 local pgAction = createPage("Action")
+local pgRange = createPage("Range")
 
 local FuncState = {
     SpeedEnabled = false,
@@ -344,10 +345,10 @@ local FuncState = {
     FlingLoaded = false,
     HideTraces = false,
     ESPMaster = false,
-    HitboxEnabled = false,
-    HitboxScale = 100,
-    removeHitbox = nil,
-    HitboxCharConn = nil,
+    RangeEnabled = false,
+    RangeScale = 100,
+    removeRange = nil,
+    RangeCharConn = nil,
     BoxEnabled = false,
     BoxScale = 100,
     removeBox = nil,
@@ -756,102 +757,12 @@ do
         FuncState.RadarEnabled = v
     end)
 
-    local hitboxPart = nil
-    local hitboxUpdateConn = nil
-    local originalRootSize = nil
-
-    local function removeHitbox()
-        if hitboxPart then hitboxPart:Destroy() hitboxPart = nil end
-        if hitboxUpdateConn then hitboxUpdateConn:Disconnect() hitboxUpdateConn = nil end
-        if FuncState.HitboxCharConn then
-            FuncState.HitboxCharConn:Disconnect()
-            FuncState.HitboxCharConn = nil
-        end
-        local char = getChar()
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if root and originalRootSize then
-            root.Size = originalRootSize
-        end
-        originalRootSize = nil
-    end
-
-    local function updateHitbox()
-        if not FuncState.HitboxEnabled then return end
-        local char = getChar()
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root or not originalRootSize then return end
-        local scale = FuncState.HitboxScale / 100
-        local newSize = originalRootSize * scale
-        root.Size = newSize
-        if hitboxPart then
-            hitboxPart.Size = newSize
-            hitboxPart.CFrame = root.CFrame
-        end
-    end
-
-    local function createHitbox()
-        removeHitbox()
-        local char = getChar()
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
-        originalRootSize = root.Size
-        hitboxPart = Instance.new("Part")
-        hitboxPart.Name = "HitboxDisplay"
-        hitboxPart.Anchored = false
-        hitboxPart.CanCollide = false
-        hitboxPart.Transparency = 0.5
-        hitboxPart.Color = Color3.fromRGB(255, 0, 0)
-        hitboxPart.Material = Enum.Material.ForceField
-        hitboxPart.Parent = workspace
-        local scale = FuncState.HitboxScale / 100
-        local newSize = originalRootSize * scale
-        hitboxPart.Size = newSize
-        hitboxPart.CFrame = root.CFrame
-        if hitboxUpdateConn then hitboxUpdateConn:Disconnect() end
-        hitboxUpdateConn = RunService.Heartbeat:Connect(function()
-            if not FuncState.HitboxEnabled or not hitboxPart or not hitboxPart.Parent then
-                return
-            end
-            local r = getChar() and getChar():FindFirstChild("HumanoidRootPart")
-            if r then
-                hitboxPart.CFrame = r.CFrame
-            end
-        end)
-        updateHitbox()
-    end
-
-    local charAddedConn = LocalPlayer.CharacterAdded:Connect(function()
-        if FuncState.HitboxEnabled then
-            createHitbox()
-        end
-    end)
-    FuncState.HitboxCharConn = charAddedConn
-    FuncState.removeHitbox = removeHitbox
-
-    y = y + 48
-    createToggle(p, y, "受击范围", function() return FuncState.HitboxEnabled end, function(v)
-        FuncState.HitboxEnabled = v
-        if v then
-            createHitbox()
-        else
-            removeHitbox()
-        end
-    end)
-
-    y = y + 48
-    createSlider(p, y, "范围大小 (1-200%)", 1, 200, 100, function(v)
-        FuncState.HitboxScale = v
-        if FuncState.HitboxEnabled then
-            updateHitbox()
-        end
-    end)
-
-    local boxPart = nil
+    local boxAdornment = nil
     local boxUpdateConn = nil
     local originalBoxSize = nil
 
     local function removeBox()
-        if boxPart then boxPart:Destroy() boxPart = nil end
+        if boxAdornment then boxAdornment:Destroy() boxAdornment = nil end
         if boxUpdateConn then boxUpdateConn:Disconnect() boxUpdateConn = nil end
         if FuncState.BoxCharConn then
             FuncState.BoxCharConn:Disconnect()
@@ -870,9 +781,9 @@ do
         end
         local scale = FuncState.BoxScale / 100
         local newSize = originalBoxSize * scale
-        if boxPart then
-            boxPart.Size = newSize
-            boxPart.CFrame = root.CFrame
+        if boxAdornment then
+            boxAdornment.Size = newSize
+            boxAdornment.Adornee = root
         end
     end
 
@@ -882,25 +793,23 @@ do
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
         originalBoxSize = root.Size
-        boxPart = Instance.new("Part")
-        boxPart.Name = "BoxDisplay"
-        boxPart.Anchored = false
-        boxPart.CanCollide = false
-        boxPart.Transparency = 0.6
-        boxPart.Color = Color3.fromRGB(0, 150, 255)
-        boxPart.Material = Enum.Material.ForceField
-        boxPart.Parent = workspace
-        local scale = FuncState.BoxScale / 100
-        boxPart.Size = originalBoxSize * scale
-        boxPart.CFrame = root.CFrame
+        boxAdornment = Instance.new("BoxHandleAdornment")
+        boxAdornment.Name = "BoxDisplay"
+        boxAdornment.Adornee = root
+        boxAdornment.Size = originalBoxSize * (FuncState.BoxScale / 100)
+        boxAdornment.Color3 = Color3.fromRGB(0, 0, 0)
+        boxAdornment.Transparency = 0
+        boxAdornment.AlwaysOnTop = true
+        boxAdornment.ZIndex = 0
+        boxAdornment.Parent = workspace
         if boxUpdateConn then boxUpdateConn:Disconnect() end
         boxUpdateConn = RunService.Heartbeat:Connect(function()
-            if not FuncState.BoxEnabled or not boxPart or not boxPart.Parent then
+            if not FuncState.BoxEnabled or not boxAdornment or not boxAdornment.Parent then
                 return
             end
             local r = getChar() and getChar():FindFirstChild("HumanoidRootPart")
             if r then
-                boxPart.CFrame = r.CFrame
+                boxAdornment.Adornee = r
             end
         end)
         updateBox()
@@ -1215,6 +1124,110 @@ do
         local point = radarPoints[plr]
         if point then point:Destroy() end
         radarPoints[plr] = nil
+    end)
+end
+
+do
+    local p = pgRange
+    local y = 10
+    local hdr = Instance.new("TextLabel", p)
+    hdr.Text = "人物受击范围"
+    hdr.Font = Enum.Font.GothamSemibold
+    hdr.TextSize = 14
+    hdr.TextColor3 = Theme.TextPrimary
+    hdr.BackgroundTransparency = 1
+    hdr.Position = UDim2.new(0, 12, 0, y)
+    hdr.Size = UDim2.new(1, -24, 0, 20)
+    hdr.TextXAlignment = Enum.TextXAlignment.Left
+    y = y + 30
+
+    local hitboxPart = nil
+    local hitboxUpdateConn = nil
+    local originalRootSize = nil
+
+    local function removeHitbox()
+        if hitboxPart then hitboxPart:Destroy() hitboxPart = nil end
+        if hitboxUpdateConn then hitboxUpdateConn:Disconnect() hitboxUpdateConn = nil end
+        if FuncState.RangeCharConn then
+            FuncState.RangeCharConn:Disconnect()
+            FuncState.RangeCharConn = nil
+        end
+        local char = getChar()
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root and originalRootSize then
+            root.Size = originalRootSize
+        end
+        originalRootSize = nil
+    end
+
+    local function updateHitbox()
+        if not FuncState.RangeEnabled then return end
+        local char = getChar()
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root or not originalRootSize then return end
+        local scale = FuncState.RangeScale / 100
+        local newSize = originalRootSize * scale
+        root.Size = newSize
+        if hitboxPart then
+            hitboxPart.Size = newSize
+            hitboxPart.CFrame = root.CFrame
+        end
+    end
+
+    local function createHitbox()
+        removeHitbox()
+        local char = getChar()
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        originalRootSize = root.Size
+        hitboxPart = Instance.new("Part")
+        hitboxPart.Name = "HitboxDisplay"
+        hitboxPart.Anchored = false
+        hitboxPart.CanCollide = false
+        hitboxPart.Transparency = 0.5
+        hitboxPart.Color = Color3.fromRGB(255, 0, 0)
+        hitboxPart.Material = Enum.Material.ForceField
+        hitboxPart.Parent = workspace
+        local scale = FuncState.RangeScale / 100
+        local newSize = originalRootSize * scale
+        hitboxPart.Size = newSize
+        hitboxPart.CFrame = root.CFrame
+        if hitboxUpdateConn then hitboxUpdateConn:Disconnect() end
+        hitboxUpdateConn = RunService.Heartbeat:Connect(function()
+            if not FuncState.RangeEnabled or not hitboxPart or not hitboxPart.Parent then
+                return
+            end
+            local r = getChar() and getChar():FindFirstChild("HumanoidRootPart")
+            if r then
+                hitboxPart.CFrame = r.CFrame
+            end
+        end)
+        updateHitbox()
+    end
+
+    local charAddedConn = LocalPlayer.CharacterAdded:Connect(function()
+        if FuncState.RangeEnabled then
+            createHitbox()
+        end
+    end)
+    FuncState.RangeCharConn = charAddedConn
+    FuncState.removeRange = removeHitbox
+
+    createToggle(p, y, "开启受击范围", function() return FuncState.RangeEnabled end, function(v)
+        FuncState.RangeEnabled = v
+        if v then
+            createHitbox()
+        else
+            removeHitbox()
+        end
+    end)
+
+    y = y + 48
+    createSlider(p, y, "范围大小 (1-200%)", 1, 200, 100, function(v)
+        FuncState.RangeScale = v
+        if FuncState.RangeEnabled then
+            updateHitbox()
+        end
     end)
 end
 
@@ -2142,6 +2155,7 @@ end
 createFuncItem("自瞄", "Aim")
 createFuncItem("移速", "Speed")
 createFuncItem("人物功能", "ESP")
+createFuncItem("人物范围", "Range")
 createFuncItem("飞行", "Fly")
 createFuncItem("娱乐", "Fun")
 createFuncItem("人物动作", "Action")
@@ -2295,8 +2309,8 @@ local function cleanupAll()
             end)
         end
         cache = {}
-        if FuncState.removeHitbox then
-            FuncState.removeHitbox()
+        if FuncState.removeRange then
+            FuncState.removeRange()
         end
         if FuncState.removeBox then
             FuncState.removeBox()
