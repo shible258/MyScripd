@@ -647,11 +647,166 @@ do
 
     y = y + 46
 
-    createToggle(p, y, "子弹追踪 (Hook)", function()
-        return FuncState.BulletTrackHook or false
-    end, function(v)
-        FuncState.BulletTrackHook = v
+local hookCrosshair
+local hookTargetLine
+local hookRenderConnection
+
+local function cleanupHookVisual()
+    if hookRenderConnection then
+        hookRenderConnection:Disconnect()
+        hookRenderConnection = nil
+    end
+
+    if hookCrosshair then
+        hookCrosshair:Destroy()
+        hookCrosshair = nil
+    end
+
+    if hookTargetLine then
+        hookTargetLine:Destroy()
+        hookTargetLine = nil
+    end
+end
+
+local function enableHookVisual()
+    cleanupHookVisual()
+
+    hookCrosshair = Instance.new("Frame")
+    hookCrosshair.Name = "HookCrosshair"
+    hookCrosshair.Size = UDim2.fromOffset(20, 20)
+    hookCrosshair.AnchorPoint = Vector2.new(0.5, 0.5)
+    hookCrosshair.BackgroundTransparency = 1
+    hookCrosshair.BorderSizePixel = 0
+    hookCrosshair.ZIndex = 1000
+    hookCrosshair.Parent = gui
+
+    local vertical = Instance.new("Frame")
+    vertical.Size = UDim2.fromOffset(2, 20)
+    vertical.AnchorPoint = Vector2.new(0.5, 0.5)
+    vertical.Position = UDim2.fromScale(0.5, 0.5)
+    vertical.BorderSizePixel = 0
+    vertical.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    vertical.Parent = hookCrosshair
+
+    local horizontal = Instance.new("Frame")
+    horizontal.Size = UDim2.fromOffset(20, 2)
+    horizontal.AnchorPoint = Vector2.new(0.5, 0.5)
+    horizontal.Position = UDim2.fromScale(0.5, 0.5)
+    horizontal.BorderSizePixel = 0
+    horizontal.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    horizontal.Parent = hookCrosshair
+
+    local centerDot = Instance.new("Frame")
+    centerDot.Size = UDim2.fromOffset(4, 4)
+    centerDot.AnchorPoint = Vector2.new(0.5, 0.5)
+    centerDot.Position = UDim2.fromScale(0.5, 0.5)
+    centerDot.BorderSizePixel = 0
+    centerDot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    centerDot.Parent = hookCrosshair
+
+    hookTargetLine = Instance.new("Frame")
+    hookTargetLine.Name = "HookTargetLine"
+    hookTargetLine.AnchorPoint = Vector2.new(0, 0.5)
+    hookTargetLine.BorderSizePixel = 0
+    hookTargetLine.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    hookTargetLine.BackgroundTransparency = 0.15
+    hookTargetLine.Size = UDim2.fromOffset(0, 2)
+    hookTargetLine.Visible = false
+    hookTargetLine.ZIndex = 999
+    hookTargetLine.Parent = gui
+
+    hookRenderConnection = RunService.RenderStepped:Connect(function()
+        local camera = workspace.CurrentCamera
+        if not camera or not hookCrosshair or not hookTargetLine then
+            return
+        end
+
+        local viewport = camera.ViewportSize
+        local center = Vector2.new(
+            viewport.X / 2,
+            viewport.Y / 2
+        )
+
+        hookCrosshair.Position = UDim2.fromOffset(
+            center.X,
+            center.Y
+        )
+
+        local nearestPosition
+        local nearestDistance = math.huge
+
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                local character = player.Character
+                local humanoid = character
+                    and character:FindFirstChildOfClass("Humanoid")
+                local head = character
+                    and character:FindFirstChild("Head")
+
+                if humanoid
+                    and humanoid.Health > 0
+                    and head then
+
+                    local sameTeam =
+                        LocalPlayer.Team
+                        and player.Team
+                        and LocalPlayer.Team == player.Team
+
+                    if not sameTeam then
+                        local screenPos, visible =
+                            camera:WorldToViewportPoint(head.Position)
+
+                        if visible and screenPos.Z > 0 then
+                            local headPos = Vector2.new(
+                                screenPos.X,
+                                screenPos.Y
+                            )
+
+                            local distance =
+                                (headPos - center).Magnitude
+
+                            if distance < nearestDistance then
+                                nearestDistance = distance
+                                nearestPosition = headPos
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        if nearestPosition then
+            local delta = nearestPosition - center
+            local length = delta.Magnitude
+
+            hookTargetLine.Visible = true
+            hookTargetLine.Position = UDim2.fromOffset(
+                center.X,
+                center.Y
+            )
+            hookTargetLine.Size = UDim2.fromOffset(
+                length,
+                2
+            )
+            hookTargetLine.Rotation =
+                math.deg(math.atan2(delta.Y, delta.X))
+        else
+            hookTargetLine.Visible = false
+        end
     end)
+end
+
+createToggle(p, y, "子弹追踪 (Hook)", function()
+    return FuncState.BulletTrackHook or false
+end, function(v)
+    FuncState.BulletTrackHook = v
+
+    if v then
+        enableHookVisual()
+    else
+        cleanupHookVisual()
+    end
+end)
 end
 
 do
@@ -2096,6 +2251,9 @@ DragSystem.enable(mini)
 
 local function cleanupAll()
     pcall(function()
+        cleanupHookVisual()
+        FuncState.BulletTrackHook = false
+
         stopAntiDetect()
         if pgFun._antiFallConn then
             for _, conn in pairs(pgFun._antiFallConn) do
