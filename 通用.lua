@@ -645,9 +645,7 @@ do
         end
     end)
 
-    y = y + 46
-
-local hookCrosshair
+    local hookCrosshair
 local hookTargetLine
 local hookRenderConnection
 
@@ -673,58 +671,42 @@ local function enableHookVisual()
 
     hookCrosshair = Instance.new("Frame")
     hookCrosshair.Name = "HookCrosshair"
-    hookCrosshair.Size = UDim2.fromOffset(20, 20)
+    hookCrosshair.Size = UDim2.fromOffset(6, 6)
     hookCrosshair.AnchorPoint = Vector2.new(0.5, 0.5)
-    hookCrosshair.BackgroundTransparency = 1
+    hookCrosshair.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     hookCrosshair.BorderSizePixel = 0
-    hookCrosshair.ZIndex = 1000
+    hookCrosshair.ZIndex = 1001
     hookCrosshair.Parent = gui
 
-    local vertical = Instance.new("Frame")
-    vertical.Size = UDim2.fromOffset(2, 20)
-    vertical.AnchorPoint = Vector2.new(0.5, 0.5)
-    vertical.Position = UDim2.fromScale(0.5, 0.5)
-    vertical.BorderSizePixel = 0
-    vertical.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    vertical.Parent = hookCrosshair
-
-    local horizontal = Instance.new("Frame")
-    horizontal.Size = UDim2.fromOffset(20, 2)
-    horizontal.AnchorPoint = Vector2.new(0.5, 0.5)
-    horizontal.Position = UDim2.fromScale(0.5, 0.5)
-    horizontal.BorderSizePixel = 0
-    horizontal.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    horizontal.Parent = hookCrosshair
-
-    local centerDot = Instance.new("Frame")
-    centerDot.Size = UDim2.fromOffset(4, 4)
-    centerDot.AnchorPoint = Vector2.new(0.5, 0.5)
-    centerDot.Position = UDim2.fromScale(0.5, 0.5)
-    centerDot.BorderSizePixel = 0
-    centerDot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    centerDot.Parent = hookCrosshair
+    local crossCorner = Instance.new("UICorner")
+    crossCorner.CornerRadius = UDim.new(1, 0)
+    crossCorner.Parent = hookCrosshair
 
     hookTargetLine = Instance.new("Frame")
     hookTargetLine.Name = "HookTargetLine"
     hookTargetLine.AnchorPoint = Vector2.new(0, 0.5)
-    hookTargetLine.BorderSizePixel = 0
     hookTargetLine.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     hookTargetLine.BackgroundTransparency = 0.15
+    hookTargetLine.BorderSizePixel = 0
     hookTargetLine.Size = UDim2.fromOffset(0, 2)
     hookTargetLine.Visible = false
-    hookTargetLine.ZIndex = 999
+    hookTargetLine.ZIndex = 1000
     hookTargetLine.Parent = gui
 
     hookRenderConnection = RunService.RenderStepped:Connect(function()
         local camera = workspace.CurrentCamera
-        if not camera or not hookCrosshair or not hookTargetLine then
+
+        if not camera
+            or not hookCrosshair
+            or not hookTargetLine then
             return
         end
 
         local viewport = camera.ViewportSize
+
         local center = Vector2.new(
-            viewport.X / 2,
-            viewport.Y / 2
+            viewport.X * 0.5,
+            viewport.Y * 0.5
         )
 
         hookCrosshair.Position = UDim2.fromOffset(
@@ -738,8 +720,10 @@ local function enableHookVisual()
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer then
                 local character = player.Character
+
                 local humanoid = character
                     and character:FindFirstChildOfClass("Humanoid")
+
                 local head = character
                     and character:FindFirstChild("Head")
 
@@ -757,17 +741,17 @@ local function enableHookVisual()
                             camera:WorldToViewportPoint(head.Position)
 
                         if visible and screenPos.Z > 0 then
-                            local headPos = Vector2.new(
+                            local targetPosition = Vector2.new(
                                 screenPos.X,
                                 screenPos.Y
                             )
 
                             local distance =
-                                (headPos - center).Magnitude
+                                (targetPosition - center).Magnitude
 
                             if distance < nearestDistance then
                                 nearestDistance = distance
-                                nearestPosition = headPos
+                                nearestPosition = targetPosition
                             end
                         end
                     end
@@ -780,33 +764,24 @@ local function enableHookVisual()
             local length = delta.Magnitude
 
             hookTargetLine.Visible = true
+
             hookTargetLine.Position = UDim2.fromOffset(
                 center.X,
                 center.Y
             )
+
             hookTargetLine.Size = UDim2.fromOffset(
                 length,
                 2
             )
-            hookTargetLine.Rotation =
-                math.deg(math.atan2(delta.Y, delta.X))
+
+            hookTargetLine.Rotation = math.deg(
+                math.atan2(delta.Y, delta.X)
+            )
         else
             hookTargetLine.Visible = false
         end
     end)
-end
-
-createToggle(p, y, "子弹追踪 (Hook)", function()
-    return FuncState.BulletTrackHook or false
-end, function(v)
-    FuncState.BulletTrackHook = v
-
-    if v then
-        enableHookVisual()
-    else
-        cleanupHookVisual()
-    end
-end)
 end
 
 do
