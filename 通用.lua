@@ -645,153 +645,10 @@ do
         end
     end)
 
-    local hookCrosshair
-local hookTargetLine
-local hookRenderConnection
-
-local function cleanupHookVisual()
-    if hookRenderConnection then
-        hookRenderConnection:Disconnect()
-        hookRenderConnection = nil
-    end
-
-    if hookCrosshair then
-        hookCrosshair:Destroy()
-        hookCrosshair = nil
-    end
-
-    if hookTargetLine then
-        hookTargetLine:Destroy()
-        hookTargetLine = nil
-    end
-end
-
-local function enableHookVisual()
-    cleanupHookVisual()
-
-    hookCrosshair = Instance.new("Frame")
-    hookCrosshair.Name = "HookCrosshair"
-    hookCrosshair.Size = UDim2.fromOffset(6, 6)
-    hookCrosshair.AnchorPoint = Vector2.new(0.5, 0.5)
-    hookCrosshair.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    hookCrosshair.BorderSizePixel = 0
-    hookCrosshair.ZIndex = 1001
-    hookCrosshair.Parent = gui
-
-    local crossCorner = Instance.new("UICorner")
-    crossCorner.CornerRadius = UDim.new(1, 0)
-    crossCorner.Parent = hookCrosshair
-
-    hookTargetLine = Instance.new("Frame")
-    hookTargetLine.Name = "HookTargetLine"
-    hookTargetLine.AnchorPoint = Vector2.new(0, 0.5)
-    hookTargetLine.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    hookTargetLine.BackgroundTransparency = 0.15
-    hookTargetLine.BorderSizePixel = 0
-    hookTargetLine.Size = UDim2.fromOffset(0, 2)
-    hookTargetLine.Visible = false
-    hookTargetLine.ZIndex = 1000
-    hookTargetLine.Parent = gui
-
-    hookRenderConnection = RunService.RenderStepped:Connect(function()
-        local camera = workspace.CurrentCamera
-
-        if not camera
-            or not hookCrosshair
-            or not hookTargetLine then
-            return
-        end
-
-        local viewport = camera.ViewportSize
-
-        local center = Vector2.new(
-            viewport.X * 0.5,
-            viewport.Y * 0.5
-        )
-
-        hookCrosshair.Position = UDim2.fromOffset(
-            center.X,
-            center.Y
-        )
-
-        local nearestPosition
-        local nearestDistance = math.huge
-
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                local character = player.Character
-
-                local humanoid = character
-                    and character:FindFirstChildOfClass("Humanoid")
-
-                local head = character
-                    and character:FindFirstChild("Head")
-
-                if humanoid
-                    and humanoid.Health > 0
-                    and head then
-
-                    local sameTeam =
-                        LocalPlayer.Team
-                        and player.Team
-                        and LocalPlayer.Team == player.Team
-
-                    if not sameTeam then
-                        local screenPos, visible =
-                            camera:WorldToViewportPoint(head.Position)
-
-                        if visible and screenPos.Z > 0 then
-                            local targetPosition = Vector2.new(
-                                screenPos.X,
-                                screenPos.Y
-                            )
-
-                            local distance =
-                                (targetPosition - center).Magnitude
-
-                            if distance < nearestDistance then
-                                nearestDistance = distance
-                                nearestPosition = targetPosition
-                            end
-                        end
-                    end
-                end
-            end
-        end
-
-        if nearestPosition then
-            local delta = nearestPosition - center
-            local length = delta.Magnitude
-
-            hookTargetLine.Visible = true
-
-            hookTargetLine.Position = UDim2.fromOffset(
-                center.X,
-                center.Y
-            )
-
-            hookTargetLine.Size = UDim2.fromOffset(
-                length,
-                2
-            )
-
-            hookTargetLine.Rotation = math.deg(
-                math.atan2(delta.Y, delta.X)
-            )
-        else
-            hookTargetLine.Visible = false
-        end
-    end)
-        createToggle(p, y, "子弹追踪 (Hook)", function()
+    createToggle(p, y, "子弹追踪 (Hook)", function()
         return FuncState.BulletTrackHook or false
     end, function(v)
         FuncState.BulletTrackHook = v
-
-        if v then
-            enableHookVisual()
-        else
-            cleanupHookVisual()
-        end
     end)
 end
 
@@ -2236,9 +2093,8 @@ DragSystem.enable(root)
 DragSystem.enable(mini)
 
 local function cleanupAll()
-    pcall(function()
-        cleanupHookVisual()
-        FuncState.BulletTrackHook = false
+pcall(function()
+    FuncState.BulletTrackHook = false
 
         stopAntiDetect()
         if pgFun._antiFallConn then
