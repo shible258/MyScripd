@@ -646,16 +646,214 @@ do
 
     y = y + 46
     local bulletHookLoaded = false
+    local bulletHookHolder = nil
+    local bulletHookCrosshair = nil
+    local bulletHookLine = nil
+    local bulletHookRenderConnection = nil
+    local bulletHookGuiConnection = nil
 
-    -- 子弹追踪(hook) 空壳开关，不加载任何脚本
+    local function stopBulletHook()
+        bulletHookLoaded = false
+
+        if bulletHookRenderConnection then
+            pcall(function()
+                bulletHookRenderConnection:Disconnect()
+            end)
+            bulletHookRenderConnection = nil
+        end
+
+        if bulletHookGuiConnection then
+            pcall(function()
+                bulletHookGuiConnection:Disconnect()
+            end)
+            bulletHookGuiConnection = nil
+        end
+
+        if bulletHookHolder then
+            pcall(function()
+                bulletHookHolder:Destroy()
+            end)
+        end
+
+        bulletHookHolder = nil
+        bulletHookCrosshair = nil
+        bulletHookLine = nil
+    end
+
+    local function startBulletHook()
+        stopBulletHook()
+        bulletHookLoaded = true
+
+        local holder = Instance.new("Frame")
+        holder.Name = "BulletTrackingHook"
+        holder.Size = UDim2.fromScale(1, 1)
+        holder.Position = UDim2.fromScale(0, 0)
+        holder.BackgroundTransparency = 1
+        holder.BorderSizePixel = 0
+        holder.Active = false
+        holder.ZIndex = 10000
+        holder.Parent = gui
+        bulletHookHolder = holder
+
+        local crosshair = Instance.new("Frame")
+        crosshair.Name = "Crosshair"
+        crosshair.AnchorPoint = Vector2.new(0.5, 0.5)
+        crosshair.Position = UDim2.fromScale(0.5, 0.5)
+        crosshair.Size = UDim2.fromOffset(1, 1)
+        crosshair.BackgroundTransparency = 1
+        crosshair.BorderSizePixel = 0
+        crosshair.ZIndex = 10001
+        crosshair.Parent = holder
+        bulletHookCrosshair = crosshair
+
+        local accent = Theme.Accent or Color3.fromRGB(255, 255, 255)
+
+        local function makeCrosshairLine(name, position, size)
+            local part = Instance.new("Frame")
+            part.Name = name
+            part.AnchorPoint = Vector2.new(0.5, 0.5)
+            part.Position = position
+            part.Size = size
+            part.BackgroundColor3 = accent
+            part.BackgroundTransparency = 0.15
+            part.BorderSizePixel = 0
+            part.ZIndex = 10001
+            part.Parent = crosshair
+            return part
+        end
+
+        makeCrosshairLine("Top", UDim2.new(0.5, 0, 0, -8), UDim2.fromOffset(2, 7))
+        makeCrosshairLine("Bottom", UDim2.new(0.5, 0, 0, 8), UDim2.fromOffset(2, 7))
+        makeCrosshairLine("Left", UDim2.new(0, -8, 0.5, 0), UDim2.fromOffset(7, 2))
+        makeCrosshairLine("Right", UDim2.new(0, 8, 0.5, 0), UDim2.fromOffset(7, 2))
+
+        local dot = Instance.new("Frame")
+        dot.Name = "CenterDot"
+        dot.AnchorPoint = Vector2.new(0.5, 0.5)
+        dot.Position = UDim2.fromScale(0.5, 0.5)
+        dot.Size = UDim2.fromOffset(4, 4)
+        dot.BackgroundColor3 = accent
+        dot.BackgroundTransparency = 0.05
+        dot.BorderSizePixel = 0
+        dot.ZIndex = 10002
+        dot.Parent = crosshair
+        corner(dot, 2)
+
+        local line = Instance.new("Frame")
+        line.Name = "TargetLine"
+        line.AnchorPoint = Vector2.new(0, 0.5)
+        line.Position = UDim2.fromScale(0.5, 0.5)
+        line.Size = UDim2.fromOffset(0, 2)
+        line.BackgroundColor3 = accent
+        line.BackgroundTransparency = 0.15
+        line.BorderSizePixel = 0
+        line.Visible = false
+        line.ZIndex = 10000
+        line.Parent = holder
+        bulletHookLine = line
+
+        bulletHookGuiConnection = gui.AncestryChanged:Connect(function(_, parent)
+            if not parent then
+                if bulletHookRenderConnection then
+                    pcall(function()
+                        bulletHookRenderConnection:Disconnect()
+                    end)
+                    bulletHookRenderConnection = nil
+                end
+                if bulletHookGuiConnection then
+                    pcall(function()
+                        bulletHookGuiConnection:Disconnect()
+                    end)
+                    bulletHookGuiConnection = nil
+                end
+                bulletHookHolder = nil
+                bulletHookCrosshair = nil
+                bulletHookLine = nil
+                bulletHookLoaded = false
+            end
+        end)
+
+        bulletHookRenderConnection = RunService.RenderStepped:Connect(function()
+            if not bulletHookLoaded or not gui.Parent or not holder.Parent then
+                if bulletHookRenderConnection then
+                    pcall(function()
+                        bulletHookRenderConnection:Disconnect()
+                    end)
+                    bulletHookRenderConnection = nil
+                end
+                return
+            end
+
+            safeCall(function()
+                local camera = workspace.CurrentCamera
+                if not camera then
+                    line.Visible = false
+                    return
+                end
+
+                local viewportSize = camera.ViewportSize
+                local center = Vector2.new(viewportSize.X * 0.5, viewportSize.Y * 0.5)
+                local closestTarget = nil
+                local closestDistance = math.huge
+
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer then
+                        local sameTeam = false
+                        if LocalPlayer.Team ~= nil and player.Team ~= nil then
+                            sameTeam = LocalPlayer.Team == player.Team
+                        end
+
+                        if not sameTeam then
+                            local character = player.Character
+                            if character then
+                                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                                local rootPart = character:FindFirstChild("HumanoidRootPart")
+                                local head = character:FindFirstChild("Head")
+
+                                if humanoid and humanoid.Health > 0 and rootPart and head then
+                                    local projected, onScreen = camera:WorldToViewportPoint(head.Position)
+
+                                    if projected.Z > 0 and onScreen then
+                                        local headPoint = Vector2.new(projected.X, projected.Y)
+                                        local distance = (headPoint - center).Magnitude
+
+                                        if distance < closestDistance then
+                                            closestDistance = distance
+                                            closestTarget = headPoint
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+
+                if closestTarget then
+                    local delta = closestTarget - center
+                    local length = delta.Magnitude
+
+                    if length > 0.5 then
+                        line.Position = UDim2.fromOffset(center.X, center.Y)
+                        line.Size = UDim2.fromOffset(length, 2)
+                        line.Rotation = math.deg(math.atan2(delta.Y, delta.X))
+                        line.Visible = true
+                    else
+                        line.Visible = false
+                    end
+                else
+                    line.Visible = false
+                end
+            end)
+        end)
+    end
+
     createToggle(p, y, "子弹追踪(hook)", function()
         return bulletHookLoaded
     end, function(v)
-        bulletHookLoaded = v
         if v then
-            -- 空壳：预留给 hook 逻辑，暂不执行任何操作
+            startBulletHook()
         else
-            -- 空壳：预留关闭逻辑，暂不执行任何操作
+            stopBulletHook()
         end
     end)
 end
