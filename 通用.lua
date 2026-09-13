@@ -643,6 +643,41 @@ do
             bulletTrackLoaded = false
         end
     end)
+
+    y = y + 46
+    local bulletHookLoaded = false
+    local bulletHookURL = "https://raw.githubusercontent.com/ylt410/roblox-Script/refs/heads/main/%E5%AD%90%E8%BF%BD"
+
+    createToggle(p, y, "子弹追踪(hook)", function()
+        return bulletHookLoaded
+    end, function(v)
+        if v then
+            pcall(function()
+                getgenv().BulletTrackHookMode = true
+            end)
+            pcall(function()
+                _G.BulletTrackHookMode = true
+            end)
+            bulletHookLoaded = SafeLoad(bulletHookURL, "子弹追踪(hook)")
+            if not bulletHookLoaded then
+                toggleSetters["子弹追踪(hook)"](false)
+            end
+        else
+            pcall(function()
+                getgenv().BulletTrackHookEnabled = false
+            end)
+            pcall(function()
+                _G.BulletTrackHookEnabled = false
+            end)
+            pcall(function()
+                getgenv().BulletTrackHookMode = false
+            end)
+            pcall(function()
+                _G.BulletTrackHookMode = false
+            end)
+            bulletHookLoaded = false
+        end
+    end)
 end
 
 do
@@ -2141,8 +2176,12 @@ closeBtn.MouseButton1Click:Connect(function()
         getgenv().AimbotEnabled = nil
         getgenv().SilentAim = nil
         getgenv().BulletTrackEnabled = nil
+        getgenv().BulletTrackHookEnabled = nil
+        getgenv().BulletTrackHookMode = nil
         getgenv().FlingAllEnabled = nil
         _G.BulletTrackEnabled = nil
+        _G.BulletTrackHookEnabled = nil
+        _G.BulletTrackHookMode = nil
         _G.FlingAllEnabled = nil
         _G.GroupVerified = nil
         _G.GroupCheck = nil
@@ -2169,8 +2208,12 @@ funcCloseBtn.MouseButton1Click:Connect(function()
         getgenv().AimbotEnabled = nil
         getgenv().SilentAim = nil
         getgenv().BulletTrackEnabled = nil
+        getgenv().BulletTrackHookEnabled = nil
+        getgenv().BulletTrackHookMode = nil
         getgenv().FlingAllEnabled = nil
         _G.BulletTrackEnabled = nil
+        _G.BulletTrackHookEnabled = nil
+        _G.BulletTrackHookMode = nil
         _G.FlingAllEnabled = nil
         _G.GroupVerified = nil
         _G.GroupCheck = nil
