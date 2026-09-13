@@ -782,6 +782,17 @@ local function enableHookVisual()
             hookTargetLine.Visible = false
         end
     end)
+        createToggle(p, y, "子弹追踪 (Hook)", function()
+        return FuncState.BulletTrackHook or false
+    end, function(v)
+        FuncState.BulletTrackHook = v
+
+        if v then
+            enableHookVisual()
+        else
+            cleanupHookVisual()
+        end
+    end)
 end
 
 do
