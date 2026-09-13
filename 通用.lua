@@ -344,7 +344,6 @@ local FuncState = {
     FlingLoaded = false,
     HideTraces = false,
     ESPMaster = false,
-    BulletTrackHook = false,
 }
 
 local animTracks = {}
@@ -643,12 +642,6 @@ do
             end)
             bulletTrackLoaded = false
         end
-    end)
-
-    createToggle(p, y, "子弹追踪 (Hook)", function()
-        return FuncState.BulletTrackHook or false
-    end, function(v)
-        FuncState.BulletTrackHook = v
     end)
 end
 
@@ -2093,9 +2086,7 @@ DragSystem.enable(root)
 DragSystem.enable(mini)
 
 local function cleanupAll()
-pcall(function()
-    FuncState.BulletTrackHook = false
-
+    pcall(function()
         stopAntiDetect()
         if pgFun._antiFallConn then
             for _, conn in pairs(pgFun._antiFallConn) do
