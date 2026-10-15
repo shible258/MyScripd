@@ -987,7 +987,7 @@ local function getOrCreateBox(plr)
     box.Parent = boxGui
 
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(255, 60, 60)
+    stroke.Color = Color3.fromRGB(255, 255, 255)
     stroke.Thickness = 0.5
     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     stroke.Parent = box
@@ -1057,11 +1057,15 @@ local function updateBoxESP()
 
         if FuncState.HealthBarEnabled and hpBar then
             local ratio = math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1)
-            local barWidth = 1
-            local offset = 5
-            local barHeight = height * ratio
-            hpBar.Size = UDim2.new(0, barWidth, 0, barHeight)
-            hpBar.Position = UDim2.new(0, leftX - offset - barWidth, 0, topY + (height - barHeight))
+local barWidth = 3
+local gap = 2
+local barHeight = height * ratio
+
+hpBar.Size = UDim2.new(0, barWidth, 0, barHeight)
+hpBar.Position = UDim2.new(
+    0, leftX - gap - barWidth,
+    0, topY + (height - barHeight)
+)
             if ratio > 0.5 then
                 hpBar.BackgroundColor3 = Color3.fromRGB(50, 215, 75)
             elseif ratio > 0.25 then
