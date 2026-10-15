@@ -962,6 +962,7 @@ end)
         end
     end
 
+
 local boxGui = Instance.new("ScreenGui")
 boxGui.Name = "shible_BoxESP"
 boxGui.ResetOnSpawn = false
@@ -974,8 +975,9 @@ local boxCache = {}
 
 local function getOrCreateBox(plr)
     local entry = boxCache[plr]
+
     if entry and entry.box and entry.box.Parent then
-        return entry.box, entry.hpBar, entry.hpFill
+        return entry.box, entry.hpBar
     end
 
     local box = Instance.new("Frame")
@@ -994,89 +996,141 @@ local function getOrCreateBox(plr)
 
     local hpBar = Instance.new("Frame")
     hpBar.Name = plr.Name .. "_HP"
-    hpBar.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-    hpBar.BackgroundTransparency = 0
+    hpBar.BackgroundColor3 = Color3.fromRGB(50, 215, 75)
     hpBar.BorderSizePixel = 0
     hpBar.Visible = false
     hpBar.ZIndex = 3
     hpBar.Parent = boxGui
 
-    boxCache[plr] = {box = box, hpBar = hpBar, hpFill = nil}
-    return box, hpBar, nil
+    boxCache[plr] = {
+        box = box,
+        hpBar = hpBar
+    }
+
+    return box, hpBar
 end
 
 local function updateBoxESP()
     for _, entry in pairs(boxCache) do
-        if entry.box then entry.box.Visible = false end
-        if entry.hpBar then entry.hpBar.Visible = false end
+        if entry.box then
+            entry.box.Visible = false
+        end
+
+        if entry.hpBar then
+            entry.hpBar.Visible = false
+        end
     end
 
-    if not FuncState.BoxEnabled and not FuncState.HealthBarEnabled then return end
+    if not FuncState.BoxEnabled
+        and not FuncState.HealthBarEnabled then
+        return
+    end
 
     local camera = workspace.CurrentCamera
-    if not camera then return end
+    if not camera then
+        return
+    end
 
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr == LocalPlayer then continue end
-        if LocalPlayer.Team and plr.Team and plr.Team == LocalPlayer.Team then
+        if plr == LocalPlayer then
+            continue
+        end
+
+        if LocalPlayer.Team
+            and plr.Team
+            and plr.Team == LocalPlayer.Team then
             continue
         end
 
         local char = plr.Character
-        if not char then continue end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        local head = char:FindFirstChild("Head")
-        if not hum or hum.Health <= 0 or not hrp or not head then continue end
-
-        local topPos = head.Position + Vector3.new(0, 0.7, 0)
-        local bottomPos = hrp.Position - Vector3.new(0, 2.6, 0)
-
-        local topScreen, topOn = camera:WorldToViewportPoint(topPos)
-        local bottomScreen, bottomOn = camera:WorldToViewportPoint(bottomPos)
-
-        if not topOn or not bottomOn or topScreen.Z <= 0 or bottomScreen.Z <= 0 then
+        if not char then
             continue
         end
 
-        local height = math.abs(bottomScreen.Y - topScreen.Y)
-        if height < 2 then continue end
-        local width = height * 0.55
-        local centerX = topScreen.X
-        local centerY = (topScreen.Y + bottomScreen.Y) * 0.5
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local head = char:FindFirstChild("Head")
+
+        if not hum or hum.Health <= 0 or not hrp or not head then
+            continue
+        end
+
+        -- 获取角色上下边界的屏幕坐标
+        local topPos = head.Position + Vector3.new(0, 0.7, 0)
+        local bottomPos = hrp.Position - Vector3.new(0, 2.6, 0)
+
+        local topScreen, topOn =
+            camera:WorldToViewportPoint(topPos)
+
+        local bottomScreen, bottomOn =
+            camera:WorldToViewportPoint(bottomPos)
+
+        if not topOn or not bottomOn
+            or topScreen.Z <= 0
+            or bottomScreen.Z <= 0 then
+            continue
+        end
+
+        local baseHeight =
+            math.abs(bottomScreen.Y - topScreen.Y)
+
+        local height = baseHeight * 1.15
+        local width = height * 0.6
+
+        local centerX =
+            (topScreen.X + bottomScreen.X) * 0.5
+
+        local centerY =
+            (topScreen.Y + bottomScreen.Y) * 0.5
+
         local leftX = centerX - width * 0.5
         local topY = centerY - height * 0.5
 
-        local box, hpBar, hpFill = getOrCreateBox(plr)
+        local box, hpBar = getOrCreateBox(plr)
 
         if FuncState.BoxEnabled then
-            box.Size = UDim2.new(0, width, 0, height)
-            box.Position = UDim2.new(0, leftX, 0, topY)
+            box.Size = UDim2.fromOffset(width, height)
+            box.Position = UDim2.fromOffset(leftX, topY)
             box.Visible = true
         end
 
-        if FuncState.HealthBarEnabled and hpBar then
-            local ratio = math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1)
-local barWidth = 3
-local gap = 2
-local barHeight = height * ratio
+        if FuncState.HealthBarEnabled then
+            local ratio = math.clamp(
+                hum.Health / math.max(hum.MaxHealth, 1),
+                0,
+                1
+            )
 
-hpBar.Size = UDim2.new(0, barWidth, 0, barHeight)
-hpBar.Position = UDim2.new(
-    0, leftX - gap - barWidth,
-    0, topY + (height - barHeight)
-)
+            local barWidth = 3
+            local gap = 2
+            local barHeight = height * ratio
+
+            hpBar.Size = UDim2.fromOffset(
+                barWidth,
+                barHeight
+            )
+
+            hpBar.Position = UDim2.fromOffset(
+                leftX - gap - barWidth,
+                topY + height - barHeight
+            )
+
             if ratio > 0.5 then
-                hpBar.BackgroundColor3 = Color3.fromRGB(50, 215, 75)
+                hpBar.BackgroundColor3 =
+                    Color3.fromRGB(50, 215, 75)
             elseif ratio > 0.25 then
-                hpBar.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+                hpBar.BackgroundColor3 =
+                    Color3.fromRGB(255, 200, 0)
             else
-                hpBar.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+                hpBar.BackgroundColor3 =
+                    Color3.fromRGB(255, 50, 50)
             end
+
             hpBar.Visible = true
         end
     end
 end
+
 
     local function getOrCreateESP(char)
         if (cache[char] and cache[char].hl and (cache[char].hl.Parent == char)) then
