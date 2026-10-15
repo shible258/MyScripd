@@ -1101,7 +1101,7 @@ local function updateBoxESP()
                 1
             )
 
-            local barWidth = 3
+            local barWidth = 0.5
             local gap = 2
             local barHeight = height * ratio
 
